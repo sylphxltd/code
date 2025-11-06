@@ -100,7 +100,7 @@ export { addMessage } from './utils/session-manager.js'
 // ============================================================================
 export { buildTodoContext } from './utils/todo-context.js'
 export { generateSessionTitleWithStreaming } from './utils/session-title.js'
-export { generateSessionTitle } from './session/utils/title.js'
+export { generateSessionTitle } from './utils/session-title.js'
 export { formatTodoChange, formatTodoCount } from './utils/todo-formatters.js'
 export { formatTokenCount, getTokenizerInfo, countTokens } from './utils/token-counter.js'
 export { filterFiles, type FileInfo } from './utils/file-scanner.js'
