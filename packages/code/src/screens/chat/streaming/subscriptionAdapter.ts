@@ -91,6 +91,9 @@ function updateActiveMessageContent(
 /**
  * Load session in background (non-blocking)
  * Called when server creates a new session
+ *
+ * IMPORTANT: Don't overwrite streaming messages!
+ * Merge server data with existing client-side streaming state
  */
 function loadSessionInBackground(sessionId: string) {
   // Fire and forget - don't block event handling
@@ -98,8 +101,28 @@ function loadSessionInBackground(sessionId: string) {
     try {
       const client = getTRPCClient();
       const session = await client.session.getById.query({ sessionId });
+
       useAppStore.setState((state) => {
-        state.currentSession = session;
+        // Don't replace entire session - merge carefully
+        // Keep existing messages if they're actively streaming
+        const currentSession = state.currentSession;
+
+        if (currentSession && currentSession.id === sessionId) {
+          // Preserve streaming messages (status: 'active')
+          const streamingMessages = currentSession.messages.filter(m => m.status === 'active');
+
+          // Merge: use loaded session but append streaming messages
+          state.currentSession = {
+            ...session,
+            messages: [
+              ...session.messages,
+              ...streamingMessages,
+            ],
+          };
+        } else {
+          // No current session or different session - safe to replace
+          state.currentSession = session;
+        }
       });
     } catch (error) {
       console.error('[loadSessionInBackground] Failed to load session:', error);
