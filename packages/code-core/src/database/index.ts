@@ -241,6 +241,14 @@ export class DrizzleDatabase {
 export * from './schema.js';
 export { schema };
 
+// Export step repository helpers
+export {
+  createMessageStep,
+  updateStepParts,
+  completeMessageStep,
+  loadMessageSteps,
+} from './step-repository-helpers.js';
+
 // Re-export commonly used database functions (these will be added when memory-db is fully implemented)
 // export {
 //   storeMemory,

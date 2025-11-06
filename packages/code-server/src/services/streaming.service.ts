@@ -20,6 +20,9 @@ import {
   buildSystemStatusFromMetadata,
   injectSystemStatusToOutput,
   buildSystemPrompt,
+  createMessageStep,
+  updateStepParts,
+  completeMessageStep,
 } from '@sylphx/code-core';
 import { processStream, type StreamCallbacks } from '@sylphx/code-core';
 import { getProvider } from '@sylphx/code-core';
@@ -354,6 +357,33 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // 9.1. Emit assistant message created event
         observer.next({ type: 'assistant-message-created', messageId: assistantMessageId });
 
+        // 9.2. Capture metadata and todoSnapshot for step-0
+        const currentSystemStatus = getSystemStatus();
+        const currentTodos = updatedSession.todos || [];
+        const stepMetadata = {
+          cpu: currentSystemStatus.cpu,
+          memory: currentSystemStatus.memory,
+        };
+
+        // 9.3. Create step-0 in database
+        const stepId = `${assistantMessageId}-step-0`;
+        await createMessageStep(
+          sessionRepository.db,
+          assistantMessageId,
+          0, // stepIndex
+          stepMetadata,
+          currentTodos
+        );
+
+        // 9.4. Emit step-start event
+        observer.next({
+          type: 'step-start',
+          stepId,
+          stepIndex: 0,
+          metadata: stepMetadata,
+          todoSnapshot: currentTodos,
+        });
+
         // 10. Process stream and emit events
         const callbacks: StreamCallbacks = {
           onTextStart: () => observer.next({ type: 'text-start' }),
@@ -379,14 +409,39 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         const result = await processStream(stream, callbacks);
 
-        // 11. Save final message to database
-        await sessionRepository.updateMessageParts(assistantMessageId, result.messageParts);
+        // 11. Complete step-0 and save final message to database
+        const stepEndTime = Date.now();
+
+        // 11.1. Update step parts
+        await updateStepParts(sessionRepository.db, stepId, result.messageParts);
+
+        // 11.2. Complete the step
+        await completeMessageStep(sessionRepository.db, stepId, {
+          status: aborted ? 'abort' : result.usage ? 'completed' : 'error',
+          finishReason: result.finishReason,
+          usage: result.usage,
+          provider: session.provider,
+          model: session.model,
+        });
+
+        // 11.3. Emit step-complete event
+        const stepDuration = stepEndTime - Date.now(); // FIXME: Calculate from step startTime
+        observer.next({
+          type: 'step-complete',
+          stepId,
+          usage: result.usage || { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          duration: stepDuration,
+          finishReason: result.finishReason || 'unknown',
+        });
+
+        // 11.4. Update message status (aggregated from steps)
         await sessionRepository.updateMessageStatus(
           assistantMessageId,
           aborted ? 'abort' : result.usage ? 'completed' : 'error',
           result.finishReason
         );
 
+        // 11.5. Update message usage (aggregated from steps)
         if (result.usage) {
           await sessionRepository.updateMessageUsage(assistantMessageId, result.usage);
         }
