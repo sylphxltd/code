@@ -15,6 +15,13 @@
       "when": 1762296793955,
       "tag": "0001_wet_randall_flagg",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1762464974000,
+      "tag": "0002_steep_sunset_bain",
+      "breakpoints": true
     }
   ]
 }
