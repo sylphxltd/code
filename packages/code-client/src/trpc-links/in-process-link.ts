@@ -81,16 +81,10 @@ export function inProcessLink<TRouter extends AnyRouter>(
               const subscription = await procedureFn(input);
               log('Subscription returned:', typeof subscription);
 
-              if (Symbol.asyncIterator in subscription) {
-                log('Async iterable subscription detected');
-                // Async iterable subscription
-                for await (const data of subscription as AsyncIterable<any>) {
-                  log('Received data from async iterator');
-                  observer.next({ result: { type: 'data', data } });
-                }
-                log('Async iterator completed');
-                observer.complete();
-              } else {
+              // Check for observable first (has .subscribe method)
+              // tRPC observables implement both .subscribe() and Symbol.asyncIterator
+              // We must use .subscribe() for proper completion handling
+              if (typeof subscription?.subscribe === 'function') {
                 log('Observable subscription detected');
                 // Observable subscription
                 const sub = subscription.subscribe({
@@ -113,6 +107,17 @@ export function inProcessLink<TRouter extends AnyRouter>(
                   log('Unsubscribing from observable');
                   sub.unsubscribe();
                 };
+              } else if (Symbol.asyncIterator in subscription) {
+                log('Async iterable subscription detected');
+                // Async iterable subscription (fallback)
+                for await (const data of subscription as AsyncIterable<any>) {
+                  log('Received data from async iterator');
+                  observer.next({ result: { type: 'data', data } });
+                }
+                log('Async iterator completed');
+                observer.complete();
+              } else {
+                throw new Error(`Invalid subscription type for ${path}`);
               }
             }
           } catch (error) {
