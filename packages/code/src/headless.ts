@@ -11,9 +11,16 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
     const client = getTRPCClient();
 
     // Load AI config to get default provider/model
-    const aiConfig = await loadAIConfig();
+    const configResult = await loadAIConfig();
+    if (configResult._tag === 'Failure') {
+      console.error(chalk.red('\n✗ Failed to load AI config'));
+      console.error(chalk.dim(`Error: ${configResult.error.message}\n`));
+      process.exit(1);
+    }
+
+    const aiConfig = configResult.value;
     const provider = aiConfig.defaultProvider || 'openrouter';
-    const model = aiConfig.defaultModel || 'x-ai/grok-code-fast-1';
+    const model = aiConfig.providers?.[provider]?.defaultModel || 'x-ai/grok-code-fast-1';
 
     // Validate provider configuration
     if (!aiConfig.defaultProvider || !aiConfig.providers?.[provider]?.apiKey) {
@@ -53,6 +60,20 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
                 }
                 break;
 
+              case 'assistant-message-created':
+                // Ignore - internal event
+                break;
+
+              case 'reasoning-start':
+              case 'reasoning-delta':
+              case 'reasoning-end':
+                // Ignore reasoning events in headless mode
+                break;
+
+              case 'text-start':
+                // Start of text output
+                break;
+
               case 'text-delta':
                 process.stdout.write(event.text);
                 hasOutput = true;
@@ -79,6 +100,8 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
                 if (options.verbose && event.usage) {
                   console.error(chalk.dim(`Tokens: ${event.usage.totalTokens || 'N/A'}`));
                 }
+                // Resolve on complete event
+                resolve();
                 break;
 
               case 'error':
