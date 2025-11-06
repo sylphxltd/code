@@ -15,6 +15,16 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
     const provider = aiConfig.defaultProvider || 'openrouter';
     const model = aiConfig.defaultModel || 'x-ai/grok-code-fast-1';
 
+    // Validate provider configuration
+    if (!aiConfig.defaultProvider || !aiConfig.providers?.[provider]?.apiKey) {
+      console.error(chalk.red('\n✗ No AI provider configured'));
+      console.error(chalk.yellow('\nTo use headless mode:'));
+      console.error(chalk.dim('  1. Run in TUI mode: bun dev'));
+      console.error(chalk.dim('  2. Use /provider command to configure your API key'));
+      console.error(chalk.dim('  3. Then try headless mode again\n'));
+      process.exit(1);
+    }
+
     // Show provider/model info (unless quiet)
     if (!options.quiet) {
       console.error(chalk.dim(`\nConnecting to code-server...\n`));
