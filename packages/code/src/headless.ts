@@ -32,6 +32,16 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
       process.exit(1);
     }
 
+    // Handle continue mode: load last session
+    let sessionId: string | null = null;
+    if (options.continue) {
+      const lastSession = await client.session.getLast.query();
+      if (lastSession) {
+        sessionId = lastSession.id;
+      }
+      // If no last session, will create new one (sessionId stays null)
+    }
+
     // Stream response from server
     let hasOutput = false;
 
@@ -41,9 +51,9 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
       // tRPC v11: subscribe(input, callbacks)
       client.message.streamResponse.subscribe(
         {
-          sessionId: options.continue ? undefined : null, // undefined = continue last, null = new session
-          provider: options.continue ? undefined : provider, // Provider for new sessions
-          model: options.continue ? undefined : model, // Model for new sessions
+          sessionId: sessionId, // Use loaded session ID (null for new, string for existing)
+          provider: sessionId ? undefined : provider, // Only provide if creating new (sessionId is null)
+          model: sessionId ? undefined : model, // Only provide if creating new (sessionId is null)
           userMessage: prompt,
         },
         {
