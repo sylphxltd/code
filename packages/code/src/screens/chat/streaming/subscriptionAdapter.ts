@@ -426,6 +426,19 @@ function handleStreamEvent(
       });
       break;
 
+    case 'step-start':
+      // Step started - log for debugging
+      logMessage('Step started:', event.stepId, 'index:', event.stepIndex);
+      // NOTE: Steps are internal structure, not shown in UI
+      // UI renders message.content which is aggregated from all steps
+      break;
+
+    case 'step-complete':
+      // Step completed - log for debugging
+      logMessage('Step completed:', event.stepId, 'duration:', event.duration, 'ms');
+      // NOTE: Step completion is internal, UI updates happen on message completion
+      break;
+
     case 'reasoning-start':
       logContent('Reasoning start, session:', currentSessionId);
       updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
