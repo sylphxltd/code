@@ -69,8 +69,8 @@ export interface SubscriptionAdapterParams {
  */
 function updateActiveMessageContent(
   currentSessionId: string | null,
-  updater: (prev: MessagePart[]) => MessagePart[],
-  messageId?: string
+  messageId: string | null | undefined,
+  updater: (prev: MessagePart[]) => MessagePart[]
 ) {
   useAppStore.setState((state) => {
     const session = state.currentSession;
