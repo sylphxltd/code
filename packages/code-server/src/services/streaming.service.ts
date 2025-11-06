@@ -447,12 +447,30 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // 10. Process stream and emit events
         console.log('[streamAIResponse] Setting up stream callbacks...');
         const callbacks: StreamCallbacks = {
-          onTextStart: () => observer.next({ type: 'text-start' }),
-          onTextDelta: (text) => observer.next({ type: 'text-delta', text }),
-          onTextEnd: () => observer.next({ type: 'text-end' }),
-          onReasoningStart: () => observer.next({ type: 'reasoning-start' }),
-          onReasoningDelta: (text) => observer.next({ type: 'reasoning-delta', text }),
-          onReasoningEnd: (duration) => observer.next({ type: 'reasoning-end', duration }),
+          onTextStart: () => {
+            console.log('[streamAIResponse] onTextStart fired');
+            observer.next({ type: 'text-start' });
+          },
+          onTextDelta: (text) => {
+            console.log('[streamAIResponse] onTextDelta fired, length:', text.length);
+            observer.next({ type: 'text-delta', text });
+          },
+          onTextEnd: () => {
+            console.log('[streamAIResponse] onTextEnd fired');
+            observer.next({ type: 'text-end' });
+          },
+          onReasoningStart: () => {
+            console.log('[streamAIResponse] onReasoningStart fired');
+            observer.next({ type: 'reasoning-start' });
+          },
+          onReasoningDelta: (text) => {
+            console.log('[streamAIResponse] onReasoningDelta fired, length:', text.length);
+            observer.next({ type: 'reasoning-delta', text });
+          },
+          onReasoningEnd: (duration) => {
+            console.log('[streamAIResponse] onReasoningEnd fired, duration:', duration);
+            observer.next({ type: 'reasoning-end', duration });
+          },
           onToolCall: (toolCallId, toolName, args) =>
             observer.next({ type: 'tool-call', toolCallId, toolName, args }),
           onToolResult: (toolCallId, toolName, result, duration) =>

@@ -29,14 +29,21 @@ export function MessageList({ messages, attachmentTokens }: MessageListProps) {
             )}
           </Box>
 
-          {/* Message Content (Step-based) */}
+          {/* Message Content (Step-based or fallback to content array) */}
           {msg.steps && msg.steps.length > 0 ? (
+            // Step-based structure (new architecture)
             msg.steps.flatMap((step) =>
               step.parts.map((part, partIdx) => (
                 <MessagePart key={`${msg.id}-step-${step.stepIndex}-part-${partIdx}`} part={part} />
               ))
             )
+          ) : msg.content && msg.content.length > 0 ? (
+            // Legacy content array (fallback for streaming or old messages)
+            msg.content.map((part, partIdx) => (
+              <MessagePart key={`${msg.id}-part-${partIdx}`} part={part} />
+            ))
           ) : msg.status === 'active' ? (
+            // Active message with no content yet
             <Box paddingX={1} marginLeft={2}>
               <Text dimColor>...</Text>
             </Box>
