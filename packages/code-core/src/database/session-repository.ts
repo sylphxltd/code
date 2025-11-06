@@ -578,55 +578,61 @@ export class SessionRepository {
           status: status || 'completed',
         });
 
-        // 2. Insert step-0 with content
-        await tx.insert(messageSteps).values({
-          id: stepId,
-          messageId,
-          stepIndex: 0,
-          status: status || 'completed',
-          metadata: metadata ? JSON.stringify(metadata) : null,
-          startTime: now,
-          endTime: status === 'completed' ? now : null,
-          provider: null,
-          model: null,
-          duration: null,
-          finishReason: finishReason || null,
-        });
+        // 2-5. For streaming messages (status='active', empty content), skip step creation
+        // The step will be created separately by createMessageStep when streaming starts
+        const isStreamingMessage = status === 'active' && content.length === 0;
 
-        // 3. Insert step parts
-        for (let i = 0; i < content.length; i++) {
-          await tx.insert(stepParts).values({
-            id: randomUUID(),
-            stepId,
-            ordering: i,
-            type: content[i].type,
-            content: JSON.stringify(content[i]),
+        if (!isStreamingMessage) {
+          // 2. Insert step-0 with content
+          await tx.insert(messageSteps).values({
+            id: stepId,
+            messageId,
+            stepIndex: 0,
+            status: status || 'completed',
+            metadata: metadata ? JSON.stringify(metadata) : null,
+            startTime: now,
+            endTime: status === 'completed' ? now : null,
+            provider: null,
+            model: null,
+            duration: null,
+            finishReason: finishReason || null,
           });
-        }
 
-        // 4. Insert step todo snapshot
-        if (todoSnapshot && todoSnapshot.length > 0) {
-          for (const todo of todoSnapshot) {
-            await tx.insert(stepTodoSnapshots).values({
+          // 3. Insert step parts
+          for (let i = 0; i < content.length; i++) {
+            await tx.insert(stepParts).values({
               id: randomUUID(),
               stepId,
-              todoId: todo.id,
-              content: todo.content,
-              activeForm: todo.activeForm,
-              status: todo.status,
-              ordering: todo.ordering,
+              ordering: i,
+              type: content[i].type,
+              content: JSON.stringify(content[i]),
             });
           }
-        }
 
-        // 5. Insert step usage
-        if (usage) {
-          await tx.insert(stepUsage).values({
-            stepId,
-            promptTokens: usage.promptTokens,
-            completionTokens: usage.completionTokens,
-            totalTokens: usage.totalTokens,
-          });
+          // 4. Insert step todo snapshot
+          if (todoSnapshot && todoSnapshot.length > 0) {
+            for (const todo of todoSnapshot) {
+              await tx.insert(stepTodoSnapshots).values({
+                id: randomUUID(),
+                stepId,
+                todoId: todo.id,
+                content: todo.content,
+                activeForm: todo.activeForm,
+                status: todo.status,
+                ordering: todo.ordering,
+              });
+            }
+          }
+
+          // 5. Insert step usage
+          if (usage) {
+            await tx.insert(stepUsage).values({
+              stepId,
+              promptTokens: usage.promptTokens,
+              completionTokens: usage.completionTokens,
+              totalTokens: usage.totalTokens,
+            });
+          }
         }
 
         // 6. Insert message attachments (message-level, not step-level)
@@ -643,7 +649,8 @@ export class SessionRepository {
         }
 
         // 7. Insert aggregated message usage (for UI convenience)
-        if (usage) {
+        // Skip for streaming messages (usage will be added later)
+        if (usage && !isStreamingMessage) {
           await tx.insert(messageUsage).values({
             messageId,
             promptTokens: usage.promptTokens,
