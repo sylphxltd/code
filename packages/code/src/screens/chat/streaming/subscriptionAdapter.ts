@@ -669,8 +669,8 @@ async function cleanupAfterStream(context: {
   if (currentSessionId && context.streamingMessageIdRef.current) {
     console.log('[cleanupAfterStream] Reloading session from database...');
     try {
-      const caller = await getTRPCClient();
-      const session = await caller.session.getById({ sessionId: currentSessionId });
+      const client = getTRPCClient();
+      const session = await client.session.getById.query({ sessionId: currentSessionId });
 
       console.log('[cleanupAfterStream] Session reloaded:', {
         hasSession: !!session,
