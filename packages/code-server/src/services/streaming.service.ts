@@ -446,29 +446,52 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         const needsTitle = isNewSession || !updatedSession.title || updatedSession.title === 'New Chat';
         const isFirstMessage = updatedSession.messages.filter(m => m.role === 'user').length === 1;
 
+        console.log('[streamAIResponse] Title generation check:', {
+          isNewSession,
+          sessionTitle: updatedSession.title,
+          needsTitle,
+          isFirstMessage,
+          messagesCount: updatedSession.messages.length,
+        });
+
         let titlePromise: Promise<string | null> = Promise.resolve(null);
         if (needsTitle && isFirstMessage) {
+          console.log('[streamAIResponse] Starting parallel title generation...');
           titlePromise = (async () => {
             try {
+              console.log('[streamAIResponse] Importing generateSessionTitle...');
               const { generateSessionTitle } = await import('@sylphx/code-core');
 
               const provider = session.provider;
               const modelName = session.model;
               const providerConfig = aiConfig?.providers?.[provider];
 
+              console.log('[streamAIResponse] Title gen config check:', {
+                hasConfig: !!providerConfig,
+                provider,
+                model: modelName,
+              });
+
               if (providerConfig) {
                 const providerInstance = getProvider(provider);
 
+                console.log('[streamAIResponse] Provider configured check:', {
+                  isConfigured: providerInstance.isConfigured(providerConfig),
+                });
+
                 if (providerInstance.isConfigured(providerConfig)) {
+                  console.log('[streamAIResponse] Calling generateSessionTitle...');
                   const finalTitle = await generateSessionTitle(
                     userMessage,
                     provider,
                     modelName,
                     providerConfig
                   );
+                  console.log('[streamAIResponse] Title generation completed:', finalTitle);
                   return finalTitle;
                 }
               }
+              console.log('[streamAIResponse] Title generation skipped (no valid config)');
               return null;
             } catch (error) {
               console.error('[Title Generation] Error:', error);
@@ -559,17 +582,28 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         });
 
         // 13. Wait for title generation to complete (started in parallel earlier)
+        console.log('[streamAIResponse] Waiting for title promise...');
         const finalTitle = await titlePromise;
+        console.log('[streamAIResponse] Title promise resolved:', finalTitle);
+
         if (finalTitle) {
           // Update session title in database
+          console.log('[streamAIResponse] Updating session title in database...');
           await sessionRepository.updateSession(sessionId, { title: finalTitle });
+          console.log('[streamAIResponse] Session title updated');
 
           // Emit title update event (observable still open)
+          console.log('[streamAIResponse] Emitting session-title-complete event...');
           observer.next({ type: 'session-title-complete', title: finalTitle });
+          console.log('[streamAIResponse] Event emitted');
+        } else {
+          console.log('[streamAIResponse] No title generated, skipping title update');
         }
 
         // 14. Now complete observable
+        console.log('[streamAIResponse] Calling observer.complete()...');
         observer.complete();
+        console.log('[streamAIResponse] Observer completed');
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);
         observer.next({

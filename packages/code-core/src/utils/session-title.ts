@@ -3,17 +3,79 @@
  * Re-exports pure functions from feature and adds streaming functionality
  */
 
+import { generateText } from 'ai';
 import { createAIStream } from '../ai/ai-sdk.js';
 import type { ProviderId } from '../types/config.types.js';
 
 // Re-export pure functions from session feature
 export {
-  generateSessionTitle,
+  generateSessionTitle as generateSimpleTitle,
   formatSessionDisplay,
   formatRelativeTime,
   cleanTitle,
   truncateTitle,
 } from '../session/utils/title.js';
+
+/**
+ * Generate a session title using LLM (non-streaming)
+ */
+export async function generateSessionTitle(
+  firstMessage: string,
+  provider: ProviderId,
+  modelName: string,
+  providerConfig: any
+): Promise<string> {
+  if (!firstMessage || firstMessage.trim().length === 0) {
+    return 'New Chat';
+  }
+
+  try {
+    // Get the provider instance and create the model
+    const { getProvider } = await import('../ai/providers/index.js');
+    const providerInstance = getProvider(provider);
+    const model = providerInstance.createClient(providerConfig, modelName);
+
+    const { text } = await generateText({
+      model,
+      messages: [
+        {
+          role: 'user',
+          content: `You need to generate a SHORT, DESCRIPTIVE title (maximum 50 characters) for a chat conversation.
+
+User's first message: "${firstMessage}"
+
+Requirements:
+- Summarize the TOPIC or INTENT, don't just copy the message
+- Be concise and descriptive
+- Maximum 50 characters
+- Output ONLY the title, nothing else
+
+Examples:
+- Message: "How do I implement authentication?" → Title: "Authentication Implementation"
+- Message: "你好，请帮我修复这个 bug" → Title: "Bug 修复请求"
+- Message: "Can you help me with React hooks?" → Title: "React Hooks Help"
+
+Now generate the title:`,
+        },
+      ],
+    });
+
+    // Clean up title
+    let cleaned = text.trim();
+    cleaned = cleaned.replace(/^["'「『]+|["'」』]+$/g, ''); // Remove quotes
+    cleaned = cleaned.replace(/^(Title:|标题：)\s*/i, ''); // Remove "Title:" prefix
+    cleaned = cleaned.replace(/\n+/g, ' '); // Replace newlines with spaces
+    cleaned = cleaned.trim();
+
+    // Return truncated if needed
+    return cleaned.length > 50 ? cleaned.substring(0, 50) + '...' : cleaned;
+  } catch (error) {
+    console.error('[generateSessionTitle] Error:', error);
+    // Fallback to simple title generation on any error
+    const { generateSessionTitle: fallback } = await import('../session/utils/title.js');
+    return fallback(firstMessage);
+  }
+}
 
 /**
  * Generate a session title using LLM with streaming
