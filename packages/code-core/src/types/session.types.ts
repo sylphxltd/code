@@ -59,16 +59,27 @@ export type MessagePart =
 export type StreamingPart = MessagePart;
 
 /**
- * Message Step - represents one reasoning/generation cycle
+ * Message Step - represents one reasoning/generation cycle (ONE REQUEST)
  *
- * Design: Multi-step reasoning support
- * ====================================
+ * Design: Step = Request/Turn, not just content grouping
+ * ======================================================
  *
- * Why steps:
- * 1. Track per-step costs (usage, provider, model)
- * 2. Support multi-step tool execution (tool-calls → process results → continue)
- * 3. Enable future routing (different models for different steps)
- * 4. Better analytics (which step is slowest/most expensive)
+ * CRITICAL: Step represents ONE AI call at ONE point in time
+ * - Has its own timestamp → its own system status (cpu, memory)
+ * - Has its own todo state → its own todoSnapshot
+ * - Has its own cost → usage, provider, model, duration
+ *
+ * Why steps have metadata + todoSnapshot:
+ * 1. Step = request at specific time → captures system status at that moment
+ * 2. Todos change between steps → each step sees different todo state
+ * 3. Multi-step execution → step 0 has different context than step 1
+ * 4. LLM needs context for EACH step, not just message start
+ *
+ * Example multi-step flow:
+ * Step 0 (t=0): metadata={cpu:20%}, todos=[task1, task2]
+ *   → Tool calls to read files
+ * Step 1 (t=5s): metadata={cpu:45%}, todos=[task1, task2, task3]  // New todo added!
+ *   → Process tool results, generate response
  *
  * Step lifecycle:
  * - status: 'active' → generating this step
@@ -86,7 +97,11 @@ export interface MessageStep {
   stepIndex: number;       // 0, 1, 2, ... (order)
   parts: MessagePart[];    // Content parts for this step
 
-  // Per-step metadata
+  // Per-step context (captured at step start time)
+  metadata?: MessageMetadata;  // System status at THIS step's start time
+  todoSnapshot?: Todo[];       // Todo state at THIS step's start time
+
+  // Per-step execution metadata
   usage?: TokenUsage;
   provider?: string;       // Future: may route different steps to different providers
   model?: string;          // Future: may use different models per step
@@ -140,56 +155,52 @@ export interface MessageMetadata {
 }
 
 /**
- * Session message - Unified message type for both UI display and LLM consumption
+ * Session message - Container for steps representing a conversation turn
  *
- * Design: Step-based multi-turn reasoning
- * ========================================
+ * Design: Message = Container, Step = Request
+ * ===========================================
  *
- * NEW: Messages contain steps[] instead of direct content[]
- * Each step represents one reasoning/generation cycle with its own metadata
+ * CORRECTED: Messages are CONTAINERS for steps
+ * - User message: 1 step (user input at one time)
+ * - Assistant message: 1+ steps (may need multiple AI calls for tool execution)
+ * - metadata/todoSnapshot belong to STEPS, not messages
  *
- * UI Display (what user sees):
- * - steps[]: Array of MessageStep, each with parts[], usage, duration
- * - User messages: Always single step
- * - Assistant messages: May have multiple steps (tool calls → process → continue)
- * - timestamp: Display time
- * - attachments: Show file paths
+ * Why steps have their own metadata/todoSnapshot:
+ * - Step = ONE AI call at ONE point in time
+ * - System status (cpu, memory) captured PER step (not per message)
+ * - Todo state captured PER step (todos change during execution)
+ * - Example: Step 0 has todos=[A,B], then tool creates C, Step 1 has todos=[A,B,C]
  *
- * LLM Context (what AI sees):
- * - steps[].parts: Converted to ModelMessage format
- * - metadata: Injected as system status (cpu, memory) - NOT shown in UI
- * - timestamp: Used to construct system status time
- * - attachments: File contents read and injected
- * - todoSnapshot: Todo state at message creation, injected as context
+ * Message-level fields:
+ * - id, role, timestamp: Identity and conversation structure
+ * - attachments: Files uploaded with user message (applies to all steps)
+ * - usage: SUM of all steps (total cost for this message)
+ * - finishReason: FINAL reason from last step
+ * - status: Overall message status (derived from steps)
  *
- * Why steps not content:
- * - Track per-step costs (usage, provider, model, duration)
- * - Support multi-step tool execution clearly
- * - Enable future routing (different models per step)
- * - Better analytics and debugging
+ * UI Display:
+ * - Render each step with its own header (step index, duration, usage)
+ * - Show per-step system status and todos if needed
+ * - Total message cost = sum of step costs
  *
- * Why usage/finishReason still at message level:
- * - usage: Sum of all steps (for total cost tracking)
- * - finishReason: Final reason (from last step)
- * - Convenience for UI - don't need to traverse steps
- *
- * Why todoSnapshot at top-level (not in metadata):
- * - Structured data (Todo[]), not string context like cpu/memory
- * - Enables rewind feature - can restore todo state at any point in conversation
- * - May be used by UI for historical view
- * - Clearer separation: metadata = simple context, todoSnapshot = structured state
+ * LLM Context:
+ * - Each step's metadata + todoSnapshot injected when building ModelMessage
+ * - Attachments (files) read and injected for first step
+ * - Steps after first only get tool results context
  */
 export interface SessionMessage {
   id: string;              // Unique message ID from database
   role: 'user' | 'assistant';
-  steps: MessageStep[];    // NEW: Step-based content (replaces content[])
-  timestamp: number;
-  status?: 'active' | 'completed' | 'error' | 'abort';  // Message lifecycle state (default: 'completed')
-  metadata?: MessageMetadata;  // System info for LLM context (not shown in UI)
-  todoSnapshot?: Todo[];   // Full todo state at message creation time (for rewind + LLM context)
-  attachments?: FileAttachment[];
-  usage?: TokenUsage;          // Total usage (sum of all steps) for UI/monitoring
-  finishReason?: string;       // Final finish reason (from last step)
+  steps: MessageStep[];    // Steps representing AI call(s) for this message
+
+  // Message-level metadata
+  timestamp: number;       // When message was created
+  status?: 'active' | 'completed' | 'error' | 'abort';  // Overall status (derived from steps)
+  attachments?: FileAttachment[];  // Files uploaded with message (user messages only)
+
+  // Aggregated from steps (for UI convenience)
+  usage?: TokenUsage;      // Total usage (sum of all steps)
+  finishReason?: string;   // Final finish reason (from last step)
 }
 
 /**
