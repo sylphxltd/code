@@ -450,7 +450,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         if (needsTitle && isFirstMessage) {
           titlePromise = (async () => {
             try {
-              console.log('[streamAIResponse] Starting parallel title generation...');
               const { generateSessionTitle } = await import('@sylphx/code-core');
 
               const provider = session.provider;
@@ -467,7 +466,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
                     modelName,
                     providerConfig
                   );
-                  console.log('[streamAIResponse] Parallel title generation completed:', finalTitle);
                   return finalTitle;
                 }
               }
@@ -565,16 +563,13 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         if (finalTitle) {
           // Update session title in database
           await sessionRepository.updateSession(sessionId, { title: finalTitle });
-          console.log('[streamAIResponse] Title saved to database:', finalTitle);
 
           // Emit title update event (observable still open)
           observer.next({ type: 'session-title-complete', title: finalTitle });
         }
 
         // 14. Now complete observable
-        console.log('[streamAIResponse] About to call observer.complete()');
         observer.complete();
-        console.log('[streamAIResponse] observer.complete() returned');
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);
         observer.next({

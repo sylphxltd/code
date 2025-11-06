@@ -631,14 +631,6 @@ async function cleanupAfterStream(context: {
   // For lazy sessions, the sessionId is updated in store after session-created event
   const currentSessionId = useAppStore.getState().currentSessionId;
 
-  console.log('[cleanupAfterStream] CALLED', {
-    contextSessionId: context.currentSessionId,
-    storeSessionId: currentSessionId,
-    messageId: context.streamingMessageIdRef.current,
-    usage: context.usageRef.current,
-    finishReason: context.finishReasonRef.current,
-  });
-
   const wasAborted = context.wasAbortedRef.current;
   const hasError = context.lastErrorRef.current;
 
@@ -667,23 +659,15 @@ async function cleanupAfterStream(context: {
 
   // Reload message from database to get steps structure
   if (currentSessionId && context.streamingMessageIdRef.current) {
-    console.log('[cleanupAfterStream] Reloading session from database...');
     try {
       const client = getTRPCClient();
       const session = await client.session.getById.query({ sessionId: currentSessionId });
-
-      console.log('[cleanupAfterStream] Session reloaded:', {
-        hasSession: !!session,
-        messagesCount: session?.messages.length,
-        lastMessage: session?.messages[session.messages.length - 1],
-      });
 
       if (session) {
         // Update Zustand store with fresh data from database
         useAppStore.setState((state) => {
           if (state.currentSessionId === currentSessionId) {
             state.currentSession = session;
-            console.log('[cleanupAfterStream] Zustand store updated');
           }
         });
       }
