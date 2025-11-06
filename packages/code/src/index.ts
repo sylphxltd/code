@@ -125,7 +125,11 @@ async function main() {
         client = createHTTPClientFromLib(options.serverUrl);
       } else {
         // In-process mode (default): Embed server
-        const server = await initEmbeddedServer({ quiet: options.quiet });
+        // Headless mode should be quiet by default (unless --verbose)
+        const isHeadless = Boolean(prompt || options.print);
+        const shouldBeQuiet = isHeadless ? !options.verbose : options.quiet;
+
+        const server = await initEmbeddedServer({ quiet: shouldBeQuiet });
 
         // Create in-process tRPC client (zero overhead)
         client = createInProcessClient({

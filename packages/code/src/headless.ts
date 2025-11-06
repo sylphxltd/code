@@ -32,11 +32,6 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
       process.exit(1);
     }
 
-    // Show provider/model info (unless quiet)
-    if (!options.quiet) {
-      console.error(chalk.dim(`\nConnecting to code-server...\n`));
-    }
-
     // Stream response from server
     let hasOutput = false;
 
@@ -94,13 +89,13 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
                 break;
 
               case 'complete':
-                if (!options.quiet) {
+                if (options.verbose) {
                   console.error(chalk.dim(`\n\n[Complete]`));
+                  if (event.usage) {
+                    console.error(chalk.dim(`Tokens: ${event.usage.totalTokens || 'N/A'}`));
+                  }
                 }
-                if (options.verbose && event.usage) {
-                  console.error(chalk.dim(`Tokens: ${event.usage.totalTokens || 'N/A'}`));
-                }
-                // Resolve on complete event
+                // Resolve and exit
                 resolve();
                 break;
 
@@ -127,6 +122,9 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
         }
       );
     });
+
+    // Exit cleanly after completion
+    process.exit(0);
   } catch (error) {
     console.error(chalk.red('\n✗ Error:'), error instanceof Error ? error.message : String(error));
 
