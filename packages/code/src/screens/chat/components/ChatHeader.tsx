@@ -16,6 +16,10 @@ export function ChatHeader({
   isTitleStreaming,
   streamingTitle,
 }: ChatHeaderProps) {
+  // Determine what to display
+  // Priority: streaming title > current title > nothing (don't render chat title section yet)
+  const shouldShowChatTitle = isTitleStreaming || currentSessionTitle;
+
   return (
     <>
       {/* App Header */}
@@ -28,7 +32,7 @@ export function ChatHeader({
       </Box>
 
       {/* Chat Title - shows current session title with streaming support */}
-      {currentSessionTitle && (
+      {shouldShowChatTitle && (
         <Box paddingX={1} paddingBottom={1} flexShrink={0}>
           <Text color="#00D9FF">▌ CHAT</Text>
           <Text color="#00D9FF"> · </Text>

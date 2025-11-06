@@ -369,56 +369,59 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           await sessionRepository.updateMessageUsage(assistantMessageId, result.usage);
         }
 
-        // 12. Generate title if this is the first user message (no existing title)
-        // Check if session needs a title: new session OR existing session without title
-        const needsTitle = isNewSession || !updatedSession.title || updatedSession.title === 'New Chat';
-        const isFirstMessage = updatedSession.messages.filter(m => m.role === 'user').length === 1;
-
-        if (needsTitle && isFirstMessage && !aborted && result.usage) {
-          try {
-            // Import title generation utility
-            const { generateSessionTitleWithStreaming } = await import('@sylphx/code-core');
-
-            // Get provider config
-            const provider = session.provider;
-            const modelName = session.model;
-            const providerConfig = aiConfig?.providers?.[provider];
-
-            if (providerConfig) {
-              const providerInstance = getProvider(provider);
-
-              // Only generate title if provider is configured
-              if (providerInstance.isConfigured(providerConfig)) {
-                observer.next({ type: 'session-title-start' });
-
-                const finalTitle = await generateSessionTitleWithStreaming(
-                  userMessage,
-                  provider,
-                  modelName,
-                  providerConfig,
-                  (chunk) => {
-                    observer.next({ type: 'session-title-delta', text: chunk });
-                  }
-                );
-
-                // Update session title in database
-                await sessionRepository.updateSession(sessionId, { title: finalTitle });
-
-                observer.next({ type: 'session-title-complete', title: finalTitle });
-              }
-            }
-          } catch (error) {
-            // Silently fail title generation - not critical
-            console.error('[Title Generation] Error:', error);
-          }
-        }
-
-        // 13. Emit complete event
+        // 12. Emit complete event FIRST (don't block on title generation)
         observer.next({
           type: 'complete',
           usage: result.usage,
           finishReason: result.finishReason,
         });
+
+        // 13. Generate title ASYNC in background (don't block completion)
+        // Check if session needs a title: new session OR existing session without title
+        const needsTitle = isNewSession || !updatedSession.title || updatedSession.title === 'New Chat';
+        const isFirstMessage = updatedSession.messages.filter(m => m.role === 'user').length === 1;
+
+        if (needsTitle && isFirstMessage && !aborted && result.usage) {
+          // Fire and forget - don't await title generation
+          (async () => {
+            try {
+              // Import title generation utility
+              const { generateSessionTitleWithStreaming } = await import('@sylphx/code-core');
+
+              // Get provider config
+              const provider = session.provider;
+              const modelName = session.model;
+              const providerConfig = aiConfig?.providers?.[provider];
+
+              if (providerConfig) {
+                const providerInstance = getProvider(provider);
+
+                // Only generate title if provider is configured
+                if (providerInstance.isConfigured(providerConfig)) {
+                  observer.next({ type: 'session-title-start' });
+
+                  const finalTitle = await generateSessionTitleWithStreaming(
+                    userMessage,
+                    provider,
+                    modelName,
+                    providerConfig,
+                    (chunk) => {
+                      observer.next({ type: 'session-title-delta', text: chunk });
+                    }
+                  );
+
+                  // Update session title in database
+                  await sessionRepository.updateSession(sessionId, { title: finalTitle });
+
+                  observer.next({ type: 'session-title-complete', title: finalTitle });
+                }
+              }
+            } catch (error) {
+              // Silently fail title generation - not critical
+              console.error('[Title Generation] Error:', error);
+            }
+          })();
+        }
 
         observer.complete();
       } catch (error) {
