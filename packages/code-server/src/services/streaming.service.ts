@@ -442,34 +442,78 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           todoSnapshot: currentTodos,
         });
 
-        // 9.5. Start title generation in parallel (doesn't need response content)
+        // 9.5. Start title generation in parallel with streaming (real-time updates)
         const needsTitle = isNewSession || !updatedSession.title || updatedSession.title === 'New Chat';
         const isFirstMessage = updatedSession.messages.filter(m => m.role === 'user').length === 1;
 
         let titlePromise: Promise<string | null> = Promise.resolve(null);
         if (needsTitle && isFirstMessage) {
+          // Start title generation with real-time streaming to UI
           titlePromise = (async () => {
             try {
-              const { generateSessionTitle } = await import('@sylphx/code-core');
+              const { createAIStream, cleanAITitle } = await import('@sylphx/code-core');
+              const { getProvider } = await import('@sylphx/code-core');
 
               const provider = session.provider;
               const modelName = session.model;
               const providerConfig = aiConfig?.providers?.[provider];
 
-              if (providerConfig) {
-                const providerInstance = getProvider(provider);
+              if (!providerConfig) {
+                return null;
+              }
 
-                if (providerInstance.isConfigured(providerConfig)) {
-                  const finalTitle = await generateSessionTitle(
-                    userMessage,
-                    provider,
-                    modelName,
-                    providerConfig
-                  );
-                  return finalTitle;
+              const providerInstance = getProvider(provider);
+              if (!providerInstance.isConfigured(providerConfig)) {
+                return null;
+              }
+
+              const model = providerInstance.createClient(providerConfig, modelName);
+
+              // Create AI stream for title generation
+              const titleStream = createAIStream({
+                model,
+                messages: [
+                  {
+                    role: 'user',
+                    content: `You need to generate a SHORT, DESCRIPTIVE title (maximum 50 characters) for a chat conversation.
+
+User's first message: "${userMessage}"
+
+Requirements:
+- Summarize the TOPIC or INTENT, don't just copy the message
+- Be concise and descriptive
+- Maximum 50 characters
+- Output ONLY the title, nothing else
+
+Examples:
+- Message: "How do I implement authentication?" → Title: "Authentication Implementation"
+- Message: "你好，请帮我修复这个 bug" → Title: "Bug 修复请求"
+- Message: "Can you help me with React hooks?" → Title: "React Hooks Help"
+
+Now generate the title:`,
+                  },
+                ],
+              });
+
+              let fullTitle = '';
+
+              // Stream title chunks to UI in real-time
+              observer.next({ type: 'session-title-start' });
+
+              for await (const chunk of titleStream) {
+                if (chunk.type === 'text-delta' && chunk.textDelta) {
+                  fullTitle += chunk.textDelta;
+                  // Emit each chunk to UI for real-time updates
+                  observer.next({
+                    type: 'session-title-delta',
+                    text: chunk.textDelta
+                  });
                 }
               }
-              return null;
+
+              // Clean up and return final title
+              const cleaned = cleanAITitle(fullTitle, 50);
+              return cleaned;
             } catch (error) {
               console.error('[Title Generation] Error:', error);
               return null;
