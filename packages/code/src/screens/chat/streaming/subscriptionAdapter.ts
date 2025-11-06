@@ -589,8 +589,9 @@ function handleStreamEvent(
         context.finishReasonRef.current = event.finishReason;
       }
 
-      // Generate title if this is the first message
-      generateTitleIfNeeded(context);
+      // NOTE: Title generation is handled by backend streaming service
+      // Backend emits session-title-start/delta/complete events
+      // No need for client-side title generation
       break;
 
     case 'error':
@@ -608,65 +609,12 @@ function handleStreamEvent(
 }
 
 /**
- * Generate session title if this is the first message
+ * DEPRECATED: Title generation is now handled by backend streaming service
+ *
+ * Backend emits session-title-start/delta/complete events during streaming.
+ * The subscription adapter handles these events (lines 405-419) and updates the UI.
+ * This function is no longer needed but kept for reference.
  */
-async function generateTitleIfNeeded(context: {
-  currentSessionId: string | null;
-  updateSessionTitle: (sessionId: string, title: string) => void;
-  setIsTitleStreaming: (value: boolean) => void;
-  setStreamingTitle: React.Dispatch<React.SetStateAction<string>>;
-  addLog: (message: string) => void;
-  aiConfig: AIConfig | null;
-  userMessage: string;
-}) {
-  if (!context.currentSessionId) return;
-
-  // Get fresh session from store
-  const freshSession = useAppStore.getState().currentSession;
-  if (!freshSession || freshSession.id !== context.currentSessionId) return;
-
-  const userMessageCount = freshSession.messages.filter((m) => m.role === 'user').length;
-  const hasTitle = !!freshSession.title && freshSession.title !== 'New Chat';
-
-  const isFirstMessage = userMessageCount === 1;
-  if (isFirstMessage && !hasTitle) {
-    const { generateSessionTitleWithStreaming } = await import('@sylphx/code-core');
-    const provider = freshSession.provider;
-    const modelName = freshSession.model;
-    const providerConfig = context.aiConfig?.providers?.[provider];
-
-    if (providerConfig) {
-      context.setIsTitleStreaming(true);
-      context.setStreamingTitle('');
-
-      try {
-        const finalTitle = await generateSessionTitleWithStreaming(
-          context.userMessage,
-          provider,
-          modelName,
-          providerConfig,
-          (chunk) => {
-            context.setStreamingTitle((prev) => prev + chunk);
-          }
-        );
-
-        context.setIsTitleStreaming(false);
-        context.updateSessionTitle(context.currentSessionId, finalTitle);
-      } catch (error) {
-        // Only log errors in debug mode
-        if (process.env.DEBUG) {
-          context.addLog(`[Title] Error: ${error instanceof Error ? error.message : 'Unknown'}`);
-        }
-        context.setIsTitleStreaming(false);
-
-        // Fallback to simple title
-        const { generateSessionTitle } = await import('@sylphx/code-core');
-        const title = generateSessionTitle(context.userMessage);
-        context.updateSessionTitle(context.currentSessionId, title);
-      }
-    }
-  }
-}
 
 /**
  * Cleanup after stream completes or errors

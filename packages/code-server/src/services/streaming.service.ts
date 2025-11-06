@@ -369,8 +369,12 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           await sessionRepository.updateMessageUsage(assistantMessageId, result.usage);
         }
 
-        // 12. Generate title if this is a new session (first message)
-        if (isNewSession && !aborted && result.usage) {
+        // 12. Generate title if this is the first user message (no existing title)
+        // Check if session needs a title: new session OR existing session without title
+        const needsTitle = isNewSession || !updatedSession.title || updatedSession.title === 'New Chat';
+        const isFirstMessage = updatedSession.messages.filter(m => m.role === 'user').length === 1;
+
+        if (needsTitle && isFirstMessage && !aborted && result.usage) {
           try {
             // Import title generation utility
             const { generateSessionTitleWithStreaming } = await import('@sylphx/code-core');
