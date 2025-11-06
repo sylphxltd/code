@@ -37,12 +37,7 @@ export async function createMessageStep(
   const stepId = `${messageId}-step-${stepIndex}`;
   const now = Date.now();
 
-  console.log('[createMessageStep] Starting, stepId:', stepId);
-  console.log('[createMessageStep] Todo snapshot length:', todoSnapshot?.length || 0);
-
   await db.transaction(async (tx) => {
-    console.log('[createMessageStep] Inside transaction');
-
     // Insert step
     const newStep: NewMessageStep = {
       id: stepId,
@@ -58,13 +53,10 @@ export async function createMessageStep(
       finishReason: null,
     };
 
-    console.log('[createMessageStep] Inserting step...');
     await tx.insert(messageSteps).values(newStep);
-    console.log('[createMessageStep] Step inserted');
 
     // Insert todo snapshot if provided
     if (todoSnapshot && todoSnapshot.length > 0) {
-      console.log('[createMessageStep] Inserting todo snapshots...');
       for (const todo of todoSnapshot) {
         await tx.insert(stepTodoSnapshots).values({
           id: randomUUID(),
@@ -76,11 +68,9 @@ export async function createMessageStep(
           ordering: todo.ordering,
         });
       }
-      console.log('[createMessageStep] Todo snapshots inserted');
     }
   });
 
-  console.log('[createMessageStep] Transaction complete, returning stepId');
   return stepId;
 }
 

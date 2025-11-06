@@ -425,7 +425,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         // 9.3. Create step-0 in database
         const stepId = `${assistantMessageId}-step-0`;
-        console.log('[streamAIResponse] Creating step-0:', stepId);
         await createMessageStep(
           sessionRepository.db,
           assistantMessageId,
@@ -433,7 +432,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           stepMetadata,
           currentTodos
         );
-        console.log('[streamAIResponse] Step-0 created successfully');
 
         // 9.4. Emit step-start event
         observer.next({
@@ -445,30 +443,23 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         });
 
         // 10. Process stream and emit events
-        console.log('[streamAIResponse] Setting up stream callbacks...');
         const callbacks: StreamCallbacks = {
           onTextStart: () => {
-            console.log('[streamAIResponse] onTextStart fired');
             observer.next({ type: 'text-start' });
           },
           onTextDelta: (text) => {
-            console.log('[streamAIResponse] onTextDelta fired, length:', text.length);
             observer.next({ type: 'text-delta', text });
           },
           onTextEnd: () => {
-            console.log('[streamAIResponse] onTextEnd fired');
             observer.next({ type: 'text-end' });
           },
           onReasoningStart: () => {
-            console.log('[streamAIResponse] onReasoningStart fired');
             observer.next({ type: 'reasoning-start' });
           },
           onReasoningDelta: (text) => {
-            console.log('[streamAIResponse] onReasoningDelta fired, length:', text.length);
             observer.next({ type: 'reasoning-delta', text });
           },
           onReasoningEnd: (duration) => {
-            console.log('[streamAIResponse] onReasoningEnd fired, duration:', duration);
             observer.next({ type: 'reasoning-end', duration });
           },
           onToolCall: (toolCallId, toolName, args) =>
@@ -482,19 +473,11 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             observer.next({ type: 'abort' });
           },
           onError: (error) => {
-            console.log('[streamAIResponse] Stream error:', error);
             observer.next({ type: 'error', error });
           },
         };
 
-        console.log('[streamAIResponse] Calling processStream...');
         const result = await processStream(stream, callbacks);
-        console.log('[streamAIResponse] processStream completed, result:', {
-          responseLength: result.fullResponse.length,
-          partsCount: result.messageParts.length,
-          hasUsage: !!result.usage,
-          finishReason: result.finishReason,
-        });
 
         // 11. Complete step-0 and save final message to database
         const stepEndTime = Date.now();
@@ -584,9 +567,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           }
         }
 
-        console.log('[streamAIResponse] Calling observer.complete()');
         observer.complete();
-        console.log('[streamAIResponse] observer.complete() called');
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);
         observer.next({

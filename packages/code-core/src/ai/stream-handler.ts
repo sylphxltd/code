@@ -45,7 +45,6 @@ export async function processStream(
   stream: AsyncIterable<StreamChunk>,
   callbacks: StreamCallbacks = {}
 ): Promise<StreamResult> {
-  console.log('[processStream] Starting stream processing...');
   const { onTextStart, onTextDelta, onTextEnd, onReasoningStart, onReasoningDelta, onReasoningEnd, onToolCall, onToolInputStart, onToolInputDelta, onToolInputEnd, onToolResult, onToolError, onAbort, onError, onFinish, onComplete } = callbacks;
 
   let fullResponse = '';
@@ -57,9 +56,7 @@ export async function processStream(
   let usage: TokenUsage | undefined;
   let finishReason: string | undefined;
 
-  console.log('[processStream] Iterating stream chunks...');
   for await (const chunk of stream) {
-    console.log('[processStream] Processing chunk:', chunk.type);
     switch (chunk.type) {
       case 'text-start': {
         // Text generation started - notify immediately
@@ -282,7 +279,6 @@ export async function processStream(
     messageParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
   }
 
-  console.log('[processStream] Stream processing complete, returning result');
   return {
     fullResponse,
     messageParts,
