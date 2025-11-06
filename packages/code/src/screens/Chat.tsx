@@ -305,21 +305,23 @@ export default function Chat(_props: ChatProps) {
     addLog
   );
 
-  // Restore streaming state on session switch
+  // Sync UI streaming state with server state on session switch
+  // When user switches to different session, check if that session has active streaming
+  // This syncs UI state (isStreaming) with server state (message.status === 'active')
   useEffect(() => {
     if (!currentSessionId) {
       setIsStreaming(false);
       return;
     }
 
-    // Get current session from store (tRPC: already cached)
+    // Get current session from store (server state already loaded)
     const session = useAppStore.getState().currentSession;
     if (!session || session.id !== currentSessionId) {
       setIsStreaming(false);
       return;
     }
 
-    // Find active (streaming) message in session
+    // Check if session has active streaming (server state)
     const activeMessage = session.messages.find((m) => m.status === 'active');
     setIsStreaming(!!activeMessage);
   }, [currentSessionId, setIsStreaming]);

@@ -168,8 +168,8 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     // Background load (loadSessionInBackground) will fetch it
     // Optimistic updates cause duplicates due to race condition
 
-    logSession('Starting streaming, isStreaming=true');
-    setIsStreaming(true);
+    // DON'T set isStreaming here - wait for server event (assistant-message-created)
+    // Client is passive subscriber, all state changes driven by server events
 
     // Reset flags for new stream
     wasAbortedRef.current = false;
@@ -216,6 +216,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
             handleStreamEvent(event, {
               currentSessionId: sessionId,
               updateSessionTitle,
+              setIsStreaming,
               setIsTitleStreaming,
               setStreamingTitle,
               streamingMessageIdRef,
@@ -324,6 +325,7 @@ function handleStreamEvent(
   context: {
     currentSessionId: string | null;
     updateSessionTitle: (sessionId: string, title: string) => void;
+    setIsStreaming: (value: boolean) => void;
     setIsTitleStreaming: (value: boolean) => void;
     setStreamingTitle: React.Dispatch<React.SetStateAction<string>>;
     streamingMessageIdRef: React.MutableRefObject<string | null>;
@@ -407,6 +409,9 @@ function handleStreamEvent(
       context.streamingMessageIdRef.current = event.messageId;
 
       logMessage('Message created:', event.messageId, 'session:', currentSessionId);
+
+      // Server-driven state change: Start streaming UI
+      context.setIsStreaming(true);
 
       // Sync to Zustand store
       useAppStore.setState((state) => {
