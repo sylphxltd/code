@@ -147,11 +147,19 @@ async function main() {
       }
 
       // Headless mode: if prompt provided OR --print flag
-      if (prompt || options.print) {
+      // BUT: ignore single-word arguments that look like npm script names
+      const isMeaningfulPrompt = prompt && (
+        prompt.includes(' ') ||           // Multi-word prompt
+        prompt.length > 10 ||             // Long single word
+        options.print ||                  // Explicit print flag
+        options.continue                  // Continue flag
+      );
+
+      if (isMeaningfulPrompt || options.print) {
         if (!prompt) {
           console.error(chalk.red('Error: No prompt provided'));
           console.error(chalk.dim('Usage: sylphx-code "your prompt here"'));
-          console.error(chalk.dim('   or: sylphx-code --print "your prompt"'));
+          console.error(chalk.dim('   or: sylphx-code -c "your prompt"'));
           process.exit(1);
         }
 
@@ -181,7 +189,7 @@ async function main() {
 
   try {
     await program.parseAsync(process.argv);
-  } catch (error) {
+    } catch (error) {
     console.error('Error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
