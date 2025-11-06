@@ -532,8 +532,14 @@ export class SessionRepository {
   }
 
   /**
-   * Add message to session
-   * Atomically inserts message with all parts, attachments, usage
+   * Add message to session with step-based structure
+   * Atomically inserts message with initial step containing parts
+   *
+   * Design: Message = Container, Step = Content
+   * - Creates message container
+   * - Creates step-0 with provided content, metadata, todoSnapshot
+   * - Attachments at message level (apply to all steps)
+   * - Usage aggregated at message level (sum of step usage)
    */
   async addMessage(
     sessionId: string,
@@ -548,6 +554,7 @@ export class SessionRepository {
   ): Promise<string> {
     return await retryOnBusy(async () => {
       const messageId = randomUUID();
+      const stepId = `${messageId}-step-0`;
       const now = Date.now();
 
       // Get current message count for ordering
@@ -560,72 +567,96 @@ export class SessionRepository {
 
       // Insert in transaction
       await this.db.transaction(async (tx) => {
-      // Insert message
-      await tx.insert(messages).values({
-        id: messageId,
-        sessionId,
-        role,
-        timestamp: now,
-        ordering,
-        finishReason: finishReason || null,
-        status: status || 'completed',
-        metadata: metadata ? JSON.stringify(metadata) : null,
-      });
-
-      // Insert message parts
-      for (let i = 0; i < content.length; i++) {
-        await tx.insert(messageParts).values({
-          id: randomUUID(),
-          messageId,
-          ordering: i,
-          type: content[i].type,
-          content: JSON.stringify(content[i]),
+        // 1. Insert message container
+        await tx.insert(messages).values({
+          id: messageId,
+          sessionId,
+          role,
+          timestamp: now,
+          ordering,
+          finishReason: finishReason || null,
+          status: status || 'completed',
         });
-      }
 
-      // Insert attachments
-      if (attachments && attachments.length > 0) {
-        for (const att of attachments) {
-          await tx.insert(messageAttachments).values({
+        // 2. Insert step-0 with content
+        await tx.insert(messageSteps).values({
+          id: stepId,
+          messageId,
+          stepIndex: 0,
+          status: status || 'completed',
+          metadata: metadata ? JSON.stringify(metadata) : null,
+          startTime: now,
+          endTime: status === 'completed' ? now : null,
+          provider: null,
+          model: null,
+          duration: null,
+          finishReason: finishReason || null,
+        });
+
+        // 3. Insert step parts
+        for (let i = 0; i < content.length; i++) {
+          await tx.insert(stepParts).values({
             id: randomUUID(),
-            messageId,
-            path: att.path,
-            relativePath: att.relativePath,
-            size: att.size || null,
+            stepId,
+            ordering: i,
+            type: content[i].type,
+            content: JSON.stringify(content[i]),
           });
         }
-      }
 
-      // Insert usage
-      if (usage) {
-        await tx.insert(messageUsage).values({
-          messageId,
-          promptTokens: usage.promptTokens,
-          completionTokens: usage.completionTokens,
-          totalTokens: usage.totalTokens,
-        });
-      }
+        // 4. Insert step todo snapshot
+        if (todoSnapshot && todoSnapshot.length > 0) {
+          for (const todo of todoSnapshot) {
+            await tx.insert(stepTodoSnapshots).values({
+              id: randomUUID(),
+              stepId,
+              todoId: todo.id,
+              content: todo.content,
+              activeForm: todo.activeForm,
+              status: todo.status,
+              ordering: todo.ordering,
+            });
+          }
+        }
 
-      // Insert todo snapshot
-      if (todoSnapshot && todoSnapshot.length > 0) {
-        for (const todo of todoSnapshot) {
-          await tx.insert(messageTodoSnapshots).values({
-            id: randomUUID(),
-            messageId,
-            todoId: todo.id,
-            content: todo.content,
-            activeForm: todo.activeForm,
-            status: todo.status,
-            ordering: todo.ordering,
+        // 5. Insert step usage
+        if (usage) {
+          await tx.insert(stepUsage).values({
+            stepId,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+            totalTokens: usage.totalTokens,
           });
         }
-      }
 
-      // Update session timestamp
-      await tx
-        .update(sessions)
-        .set({ updated: now })
-        .where(eq(sessions.id, sessionId));
+        // 6. Insert message attachments (message-level, not step-level)
+        if (attachments && attachments.length > 0) {
+          for (const att of attachments) {
+            await tx.insert(messageAttachments).values({
+              id: randomUUID(),
+              messageId,
+              path: att.path,
+              relativePath: att.relativePath,
+              size: att.size || null,
+            });
+          }
+        }
+
+        // 7. Insert aggregated message usage (for UI convenience)
+        if (usage) {
+          await tx.insert(messageUsage).values({
+            messageId,
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+            totalTokens: usage.totalTokens,
+          });
+        }
+
+        // 8. Update session timestamp
+        await tx
+          .update(sessions)
+          .set({ updated: now })
+          .where(eq(sessions.id, sessionId));
       });
 
       return messageId;
@@ -679,20 +710,24 @@ export class SessionRepository {
   }
 
   /**
-   * Update message parts (used during streaming)
-   * Replaces all parts for a message atomically
+   * Update step parts (used during streaming)
+   * Replaces all parts for a step atomically
+   *
+   * MIGRATION NOTE: This replaces updateMessageParts
+   * - Old: Updated parts for entire message
+   * - New: Updates parts for specific step (more granular)
    */
-  async updateMessageParts(messageId: string, parts: MessagePart[]): Promise<void> {
+  async updateStepParts(stepId: string, parts: MessagePart[]): Promise<void> {
     await retryOnBusy(async () => {
       await this.db.transaction(async (tx) => {
-        // Delete existing parts
-        await tx.delete(messageParts).where(eq(messageParts.messageId, messageId));
+        // Delete existing parts for this step
+        await tx.delete(stepParts).where(eq(stepParts.stepId, stepId));
 
         // Insert new parts
         for (let i = 0; i < parts.length; i++) {
-          await tx.insert(messageParts).values({
+          await tx.insert(stepParts).values({
             id: randomUUID(),
-            messageId,
+            stepId,
             ordering: i,
             type: parts[i].type,
             content: JSON.stringify(parts[i]),
@@ -700,6 +735,15 @@ export class SessionRepository {
         }
       });
     });
+  }
+
+  /**
+   * @deprecated Use updateStepParts instead
+   * Legacy method for backward compatibility - updates step-0 parts
+   */
+  async updateMessageParts(messageId: string, parts: MessagePart[]): Promise<void> {
+    const stepId = `${messageId}-step-0`;
+    await this.updateStepParts(stepId, parts);
   }
 
   /**
