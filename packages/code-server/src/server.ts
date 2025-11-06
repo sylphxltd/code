@@ -17,7 +17,7 @@ import {
   createAppContext,
   initializeAppContext,
   closeAppContext,
-  type AppContext,
+  type LegacyAppContext as AppContext,
 } from './context.js';
 import type { Server } from 'node:http';
 
@@ -82,8 +82,8 @@ export class CodeServer {
       return;
     }
 
-    // Create and initialize AppContext (functional provider pattern)
-    this.appContext = createAppContext({
+    // Create AppContext using Effect (returns legacy-compatible object)
+    this.appContext = await createAppContext({
       cwd: this.config.cwd,
       database: this.config.dbPath ? { url: this.config.dbPath } : undefined,
     });
