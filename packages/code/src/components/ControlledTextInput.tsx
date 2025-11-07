@@ -290,26 +290,38 @@ function ControlledTextInput({
   // Otherwise, perform default behavior (insert tab, submit)
   useInput(
     (input, key) => {
+      console.log('[ControlledTextInput.Tab/Enter] Key pressed:', {
+        keys: Object.keys(key).filter((k) => key[k as keyof typeof key]),
+        hasOnTab: !!onTab,
+        hasOnEnter: !!onEnter,
+      });
+
       if (key.tab) {
         if (onTab) {
           // Autocomplete mode - call parent callback
+          console.log('[ControlledTextInput.Tab/Enter] Calling onTab callback');
           onTab();
+          return; // Stop event propagation
         } else {
           // Normal mode - insert tab character
           const result = TextOps.insertText(value, cursor, '\t');
           onChange(result.text);
           onCursorChange(result.cursor);
+          return; // Stop event propagation
         }
       }
       if (key.return && !key.shift && !key.meta) {
         if (onEnter) {
           // Autocomplete mode - call parent callback
+          console.log('[ControlledTextInput.Tab/Enter] Calling onEnter callback');
           onEnter();
+          return; // Stop event propagation
         } else {
           // Normal mode - submit
           if (onSubmit) {
             onSubmit(value);
           }
+          return; // Stop event propagation
         }
       }
     },
