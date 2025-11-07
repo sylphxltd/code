@@ -151,49 +151,8 @@ export function ProviderManagement({
     }
   }, [step, selectedProvider, providers, trpc]);
 
-  // Step 1: Select action (use InlineSelection)
-  if (step === 'select-action') {
-    return (
-      <InlineSelection
-        options={actionOptions}
-        subtitle="Manage your AI provider settings"
-        filter={false}  // No filter needed for 2 options
-        onSelect={(value) => {
-          setAction(value as 'use' | 'configure');
-          setStep('select-provider');
-        }}
-        onCancel={onComplete}
-      />
-    );
-  }
-
-  // Step 2: Select provider (use InlineSelection)
-  if (step === 'select-provider') {
-    return (
-      <InlineSelection
-        options={providerOptions}
-        subtitle={
-          action === 'use'
-            ? 'Choose which provider to use for new conversations'
-            : 'Select a provider to configure'
-        }
-        filter={true}
-        onSelect={(value) => {
-          if (action === 'use') {
-            Promise.resolve(onSelectProvider(value as string)).then(() => {
-              onComplete();
-            });
-          } else {
-            setSelectedProvider(value as string);
-            setStep('configure-provider');
-          }
-        }}
-        onCancel={onComplete}
-      />
-    );
-  }
-
-  // Step 3: Configure provider (custom form - keyboard handling)
+  // Keyboard handling for step 3 (configure provider)
+  // IMPORTANT: Must be called unconditionally (before any returns) to satisfy React Hooks rules
   useInput((char, key) => {
     if (key.escape) {
       if (editingField) {
@@ -251,9 +210,51 @@ export function ProviderManagement({
         return;
       }
     }
-  }, { isActive: !editingField });
+  }, { isActive: step === 'configure-provider' && !editingField });
 
-  // Render: Step 3 - Configure provider
+  // Step 1: Select action (use InlineSelection)
+  if (step === 'select-action') {
+    return (
+      <InlineSelection
+        options={actionOptions}
+        subtitle="Manage your AI provider settings"
+        filter={false}  // No filter needed for 2 options
+        onSelect={(value) => {
+          setAction(value as 'use' | 'configure');
+          setStep('select-provider');
+        }}
+        onCancel={onComplete}
+      />
+    );
+  }
+
+  // Step 2: Select provider (use InlineSelection)
+  if (step === 'select-provider') {
+    return (
+      <InlineSelection
+        options={providerOptions}
+        subtitle={
+          action === 'use'
+            ? 'Choose which provider to use for new conversations'
+            : 'Select a provider to configure'
+        }
+        filter={true}
+        onSelect={(value) => {
+          if (action === 'use') {
+            Promise.resolve(onSelectProvider(value as string)).then(() => {
+              onComplete();
+            });
+          } else {
+            setSelectedProvider(value as string);
+            setStep('configure-provider');
+          }
+        }}
+        onCancel={onComplete}
+      />
+    );
+  }
+
+  // Step 3: Configure provider - render UI
   if (step === 'configure-provider' && selectedProvider) {
     const providerName = providerOptions.find((p) => p.value === selectedProvider)?.label || selectedProvider;
 
