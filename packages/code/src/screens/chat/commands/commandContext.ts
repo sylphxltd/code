@@ -17,18 +17,19 @@ import type { Command, CommandContext, WaitForInputOptions } from '../../../comm
  */
 export interface CommandContextParams {
   // For message operations (complex logic)
-  addMessage: (
-    sessionId: string | null,
-    role: 'user' | 'assistant',
-    content: string,
-    attachments?: any[],
-    usage?: any,
-    finishReason?: string,
-    metadata?: any,
-    todoSnapshot?: any[],
-    provider?: ProviderId,
-    model?: string
-  ) => Promise<string>;
+  addMessage: (params: {
+    sessionId: string | null;
+    role: 'user' | 'assistant';
+    content: string;
+    attachments?: any[];
+    usage?: any;
+    finishReason?: string;
+    metadata?: any;
+    todoSnapshot?: any[];
+    status?: 'active' | 'completed' | 'error' | 'abort';
+    provider?: ProviderId;
+    model?: string;
+  }) => Promise<string>;
 
   // Current session ID for command session tracking
   currentSessionId: string | null;
@@ -105,18 +106,13 @@ export function createCommandContext(args: string[], params: CommandContextParam
       const sessionIdToUse = commandSessionRef.current || currentSessionId;
 
       // addMessage returns the sessionId (either existing or newly created)
-      const resultSessionId = await addMessage(
-        sessionIdToUse,
-        'assistant',
+      const resultSessionId = await addMessage({
+        sessionId: sessionIdToUse,
+        role: 'assistant',
         content,
-        undefined, // attachments
-        undefined, // usage
-        undefined, // finishReason
-        undefined, // metadata
-        undefined, // todoSnapshot
         provider,
-        model
-      );
+        model,
+      });
 
       // Store the session ID for future messages
       if (!commandSessionRef.current) {

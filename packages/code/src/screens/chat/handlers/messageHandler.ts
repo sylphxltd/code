@@ -14,7 +14,7 @@ export interface MessageHandlerParams {
   // State
   isStreaming: boolean;
 
-  // Store methods
+  // Store methods (NAMED PARAMETERS for all options)
   addMessage: (params: {
     sessionId: string | null;
     role: 'user' | 'assistant';
