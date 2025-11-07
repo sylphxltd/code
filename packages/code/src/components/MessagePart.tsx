@@ -7,7 +7,7 @@
 
 import { useElapsedTime } from '@sylphx/code-client';
 import type { MessagePart as MessagePartType } from '@sylphx/code-core';
-import { Box, Text } from 'ink';
+import { Box, Text, useStdout } from 'ink';
 import Picture from 'ink-picture';
 import React, { useMemo } from 'react';
 import { tmpdir } from 'node:os';
@@ -47,6 +47,10 @@ type StreamingPart =
   | { type: 'error'; error: string; status: 'completed' };
 
 export const MessagePart = React.memo(function MessagePart({ part }: MessagePartProps) {
+  // Get terminal dimensions for responsive image sizing
+  const { stdout } = useStdout();
+  const terminalWidth = stdout?.columns || 80;
+
   if (part.type === 'text') {
     return (
       <Box flexDirection="column" marginLeft={2} marginBottom={1}>
@@ -127,10 +131,27 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
         );
       }
 
+      // Calculate responsive image size
+      // Use 90% of terminal width (leave margin for UI)
+      const imageWidth = Math.min(Math.floor(terminalWidth * 0.9), 160);
+      // Calculate height based on 16:9 aspect ratio
+      // Terminal chars are ~2:1 (height:width), so adjust for that
+      const imageHeight = Math.floor((imageWidth * 9) / 16 / 2);
+
+      console.log('[MessagePart] Image rendering:', {
+        terminalWidth,
+        imageWidth,
+        imageHeight,
+        tempPath,
+        fileExists: tempPath ? 'created' : 'failed',
+      });
+
       return (
         <Box flexDirection="column" marginLeft={2} marginBottom={1}>
-          <Text dimColor>Image ({part.mediaType}):</Text>
-          <Picture src={tempPath} alt="Generated image" width={120} height={40} />
+          <Text dimColor>
+            Image ({part.mediaType}) - {imageWidth}x{imageHeight}:
+          </Text>
+          <Picture src={tempPath} alt="Generated image" width={imageWidth} height={imageHeight} />
         </Box>
       );
     } else {
