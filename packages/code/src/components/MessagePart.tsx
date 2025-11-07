@@ -8,7 +8,7 @@
 import { useElapsedTime } from '@sylphx/code-client';
 import type { MessagePart as MessagePartType } from '@sylphx/code-core';
 import { Box, Text, useStdout } from 'ink';
-import Picture from 'ink-picture';
+import Picture, { useTerminalCapabilities } from 'ink-picture';
 import React, { useMemo } from 'react';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -50,6 +50,9 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
   // Get terminal dimensions for responsive image sizing
   const { stdout } = useStdout();
   const terminalWidth = stdout?.columns || 80;
+
+  // Get terminal capabilities for image rendering
+  const capabilities = useTerminalCapabilities();
 
   if (part.type === 'text') {
     return (
@@ -131,27 +134,52 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
         );
       }
 
-      // Calculate responsive image size
+      // Calculate responsive image width
       // Use 90% of terminal width (leave margin for UI)
       const imageWidth = Math.min(Math.floor(terminalWidth * 0.9), 160);
-      // Calculate height based on 16:9 aspect ratio
-      // Terminal chars are ~2:1 (height:width), so adjust for that
-      const imageHeight = Math.floor((imageWidth * 9) / 16 / 2);
 
-      console.log('[MessagePart] Image rendering:', {
+      // Detect graphics protocol capability
+      const hasGraphicsProtocol =
+        capabilities?.graphics.kitty ||
+        capabilities?.graphics.iterm2 ||
+        capabilities?.graphics.sixel;
+
+      // Calculate height based on protocol capability
+      // High-res protocols: preserve natural aspect ratio
+      // ASCII fallback: need explicit height for proper display
+      const imageHeight = hasGraphicsProtocol
+        ? undefined // Let protocol preserve aspect ratio
+        : Math.floor(imageWidth / 2); // ASCII: use ~2:1 ratio for better visibility
+
+      console.log('[MessagePart] Image capabilities:', {
         terminalWidth,
         imageWidth,
         imageHeight,
-        tempPath,
-        fileExists: tempPath ? 'created' : 'failed',
+        kitty: capabilities?.graphics.kitty,
+        iterm2: capabilities?.graphics.iterm2,
+        sixel: capabilities?.graphics.sixel,
+        hasGraphicsProtocol,
       });
 
       return (
         <Box flexDirection="column" marginLeft={2} marginBottom={1}>
           <Text dimColor>
-            Image ({part.mediaType}) - {imageWidth}x{imageHeight}:
+            Image ({part.mediaType}) - Protocol:{' '}
+            {capabilities?.graphics.kitty
+              ? 'Kitty'
+              : capabilities?.graphics.iterm2
+                ? 'iTerm2'
+                : capabilities?.graphics.sixel
+                  ? 'Sixel'
+                  : 'ASCII fallback'}
           </Text>
-          <Picture src={tempPath} alt="Generated image" width={imageWidth} height={imageHeight} />
+          <Picture
+            src={tempPath}
+            alt="Generated image"
+            width={imageWidth}
+            height={imageHeight}
+            protocol="auto"
+          />
         </Box>
       );
     } else {
