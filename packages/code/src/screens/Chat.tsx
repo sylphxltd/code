@@ -198,9 +198,14 @@ export default function Chat(_props: ChatProps) {
 
   // Multi-client message sync: Subscribe to session:{id} for messages from other clients
   // Filters out own streaming messages by checking streamingMessageIdRef
+  // DISABLED: TUI is single-client, no need for multi-client sync callbacks
   const eventStreamCallbacks = useMemo(
     () => ({
       onAssistantMessageCreated: (messageId: string) => {
+        // DISABLED: Causes infinite loop in single-client TUI
+        // Event stream replay keeps triggering addMessage() creating duplicates
+        return;
+
         // Skip if this is our own streaming message
         if (streamingMessageIdRef.current === messageId) {
           return;
@@ -216,6 +221,9 @@ export default function Chat(_props: ChatProps) {
         });
       },
       onTextDelta: (text: string) => {
+        // DISABLED: TUI is single-client, no multi-client sync needed
+        return;
+
         // Skip if currently streaming (own message)
         if (isStreaming) {
           return;
@@ -247,19 +255,12 @@ export default function Chat(_props: ChatProps) {
         }
       },
       onToolCall: (toolCallId: string, toolName: string, args: unknown) => {
-        // Skip if currently streaming (own message)
-        if (isStreaming) {
-          return;
-        }
-        addLog(`[MultiClient] Tool call: ${toolName}`);
-        // TODO: Add tool call to message content
+        // DISABLED: TUI is single-client
+        return;
       },
       onComplete: () => {
-        // Skip if currently streaming (own message)
-        if (isStreaming) {
-          return;
-        }
-        addLog('[MultiClient] Streaming complete from other client');
+        // DISABLED: TUI is single-client
+        return;
       },
     }),
     [addLog, addMessage, currentSessionId, isStreaming, streamingMessageIdRef]
