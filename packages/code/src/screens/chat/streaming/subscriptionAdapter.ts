@@ -769,7 +769,10 @@ async function cleanupAfterStream(context: {
     }
 
     // Reload message from database to get steps structure
-    if (currentSessionId && context.streamingMessageIdRef.current) {
+    // IMPORTANT: Only reload if stream completed successfully
+    // If there were errors (no usage), database save likely failed (SQLITE_BUSY)
+    // and we want to preserve in-memory error parts in message.content
+    if (currentSessionId && context.streamingMessageIdRef.current && !hasError && context.usageRef.current) {
       try {
         const client = getTRPCClient();
         const session = await client.session.getById.query({ sessionId: currentSessionId });
@@ -785,6 +788,8 @@ async function cleanupAfterStream(context: {
       } catch (error) {
         console.error('[cleanupAfterStream] Failed to reload session:', error);
       }
+    } else if (hasError) {
+      console.error('[cleanupAfterStream] Skipping session reload due to errors - preserving in-memory error parts');
     }
 
     // Send notifications
