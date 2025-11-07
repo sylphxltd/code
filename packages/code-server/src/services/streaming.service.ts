@@ -494,28 +494,44 @@ Now generate the title:`,
               const startEvent = { type: 'session-title-updated-start' as const, sessionId };
               await opts.appContext.eventStream.publish(`session:${sessionId}`, startEvent);
 
-              // Stream title chunks
-              for await (const chunk of titleStream) {
-                if (chunk.type === 'text-delta' && chunk.textDelta) {
-                  fullTitle += chunk.textDelta;
-                  const deltaEvent = {
-                    type: 'session-title-updated-delta' as const,
-                    sessionId,
-                    text: chunk.textDelta
-                  };
-                  await opts.appContext.eventStream.publish(`session:${sessionId}`, deltaEvent);
+              // Stream title chunks (wrap in try-catch to catch flush/finalize errors)
+              try {
+                for await (const chunk of titleStream) {
+                  if (chunk.type === 'text-delta' && chunk.textDelta) {
+                    fullTitle += chunk.textDelta;
+                    const deltaEvent = {
+                      type: 'session-title-updated-delta' as const,
+                      sessionId,
+                      text: chunk.textDelta
+                    };
+                    await opts.appContext.eventStream.publish(`session:${sessionId}`, deltaEvent);
+                  }
+                }
+              } catch (streamError) {
+                // Catch NoOutputGeneratedError and other stream errors
+                console.error('[Title Generation] Stream error:', streamError);
+                // If stream failed, use a default title based on first message
+                if (fullTitle.length === 0) {
+                  fullTitle = userMessage.slice(0, 50);
                 }
               }
 
-              // Clean up and update database
-              const cleaned = cleanAITitle(fullTitle, 50);
-              await sessionRepository.updateSession(sessionId, { title: cleaned });
+              // Clean up and update database (only if we got some title)
+              if (fullTitle.length > 0) {
+                const cleaned = cleanAITitle(fullTitle, 50);
+                try {
+                  await sessionRepository.updateSession(sessionId, { title: cleaned });
+                  // Publish title end event
+                  const endEvent = { type: 'session-title-updated-end' as const, sessionId, title: cleaned };
+                  await opts.appContext.eventStream.publish(`session:${sessionId}`, endEvent);
+                  return cleaned;
+                } catch (dbError) {
+                  console.error('[Title Generation] Failed to save title:', dbError);
+                  return cleaned; // Return title even if DB save failed
+                }
+              }
 
-              // Publish title end event
-              const endEvent = { type: 'session-title-updated-end' as const, sessionId, title: cleaned };
-              await opts.appContext.eventStream.publish(`session:${sessionId}`, endEvent);
-
-              return cleaned;
+              return null;
             } catch (error) {
               console.error('[Title Generation] Error:', error);
               return null;
@@ -628,8 +644,11 @@ Now generate the title:`,
         observer.complete();
 
         // 14. Let title generation finish in background
+        // NOTE: This catch() should never fire because titlePromise has internal try-catch
+        // But we add it as a safety net to prevent any unhandled rejections
         titlePromise.catch((error) => {
-          console.error('[Title Generation] Background error:', error);
+          console.error('[Title Generation] Background error (should not happen):', error);
+          return null; // Return null to complete the promise chain
         });
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);
