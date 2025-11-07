@@ -9,6 +9,7 @@ import { messageRouter } from './message.router.js';
 import { todoRouter } from './todo.router.js';
 import { configRouter } from './config.router.js';
 import { adminRouter } from './admin.router.js';
+import { eventsRouter } from './events.router.js';
 
 /**
  * Main application router
@@ -20,6 +21,7 @@ export const appRouter = router({
   todo: todoRouter,
   config: configRouter,
   admin: adminRouter,
+  events: eventsRouter,
 });
 
 /**
