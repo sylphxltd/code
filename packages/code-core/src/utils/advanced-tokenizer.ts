@@ -4,6 +4,9 @@
  */
 
 import { AutoTokenizer } from '@huggingface/transformers';
+import { createLogger } from './logger.js';
+
+const logger = createLogger('AdvancedTokenizer');
 
 export interface AdvancedToken {
   text: string;
@@ -146,7 +149,11 @@ export class AdvancedCodeTokenizer {
             relevance: 'high' as const,
           });
         }
-      } catch (_error) {}
+      } catch (error) {
+        // Token decode failed - this is expected for some special tokens
+        // Log at debug level and continue processing
+        logger.debug('Token decode failed, skipping', { tokenId, error: error instanceof Error ? error.message : String(error) });
+      }
     }
 
     return tokens;

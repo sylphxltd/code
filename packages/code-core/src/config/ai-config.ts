@@ -16,6 +16,9 @@ import { z } from 'zod';
 import { type Result, success, tryCatchAsync } from '../ai/functional/result.js';
 import { getAllProviders } from '../ai/providers/index.js';
 import type { ProviderId, ProviderConfigValue as ProviderConfigValueType } from '../types/provider.types.js';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('AIConfig');
 
 // Re-export types for backward compatibility
 export type { ProviderId } from '../types/provider.types.js';
@@ -150,26 +153,42 @@ export const getDefaultModel = (config: AIConfig, providerId: string): string | 
  */
 export const aiConfigExists = async (cwd: string = process.cwd()): Promise<boolean> => {
   const paths = getAIConfigPaths(cwd);
-  try {
-    // Check any of the config files
-    await fs.access(paths.global).catch(() => {});
-    return true;
-  } catch {}
 
+  // Check global config
+  try {
+    await fs.access(paths.global);
+    return true;
+  } catch (error) {
+    // File doesn't exist or not accessible - expected, continue checking other paths
+    logger.debug('Global config not accessible', { path: paths.global });
+  }
+
+  // Check project config
   try {
     await fs.access(paths.project);
     return true;
-  } catch {}
+  } catch (error) {
+    // File doesn't exist or not accessible - expected, continue checking
+    logger.debug('Project config not accessible', { path: paths.project });
+  }
 
+  // Check local config
   try {
     await fs.access(paths.local);
     return true;
-  } catch {}
+  } catch (error) {
+    // File doesn't exist or not accessible - expected, continue checking
+    logger.debug('Local config not accessible', { path: paths.local });
+  }
 
+  // Check legacy config
   try {
     await fs.access(paths.legacy);
     return true;
-  } catch {}
+  } catch (error) {
+    // File doesn't exist or not accessible - expected, no more paths to check
+    logger.debug('Legacy config not accessible', { path: paths.legacy });
+  }
 
   return false;
 };
@@ -255,8 +274,12 @@ export const saveAIConfig = async (
             if (provider.isConfigured(providerConfig)) {
               configuredProviders.push(providerId as ProviderId);
             }
-          } catch {
-            // Skip unknown providers
+          } catch (error) {
+            // Skip unknown providers - this is expected for providers that aren't registered
+            logger.debug('Provider not found or not configured', {
+              providerId,
+              error: error instanceof Error ? error.message : String(error)
+            });
           }
         }
 
@@ -358,8 +381,12 @@ export const getConfiguredProviders = async (
       if (provider.isConfigured(providerConfig)) {
         providers.push(providerId as ProviderId);
       }
-    } catch {
-      // Skip unknown providers
+    } catch (error) {
+      // Skip unknown providers - this is expected for providers that aren't registered
+      logger.debug('Provider not found in registry', {
+        providerId,
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   }
 
