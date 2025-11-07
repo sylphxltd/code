@@ -374,17 +374,45 @@ export const messageRouter = router({
       // Import streaming service
       const { streamAIResponse } = await import('../../services/streaming.service.js');
 
-      // Stream AI response using service
-      return streamAIResponse({
-        appContext: ctx.appContext,
-        sessionRepository: ctx.sessionRepository,
-        aiConfig: ctx.aiConfig,
-        sessionId: input.sessionId || null,
-        agentId: input.agentId,
-        provider: input.provider,
-        model: input.model,
-        userMessage: input.userMessage,
-        attachments: input.attachments,
+      // Get or create sessionId for event channel
+      let eventSessionId = input.sessionId || null;
+
+      // Stream AI response and publish events to event stream
+      return observable<StreamEvent>((emit) => {
+        const streamObservable = streamAIResponse({
+          appContext: ctx.appContext,
+          sessionRepository: ctx.sessionRepository,
+          aiConfig: ctx.aiConfig,
+          sessionId: eventSessionId,
+          agentId: input.agentId,
+          provider: input.provider,
+          model: input.model,
+          userMessage: input.userMessage,
+          attachments: input.attachments,
+        });
+
+        const subscription = streamObservable.subscribe({
+          next: (event) => {
+            // Capture sessionId from session-created event
+            if (event.type === 'session-created') {
+              eventSessionId = event.sessionId;
+            }
+
+            // Publish event to event stream (for replay and multi-client support)
+            if (eventSessionId) {
+              ctx.appContext.eventStream.publish(`session:${eventSessionId}`, event).catch(err => {
+                console.error('[StreamResponse] Event publish error:', err);
+              });
+            }
+
+            // Emit to current subscriber
+            emit.next(event);
+          },
+          error: (error) => emit.error(error),
+          complete: () => emit.complete(),
+        });
+
+        return () => subscription.unsubscribe();
       });
     }),
 
