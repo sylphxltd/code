@@ -15,6 +15,7 @@ import {
   useAppStore,
   useAskToolHandler,
   useChat,
+  useEventStream,
   useFileAttachments,
   useKeyboardNavigation,
   useProjectFiles,
@@ -193,6 +194,74 @@ export default function Chat(_props: ChatProps) {
     setAskQueueLength,
     inputResolver,
     addDebugLog,
+  });
+
+  // Multi-client message sync: Subscribe to session:{id} for messages from other clients
+  // Filters out own streaming messages by checking streamingMessageIdRef
+  const eventStreamCallbacks = useMemo(
+    () => ({
+      onAssistantMessageCreated: (messageId: string) => {
+        // Skip if this is our own streaming message
+        if (streamingMessageIdRef.current === messageId) {
+          return;
+        }
+        // Other client created assistant message - create placeholder
+        addLog(`[MultiClient] Assistant message created: ${messageId}`);
+        addMessage(currentSessionId, 'assistant', '', [], undefined, undefined, undefined, 'active');
+      },
+      onTextDelta: (text: string) => {
+        // Skip if currently streaming (own message)
+        if (isStreaming) {
+          return;
+        }
+        // Other client streaming text - append to last assistant message
+        const currentSession = useAppStore.getState().currentSession;
+        if (currentSession && currentSession.messages.length > 0) {
+          const lastMessage = currentSession.messages[currentSession.messages.length - 1];
+          if (lastMessage.role === 'assistant') {
+            useAppStore.setState((state) => {
+              if (state.currentSession && state.currentSession.messages.length > 0) {
+                const messages = [...state.currentSession.messages];
+                const lastMsg = { ...messages[messages.length - 1] };
+                const parts = [...(lastMsg.content || [])];
+                const lastPart = parts[parts.length - 1];
+
+                if (lastPart && lastPart.type === 'text') {
+                  parts[parts.length - 1] = { ...lastPart, content: lastPart.content + text };
+                } else {
+                  parts.push({ type: 'text', content: text });
+                }
+
+                lastMsg.content = parts;
+                messages[messages.length - 1] = lastMsg;
+                state.currentSession.messages = messages;
+              }
+            });
+          }
+        }
+      },
+      onToolCall: (toolCallId: string, toolName: string, args: unknown) => {
+        // Skip if currently streaming (own message)
+        if (isStreaming) {
+          return;
+        }
+        addLog(`[MultiClient] Tool call: ${toolName}`);
+        // TODO: Add tool call to message content
+      },
+      onComplete: () => {
+        // Skip if currently streaming (own message)
+        if (isStreaming) {
+          return;
+        }
+        addLog('[MultiClient] Streaming complete from other client');
+      },
+    }),
+    [addLog, addMessage, currentSessionId, isStreaming, streamingMessageIdRef]
+  );
+
+  useEventStream({
+    replayLast: 0, // Don't replay - we already loaded history
+    callbacks: eventStreamCallbacks,
   });
 
   // Create sendUserMessageToAI function using new subscription adapter
