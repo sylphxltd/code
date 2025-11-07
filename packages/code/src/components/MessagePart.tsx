@@ -140,9 +140,9 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
 
       // Detect graphics protocol capability
       const hasGraphicsProtocol =
-        capabilities?.graphics.kitty ||
-        capabilities?.graphics.iterm2 ||
-        capabilities?.graphics.sixel;
+        capabilities?.graphics?.kitty ||
+        capabilities?.graphics?.iterm2 ||
+        capabilities?.graphics?.sixel;
 
       // Calculate height based on protocol capability
       // High-res protocols: preserve natural aspect ratio
@@ -155,9 +155,7 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
         terminalWidth,
         imageWidth,
         imageHeight,
-        kitty: capabilities?.graphics.kitty,
-        iterm2: capabilities?.graphics.iterm2,
-        sixel: capabilities?.graphics.sixel,
+        capabilities,
         hasGraphicsProtocol,
       });
 
@@ -165,11 +163,11 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
         <Box flexDirection="column" marginLeft={2} marginBottom={1}>
           <Text dimColor>
             Image ({part.mediaType}) - Protocol:{' '}
-            {capabilities?.graphics.kitty
+            {capabilities?.graphics?.kitty
               ? 'Kitty'
-              : capabilities?.graphics.iterm2
+              : capabilities?.graphics?.iterm2
                 ? 'iTerm2'
-                : capabilities?.graphics.sixel
+                : capabilities?.graphics?.sixel
                   ? 'Sixel'
                   : 'ASCII fallback'}
           </Text>
