@@ -22,6 +22,7 @@ export interface StreamCallbacks {
   onToolInputEnd?: (toolCallId: string, toolName: string, args: unknown) => void;
   onToolResult?: (toolCallId: string, toolName: string, result: unknown, duration: number) => void;
   onToolError?: (toolCallId: string, toolName: string, error: string, duration: number) => void;
+  onFile?: (mediaType: string, base64: string) => void;
   onAbort?: () => void;
   onError?: (error: string) => void;
   onFinish?: (usage: TokenUsage, finishReason: string) => void;
@@ -45,7 +46,7 @@ export async function processStream(
   stream: AsyncIterable<StreamChunk>,
   callbacks: StreamCallbacks = {}
 ): Promise<StreamResult> {
-  const { onTextStart, onTextDelta, onTextEnd, onReasoningStart, onReasoningDelta, onReasoningEnd, onToolCall, onToolInputStart, onToolInputDelta, onToolInputEnd, onToolResult, onToolError, onAbort, onError, onFinish, onComplete } = callbacks;
+  const { onTextStart, onTextDelta, onTextEnd, onReasoningStart, onReasoningDelta, onReasoningEnd, onToolCall, onToolInputStart, onToolInputDelta, onToolInputEnd, onToolResult, onToolError, onFile, onAbort, onError, onFinish, onComplete } = callbacks;
 
   let fullResponse = '';
   const messageParts: MessagePart[] = [];
@@ -229,6 +230,26 @@ export async function processStream(
           // Notify callback
           onToolError?.(chunk.toolCallId, chunk.toolName, chunk.error, duration);
         }
+        break;
+      }
+
+      case 'file': {
+        // Save current text part if any
+        if (currentTextContent) {
+          messageParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+          currentTextContent = '';
+        }
+
+        // Add file part (image or other files)
+        messageParts.push({
+          type: 'file',
+          mediaType: chunk.mediaType,
+          base64: chunk.base64,
+          status: 'completed',
+        });
+
+        // Notify callback
+        onFile?.(chunk.mediaType, chunk.base64);
         break;
       }
 

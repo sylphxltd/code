@@ -8,6 +8,7 @@
 import { useElapsedTime } from '@sylphx/code-client';
 import type { MessagePart as MessagePartType } from '@sylphx/code-core';
 import { Box, Text } from 'ink';
+import Picture from 'ink-picture';
 import React from 'react';
 import MarkdownText from './MarkdownText.js';
 import Spinner from './Spinner.js';
@@ -38,6 +39,7 @@ type StreamingPart =
       error?: string;
       startTime?: number;
     }
+  | { type: 'file'; mediaType: string; base64: string; status: 'completed' }
   | { type: 'error'; error: string; status: 'completed' };
 
 export const MessagePart = React.memo(function MessagePart({ part }: MessagePartProps) {
@@ -90,6 +92,30 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
         <Text color="red">{part.error}</Text>
       </Box>
     );
+  }
+
+  // File part (image or other files)
+  if (part.type === 'file') {
+    const isImage = part.mediaType.startsWith('image/');
+
+    if (isImage) {
+      // Render image using ink-picture
+      const dataUrl = `data:${part.mediaType};base64,${part.base64}`;
+      return (
+        <Box flexDirection="column" marginLeft={2} marginBottom={1}>
+          <Text dimColor>Image ({part.mediaType}):</Text>
+          <Picture url={dataUrl} />
+        </Box>
+      );
+    } else {
+      // Render non-image file info
+      return (
+        <Box flexDirection="column" marginLeft={2} marginBottom={1}>
+          <Text dimColor>File: {part.mediaType}</Text>
+          <Text dimColor>Size: {Math.round(part.base64.length * 0.75)} bytes</Text>
+        </Box>
+      );
+    }
   }
 
   // Tool part

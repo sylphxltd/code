@@ -47,6 +47,12 @@ export type MessagePart =
       startTime?: number;
     }
   | {
+      type: 'file';
+      mediaType: string;
+      base64: string;
+      status: 'completed';  // Files are immediately completed when received
+    }
+  | {
       type: 'error';
       error: string;
       status: 'completed';  // Errors are immediately completed
