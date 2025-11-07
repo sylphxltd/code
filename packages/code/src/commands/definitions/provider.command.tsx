@@ -134,31 +134,60 @@ export const providerCommand: Command = {
           return 'Error: Missing key or value. Usage: /provider configure <provider> set <key> <value>';
         }
 
-        // Get current config
-        const currentProviderConfig = aiConfig?.providers?.[providerId] || {};
+        // Check if field is secret - use dedicated endpoint
+        const providerSchemaResult = await trpc.config.getProviderSchema.query({
+          providerId: providerId as any,
+        });
 
-        // Update config
-        const updatedProviderConfig = {
-          ...currentProviderConfig,
-          [key]: value,
-        };
+        if (!providerSchemaResult.success) {
+          return `Error: ${providerSchemaResult.error}`;
+        }
 
-        // Update store
-        store.updateProvider(providerId as any, updatedProviderConfig);
-        const updatedConfig = {
-          ...aiConfig!,
-          providers: {
-            ...aiConfig!.providers,
-            [providerId]: updatedProviderConfig,
-          },
-        } as any;
-        store.setAIConfig(updatedConfig);
+        const field = providerSchemaResult.schema.find(f => f.key === key);
+        if (!field) {
+          return `Error: Field "${key}" not found in provider "${providerId}" schema`;
+        }
 
-        // Save to server
-        await context.saveConfig(updatedConfig);
+        if (field.secret) {
+          // Secret field - use dedicated setProviderSecret endpoint
+          const result = await trpc.config.setProviderSecret.mutate({
+            providerId,
+            fieldName: key,
+            value: String(value),
+            cwd: process.cwd(),
+          });
 
-        context.addLog(`[provider] Set ${key} for ${providerId}`);
-        return `Set ${key} for provider "${providerId}"`;
+          if (!result.success) {
+            return `Error: ${result.error}`;
+          }
+
+          context.addLog(`[provider] Set secret ${key} for ${providerId}`);
+          return `Set ${key} for provider "${providerId}"`;
+        } else {
+          // Non-secret field - update provider config
+          const currentProviderConfig = aiConfig?.providers?.[providerId] || {};
+          const updatedProviderConfig = {
+            ...currentProviderConfig,
+            [key]: value,
+          };
+
+          // Update store (without secrets - they're already on disk)
+          store.updateProvider(providerId as any, updatedProviderConfig);
+          const updatedConfig = {
+            ...aiConfig!,
+            providers: {
+              ...aiConfig!.providers,
+              [providerId]: updatedProviderConfig,
+            },
+          } as any;
+          store.setAIConfig(updatedConfig);
+
+          // Save to server (server will merge secrets from disk)
+          await context.saveConfig(updatedConfig);
+
+          context.addLog(`[provider] Set ${key} for ${providerId}`);
+          return `Set ${key} for provider "${providerId}"`;
+        }
       }
     }
 
@@ -220,27 +249,68 @@ export const providerCommand: Command = {
           context.addLog(`[provider] Switched to provider: ${providerId} (model: ${providerDefaultModel || 'default'}) and saved config`);
         }}
         onConfigureProvider={async (providerId, config) => {
-          // Get fresh store reference
+          const { getTRPCClient } = await import('@sylphx/code-client');
+          const trpc = getTRPCClient();
+
+          // Get provider schema to separate secrets from non-secrets
+          const schemaResult = await trpc.config.getProviderSchema.query({
+            providerId: providerId as any,
+          });
+
+          if (!schemaResult.success) {
+            context.addLog(`[provider] Error: ${schemaResult.error}`);
+            return;
+          }
+
+          const secretFields = new Set(
+            schemaResult.schema
+              .filter(f => f.secret === true)
+              .map(f => f.key)
+          );
+
+          // Separate secret and non-secret fields
+          const secrets: Record<string, string> = {};
+          const nonSecrets: Record<string, any> = {};
+
+          for (const [key, value] of Object.entries(config)) {
+            if (secretFields.has(key)) {
+              secrets[key] = value as string;
+            } else {
+              nonSecrets[key] = value;
+            }
+          }
+
+          // Save secrets using dedicated endpoint
+          for (const [fieldName, value] of Object.entries(secrets)) {
+            const result = await trpc.config.setProviderSecret.mutate({
+              providerId,
+              fieldName,
+              value,
+              cwd: process.cwd(),
+            });
+
+            if (!result.success) {
+              context.addLog(`[provider] Error setting ${fieldName}: ${result.error}`);
+            }
+          }
+
+          // Save non-secrets using regular config save
           const { useAppStore } = await import('@sylphx/code-client');
           const freshStore = useAppStore.getState();
-
-          // Update store state
-          freshStore.updateProvider(providerId as any, config);
-
-          // Build updated config
           const currentConfig = freshStore.aiConfig;
+
           const updatedConfig = {
             ...currentConfig!,
             providers: {
               ...currentConfig!.providers,
-              [providerId]: config,
+              [providerId]: nonSecrets,
             },
           } as any;
           freshStore.setAIConfig(updatedConfig);
 
-          // CRITICAL: Save to server!
+          // Server will merge secrets from disk
           await context.saveConfig(updatedConfig);
-          context.addLog(`[provider] Configured provider: ${providerId} and saved config`);
+          context.addLog(`[provider] Configured provider: ${providerId}`);
         }}
       />,
       'Provider Management'

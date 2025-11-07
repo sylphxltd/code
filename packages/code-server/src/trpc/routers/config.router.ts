@@ -33,24 +33,16 @@ const AIConfigSchema = z.object({
 });
 
 /**
- * Mask a sensitive value (show first 7 chars, rest as ***)
- * Examples:
- * - "sk-ant-1234567890" → "sk-ant-***"
- * - "AIzaSyABC123" → "AIzaSyA***"
- */
-function maskSensitiveValue(value: string): string {
-  if (typeof value !== 'string' || value.length === 0) return '***';
-
-  const showChars = Math.min(7, Math.floor(value.length / 2));
-  return value.substring(0, showChars) + '***';
-}
-
-/**
- * Sanitize AI config by masking sensitive fields
+ * Sanitize AI config by REMOVING sensitive fields
  * SECURITY: Uses provider ConfigField schema to determine which fields are secret
  *
+ * Client should NEVER see secret fields (not even masked)
+ * - Prevents XSS from stealing key prefixes
+ * - Zero-knowledge: client doesn't need keys, server does
+ * - Server merges keys from disk during save operations
+ *
  * @param config - Raw config from file system
- * @returns Sanitized config with masked sensitive fields
+ * @returns Sanitized config with secret fields REMOVED (not masked)
  */
 function sanitizeAIConfig(config: AIConfig): AIConfig {
   if (!config.providers) {
@@ -74,15 +66,16 @@ function sanitizeAIConfig(config: AIConfig): AIConfig {
           .map(field => field.key)
       );
     } catch (error) {
-      // Fallback: if provider not found, mask nothing (better than breaking)
+      // Fallback: if provider not found, remove nothing (better than breaking)
       console.warn(`Provider ${providerId} not found for config sanitization`);
       secretFields = new Set();
     }
 
     for (const [fieldName, fieldValue] of Object.entries(providerConfig)) {
-      if (secretFields.has(fieldName) && typeof fieldValue === 'string') {
-        // Mask secret field
-        sanitizedProvider[fieldName] = maskSensitiveValue(fieldValue);
+      if (secretFields.has(fieldName)) {
+        // REMOVE secret field entirely (don't send to client)
+        // Server will merge it back from disk during save
+        continue;
       } else {
         // Keep non-secret field as-is
         sanitizedProvider[fieldName] = fieldValue;
@@ -103,9 +96,10 @@ export const configRouter = router({
    * Load AI config from file system
    * Backend reads files, UI stays clean
    *
-   * SECURITY: Sanitizes sensitive fields (API keys) before returning to client
-   * - API keys are masked: "sk-ant-..." → "sk-ant-***" (shows first 7 chars)
-   * - Other sensitive fields (passwords, tokens) also masked
+   * SECURITY: Removes sensitive fields (API keys) before returning to client
+   * - API keys REMOVED entirely (not masked)
+   * - Client never sees keys (zero-knowledge)
+   * - Server merges keys from disk during save operations
    * - Non-sensitive fields (provider, model) returned as-is
    */
   load: publicProcedure
@@ -113,7 +107,7 @@ export const configRouter = router({
     .query(async ({ input }) => {
       const result = await loadAIConfig(input.cwd);
       if (result._tag === 'Success') {
-        // Sanitize config: mask sensitive fields
+        // Sanitize config: REMOVE sensitive fields
         const sanitizedConfig = sanitizeAIConfig(result.value);
         return { success: true as const, config: sanitizedConfig };
       }
@@ -180,13 +174,16 @@ export const configRouter = router({
    * REACTIVE: Emits config:provider-updated or config:provider-added event
    * SECURITY: Protected + moderate rate limiting (30 req/min)
    *
-   * IMPORTANT: Merges masked secret fields with real values from disk
+   * ZERO-KNOWLEDGE: Client never sends secrets
+   * - Client only sends non-secret fields (model, etc)
+   * - Server auto-merges ALL secret fields from disk
+   * - To update secrets, use dedicated setProviderSecret mutation
    */
   updateProviderConfig: moderateProcedure
     .input(
       z.object({
         providerId: z.string(),
-        config: z.record(z.any()), // Provider-specific config
+        config: z.record(z.any()), // Provider-specific config (non-secrets only)
         cwd: z.string().default(process.cwd()),
       })
     )
@@ -200,7 +197,7 @@ export const configRouter = router({
       const currentProviderConfig = result.value.providers?.[input.providerId] || {};
       const mergedProviderConfig: Record<string, any> = { ...input.config };
 
-      // Merge masked secret fields with real values from disk
+      // Always merge ALL secret fields from disk (client never sends them)
       try {
         const provider = getProvider(input.providerId as ProviderId);
         const configSchema = provider.getConfigSchema();
@@ -210,15 +207,11 @@ export const configRouter = router({
             .map(field => field.key)
         );
 
+        // Preserve all secrets from disk
         for (const fieldName of secretFields) {
-          const incomingValue = input.config[fieldName];
           const currentValue = currentProviderConfig[fieldName];
-
-          if (typeof incomingValue === 'string' && incomingValue.endsWith('***')) {
-            // Value is masked - preserve real value from disk
-            if (currentValue !== undefined) {
-              mergedProviderConfig[fieldName] = currentValue;
-            }
+          if (currentValue !== undefined) {
+            mergedProviderConfig[fieldName] = currentValue;
           }
         }
       } catch (error) {
@@ -237,6 +230,70 @@ export const configRouter = router({
 
       if (saveResult._tag === 'Success') {
         // Note: Config changes are persisted in database
+        return { success: true as const };
+      }
+      return { success: false as const, error: saveResult.error.message };
+    }),
+
+  /**
+   * Set a provider secret field (API key, token, etc)
+   * SECURITY: Protected + moderate rate limiting (30 req/min)
+   *
+   * Dedicated endpoint for updating secrets
+   * - Client can set new secret without seeing existing value
+   * - Follows GitHub/Vercel pattern: blind update
+   * - Only way to update secret fields
+   */
+  setProviderSecret: moderateProcedure
+    .input(
+      z.object({
+        providerId: z.string(),
+        fieldName: z.string(),
+        value: z.string(),
+        cwd: z.string().default(process.cwd()),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const result = await loadAIConfig(input.cwd);
+      if (result._tag === 'Failure') {
+        return { success: false as const, error: result.error.message };
+      }
+
+      // Verify field is actually a secret field
+      try {
+        const provider = getProvider(input.providerId as ProviderId);
+        const configSchema = provider.getConfigSchema();
+        const field = configSchema.find(f => f.key === input.fieldName);
+
+        if (!field) {
+          return { success: false as const, error: `Field ${input.fieldName} not found in provider ${input.providerId} schema` };
+        }
+
+        if (!field.secret) {
+          return { success: false as const, error: `Field ${input.fieldName} is not a secret field. Use updateProviderConfig instead.` };
+        }
+      } catch (error) {
+        return { success: false as const, error: `Provider ${input.providerId} not found` };
+      }
+
+      // Update the secret field
+      const currentProviderConfig = result.value.providers?.[input.providerId] || {};
+      const updatedProviderConfig = {
+        ...currentProviderConfig,
+        [input.fieldName]: input.value,
+      };
+
+      const updated = {
+        ...result.value,
+        providers: {
+          ...result.value.providers,
+          [input.providerId]: updatedProviderConfig,
+        },
+      };
+
+      const saveResult = await saveAIConfig(updated, input.cwd);
+
+      if (saveResult._tag === 'Success') {
         return { success: true as const };
       }
       return { success: false as const, error: saveResult.error.message };
@@ -278,10 +335,10 @@ export const configRouter = router({
    * REACTIVE: Emits config-updated event
    * SECURITY: Protected + moderate rate limiting (30 req/min)
    *
-   * IMPORTANT: Merges masked secret fields with real values from disk
-   * - If a secret field value ends with ***, it was masked by load query
-   * - In this case, preserve the real value from disk (don't overwrite with mask)
-   * - If a secret field has a new value (not masked), save the new value
+   * ZERO-KNOWLEDGE: Client never sends secrets
+   * - Client only sends non-secret fields
+   * - Server auto-merges ALL secret fields from disk
+   * - To update secrets, use dedicated setProviderSecret mutation
    */
   save: moderateProcedure
     .input(
@@ -291,12 +348,12 @@ export const configRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      // Load current config from disk to get unmasked values
+      // Load current config from disk to get secrets
       const currentResult = await loadAIConfig(input.cwd);
       const currentConfig = currentResult._tag === 'Success' ? currentResult.value : { providers: {} };
 
       // Merge incoming config with current config
-      // For secret fields that are masked, preserve real values from disk
+      // Always preserve ALL secret fields from disk
       const mergedConfig = { ...input.config };
 
       if (input.config.providers && currentConfig.providers) {
@@ -316,18 +373,12 @@ export const configRouter = router({
                 .map(field => field.key)
             );
 
-            // For each secret field, check if value is masked
+            // Preserve ALL secrets from disk (client never sends them)
             for (const fieldName of secretFields) {
-              const incomingValue = incomingProviderConfig[fieldName];
               const currentValue = currentProviderConfig[fieldName];
-
-              if (typeof incomingValue === 'string' && incomingValue.endsWith('***')) {
-                // Value is masked - preserve real value from disk
-                if (currentValue !== undefined) {
-                  mergedProviderConfig[fieldName] = currentValue;
-                }
+              if (currentValue !== undefined) {
+                mergedProviderConfig[fieldName] = currentValue;
               }
-              // else: new value provided, use it as-is
             }
           } catch (error) {
             // Provider not found - just use incoming config as-is

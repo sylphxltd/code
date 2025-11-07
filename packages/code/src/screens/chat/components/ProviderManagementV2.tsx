@@ -129,6 +129,12 @@ export function ProviderManagement({
           const initialValues: Record<string, string | number | boolean> = {};
 
           schema.forEach((field) => {
+            // Secret fields are never loaded from server (zero-knowledge)
+            // Skip initializing them - we'll check isConfigured status instead
+            if (field.secret) {
+              return;
+            }
+
             if (existingConfig[field.key] !== undefined) {
               initialValues[field.key] = existingConfig[field.key];
             } else if (field.type === 'boolean') {
@@ -257,6 +263,7 @@ export function ProviderManagement({
   // Step 3: Configure provider - render UI
   if (step === 'configure-provider' && selectedProvider) {
     const providerName = providerOptions.find((p) => p.value === selectedProvider)?.label || selectedProvider;
+    const isProviderConfigured = providerMetadata[selectedProvider]?.isConfigured || false;
 
     if (configSchema.length === 0) {
       return (
@@ -308,34 +315,59 @@ export function ProviderManagement({
                     <Text color={isSelected ? 'cyan' : 'gray'}>
                       [{value ? 'X' : ' '}] {value ? 'Enabled' : 'Disabled'}
                     </Text>
-                  ) : editingField && idx === currentFieldIndex ? (
-                    <TextInputWithHint
-                      value={tempStringValue}
-                      onChange={setTempStringValue}
-                      onSubmit={(val) => {
-                        const finalValue = field.type === 'number' ? Number(val) : val;
-                        setFormValues((prev) => ({
-                          ...prev,
-                          [field.key]: finalValue,
-                        }));
-                        setEditingField(false);
-                        setTempStringValue('');
-                      }}
-                      placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
-                      showCursor
-                      maxLines={1}
-                    />
+                  ) : field.secret ? (
+                    // SECRET FIELD: Never show value, only status
+                    editingField && idx === currentFieldIndex ? (
+                      <TextInputWithHint
+                        value={tempStringValue}
+                        onChange={setTempStringValue}
+                        onSubmit={(val) => {
+                          setFormValues((prev) => ({
+                            ...prev,
+                            [field.key]: val,
+                          }));
+                          setEditingField(false);
+                          setTempStringValue('');
+                        }}
+                        placeholder={field.placeholder || `Enter new ${field.label.toLowerCase()}...`}
+                        showCursor
+                        maxLines={1}
+                      />
+                    ) : (
+                      <Text color={isSelected ? 'cyan' : isProviderConfigured ? 'green' : 'gray'}>
+                        {isProviderConfigured
+                          ? '✓ Configured (press Enter to replace)'
+                          : '(not set - press Enter to configure)'}
+                      </Text>
+                    )
                   ) : (
-                    <Text color={isEmpty ? 'gray' : isSelected ? 'cyan' : 'white'}>
-                      {field.secret && value
-                        ? '••••••••' // Fixed 8 dots for secret fields
-                        : value
+                    // NON-SECRET FIELD: Normal display/edit
+                    editingField && idx === currentFieldIndex ? (
+                      <TextInputWithHint
+                        value={tempStringValue}
+                        onChange={setTempStringValue}
+                        onSubmit={(val) => {
+                          const finalValue = field.type === 'number' ? Number(val) : val;
+                          setFormValues((prev) => ({
+                            ...prev,
+                            [field.key]: finalValue,
+                          }));
+                          setEditingField(false);
+                          setTempStringValue('');
+                        }}
+                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
+                        showCursor
+                        maxLines={1}
+                      />
+                    ) : (
+                      <Text color={isEmpty ? 'gray' : isSelected ? 'cyan' : 'white'}>
+                        {value
                           ? String(value).length > 50
-                            ? String(value).substring(0, 47) + '...' // Truncate long values
+                            ? String(value).substring(0, 47) + '...'
                             : value
-                          : '(empty)'
-                      }
-                    </Text>
+                          : '(empty)'}
+                      </Text>
+                    )
                   )}
                 </Box>
               </Box>
