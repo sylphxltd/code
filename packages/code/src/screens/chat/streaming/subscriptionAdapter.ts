@@ -68,8 +68,6 @@ export interface SubscriptionAdapterParams {
 
   // State setters
   setIsStreaming: (value: boolean) => void;
-  setIsTitleStreaming: (value: boolean) => void;
-  setStreamingTitle: React.Dispatch<React.SetStateAction<string>>;
 }
 
 /**
@@ -225,8 +223,6 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
               currentSessionId: sessionId,
               updateSessionTitle,
               setIsStreaming,
-              setIsTitleStreaming,
-              setStreamingTitle,
               streamingMessageIdRef,
               usageRef,
               finishReasonRef,
@@ -334,8 +330,6 @@ function handleStreamEvent(
     currentSessionId: string | null;
     updateSessionTitle: (sessionId: string, title: string) => void;
     setIsStreaming: (value: boolean) => void;
-    setIsTitleStreaming: (value: boolean) => void;
-    setStreamingTitle: React.Dispatch<React.SetStateAction<string>>;
     streamingMessageIdRef: React.MutableRefObject<string | null>;
     usageRef: React.MutableRefObject<TokenUsage | null>;
     finishReasonRef: React.MutableRefObject<string | null>;
@@ -396,21 +390,8 @@ function handleStreamEvent(
       });
       break;
 
-    case 'session-title-start':
-      context.setIsTitleStreaming(true);
-      context.setStreamingTitle('');
-      break;
-
-    case 'session-title-delta':
-      context.setStreamingTitle((prev) => prev + event.text);
-      break;
-
-    case 'session-title-complete':
-      context.setIsTitleStreaming(false);
-      if (currentSessionId) {
-        context.updateSessionTitle(currentSessionId, event.title);
-      }
-      break;
+    // Title events removed - title generated in background on server
+    // Client will see updated title when reloading or switching sessions
 
     case 'assistant-message-created':
       // Backend created assistant message, store the ID

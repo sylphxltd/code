@@ -1,6 +1,6 @@
 /**
  * Streaming State Hook
- * Manages streaming flags, refs, and title generation state
+ * Manages streaming flags and refs
  */
 
 import { useRef, useState } from 'react';
@@ -9,10 +9,6 @@ import type { MessagePart as StreamPart, TokenUsage } from '@sylphx/code-core';
 export interface StreamingState {
   isStreaming: boolean;
   setIsStreaming: (streaming: boolean) => void;
-  isTitleStreaming: boolean;
-  setIsTitleStreaming: (streaming: boolean) => void;
-  streamingTitle: string;
-  setStreamingTitle: (title: string | ((prev: string) => string)) => void;
   abortControllerRef: React.MutableRefObject<AbortController | null>;
   lastErrorRef: React.MutableRefObject<string | null>;
   wasAbortedRef: React.MutableRefObject<boolean>;
@@ -25,8 +21,6 @@ export interface StreamingState {
 
 export function useStreamingState(): StreamingState {
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isTitleStreaming, setIsTitleStreaming] = useState(false);
-  const [streamingTitle, setStreamingTitle] = useState('');
 
   // Refs for streaming management
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -43,10 +37,6 @@ export function useStreamingState(): StreamingState {
   return {
     isStreaming,
     setIsStreaming,
-    isTitleStreaming,
-    setIsTitleStreaming,
-    streamingTitle,
-    setStreamingTitle,
     abortControllerRef,
     lastErrorRef,
     wasAbortedRef,

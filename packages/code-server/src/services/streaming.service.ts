@@ -497,22 +497,17 @@ Now generate the title:`,
 
               let fullTitle = '';
 
-              // Stream title chunks to UI in real-time
-              observer.next({ type: 'session-title-start' });
-
+              // Collect title chunks (no streaming to client - generate in background)
               for await (const chunk of titleStream) {
                 if (chunk.type === 'text-delta' && chunk.textDelta) {
                   fullTitle += chunk.textDelta;
-                  // Emit each chunk to UI for real-time updates
-                  observer.next({
-                    type: 'session-title-delta',
-                    text: chunk.textDelta
-                  });
                 }
               }
 
-              // Clean up and return final title
+              // Clean up and update database immediately
               const cleaned = cleanAITitle(fullTitle, 50);
+              await sessionRepository.updateSession(sessionId, { title: cleaned });
+
               return cleaned;
             } catch (error) {
               console.error('[Title Generation] Error:', error);
@@ -602,19 +597,15 @@ Now generate the title:`,
           finishReason: result.finishReason,
         });
 
-        // 13. Wait for title generation to complete (started in parallel earlier)
-        const finalTitle = await titlePromise;
-
-        if (finalTitle) {
-          // Update session title in database
-          await sessionRepository.updateSession(sessionId, { title: finalTitle });
-
-          // Emit title update event (observable still open)
-          observer.next({ type: 'session-title-complete', title: finalTitle });
-        }
-
-        // 14. Now complete observable
+        // 13. Complete observable immediately (don't wait for title)
+        // Title generation continues in background, updates database when done
+        // Client will see updated title when reloading session or switching sessions
         observer.complete();
+
+        // Let title promise finish in background, catch errors
+        titlePromise.catch((error) => {
+          console.error('[Title Generation] Background error:', error);
+        });
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);
         observer.next({
