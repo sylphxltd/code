@@ -130,6 +130,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           abortSignal,
         } = opts;
 
+        console.log('[streamAIResponse] Received content:', JSON.stringify(content));
+
         // 1. Ensure session exists (create if needed)
         let sessionId: string;
         let isNewSession: boolean;
@@ -496,6 +498,13 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         });
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);
+        console.error('[streamAIResponse] Error type:', error?.constructor?.name);
+        console.error('[streamAIResponse] Error message:', error instanceof Error ? error.message : String(error));
+        console.error('[streamAIResponse] Error stack:', error instanceof Error ? error.stack : 'N/A');
+        if (error && typeof error === 'object') {
+          console.error('[streamAIResponse] Error keys:', Object.keys(error));
+          console.error('[streamAIResponse] Error JSON:', JSON.stringify(error, null, 2));
+        }
         observer.next({
           type: 'error',
           error: error instanceof Error ? error.message : String(error),

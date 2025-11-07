@@ -527,6 +527,48 @@ export default function Chat(_props: ChatProps) {
     createCommandContext: createCommandContextForArgs,
   });
 
+  // File autocomplete handlers
+  const handleFileAutocompleteSelect = () => {
+    if (filteredFileInfo.files.length === 0) return;
+
+    const selectedFile = filteredFileInfo.files[selectedFileIndex];
+    if (!selectedFile) return;
+
+    // Add file to attachments
+    addAttachment({
+      path: selectedFile.path,
+      relativePath: selectedFile.relativePath,
+      size: selectedFile.size,
+    });
+
+    // Replace @query with @relativePath and space
+    const beforeAt = input.slice(0, filteredFileInfo.atIndex);
+    const afterQuery = input.slice(filteredFileInfo.atIndex + 1 + filteredFileInfo.query.length);
+    const newInput = `${beforeAt}@${selectedFile.relativePath} ${afterQuery}`;
+
+    setInput(newInput);
+    setCursor(filteredFileInfo.atIndex + 1 + selectedFile.relativePath.length + 1);
+    setSelectedFileIndex(0);
+  };
+
+  const handleFileAutocompleteTab = () => {
+    handleFileAutocompleteSelect();
+  };
+
+  const handleFileAutocompleteEnter = () => {
+    handleFileAutocompleteSelect();
+  };
+
+  const handleFileAutocompleteUpArrow = () => {
+    if (filteredFileInfo.files.length === 0) return;
+    setSelectedFileIndex((prev) => (prev === 0 ? filteredFileInfo.files.length - 1 : prev - 1));
+  };
+
+  const handleFileAutocompleteDownArrow = () => {
+    if (filteredFileInfo.files.length === 0) return;
+    setSelectedFileIndex((prev) => (prev === filteredFileInfo.files.length - 1 ? 0 : prev + 1));
+  };
+
   // Message history navigation hook (like bash)
   useMessageHistoryNavigation({
     isStreaming,
@@ -625,6 +667,10 @@ export default function Chat(_props: ChatProps) {
             onCommandAutocompleteEnter={handleCommandAutocompleteEnter}
             onCommandAutocompleteUpArrow={handleCommandAutocompleteUpArrow}
             onCommandAutocompleteDownArrow={handleCommandAutocompleteDownArrow}
+            onFileAutocompleteTab={handleFileAutocompleteTab}
+            onFileAutocompleteEnter={handleFileAutocompleteEnter}
+            onFileAutocompleteUpArrow={handleFileAutocompleteUpArrow}
+            onFileAutocompleteDownArrow={handleFileAutocompleteDownArrow}
             addMessage={addMessage}
             createCommandContext={createCommandContextForArgs}
             getAIConfig={getAIConfig}

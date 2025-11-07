@@ -40,6 +40,7 @@ export default function StatusBar({ provider, model, modelStatus, usedTokens = 0
   // Fetch model details from server
   const { details, loading } = useModelDetails(provider, model);
   const contextLength = details.contextLength;
+  const capabilities = details.capabilities;
   const tokenizerInfo = details.tokenizerInfo;
 
   const formatNumber = (num: number): string => {
@@ -73,6 +74,21 @@ export default function StatusBar({ provider, model, modelStatus, usedTokens = 0
     );
   }
 
+  // Format capabilities with emoji
+  let capabilityLabel = '';
+  if (!loading && capabilities && capabilities.size > 0) {
+    const caps: string[] = [];
+    if (capabilities.has('image-input')) caps.push('👁️');
+    if (capabilities.has('file-input')) caps.push('📎');
+    if (capabilities.has('image-output')) caps.push('🎨');
+    if (capabilities.has('tools')) caps.push('🔧');
+    if (capabilities.has('reasoning')) caps.push('🧠');
+
+    if (caps.length > 0) {
+      capabilityLabel = ` ${caps.join('')}`;
+    }
+  }
+
   return (
     <Box flexGrow={1} justifyContent="space-between" marginBottom={1}>
       {/* Left side: Agent, Rules, Provider and Model */}
@@ -85,6 +101,9 @@ export default function StatusBar({ provider, model, modelStatus, usedTokens = 0
           {model}
           {modelStatus === 'unavailable' && ' (unavailable)'}
         </Text>
+        {capabilityLabel && (
+          <Text dimColor>{capabilityLabel}</Text>
+        )}
       </Box>
 
       {/* Right side: Tokenizer and Context */}

@@ -8,7 +8,7 @@ import type { ProviderId } from '../types/provider.types.js';
 
 /**
  * Model capability types
- * Set-based to ensure uniqueness and semantic correctness
+ * Set-based for uniqueness and semantic correctness (serialized via superjson)
  *
  * Hierarchy:
  * - file-input: Universal file support (documents, images, videos, etc.)
@@ -30,6 +30,7 @@ export type ModelCapability =
 
 /**
  * Model capabilities as ReadonlySet for type safety and uniqueness
+ * Serialized/deserialized via superjson transformer
  * Examples:
  * - new Set(['tools', 'file-input', 'structured-output'])
  * - new Set(['image-output'])

@@ -1,13 +1,15 @@
 /**
  * useModelDetails Hook
- * Get model details including context length and tokenizer info
+ * Get model details including context length, capabilities, and tokenizer info
  */
 
 import { useEffect, useState } from 'react';
 import { useTRPCClient } from '../trpc-provider.js';
+import type { ModelCapabilities } from '@sylphx/code-core';
 
 interface ModelDetails {
   contextLength: number | null;
+  capabilities: ModelCapabilities | null;
   tokenizerInfo: {
     modelName: string;
     tokenizerName: string;
@@ -29,6 +31,7 @@ export function useModelDetails(providerId: string | null, modelId: string | nul
   const trpc = useTRPCClient();
   const [details, setDetails] = useState<ModelDetails>({
     contextLength: null,
+    capabilities: null,
     tokenizerInfo: null,
   });
   const [loading, setLoading] = useState(false);
@@ -36,7 +39,7 @@ export function useModelDetails(providerId: string | null, modelId: string | nul
 
   useEffect(() => {
     if (!providerId || !modelId) {
-      setDetails({ contextLength: null, tokenizerInfo: null });
+      setDetails({ contextLength: null, capabilities: null, tokenizerInfo: null });
       setLoading(false);
       setError(null);
       return;
@@ -61,8 +64,14 @@ export function useModelDetails(providerId: string | null, modelId: string | nul
               ? detailsResult.details.contextLength || null
               : null;
 
+          const capabilities =
+            detailsResult.success && detailsResult.details
+              ? detailsResult.details.capabilities || null
+              : null;
+
           setDetails({
             contextLength,
+            capabilities,
             tokenizerInfo: tokInfo,
           });
         }

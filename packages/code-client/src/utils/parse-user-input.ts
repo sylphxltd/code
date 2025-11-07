@@ -48,6 +48,17 @@ export function parseUserInput(
 ): ParsedUserInput {
   const parts: ParsedContentPart[] = [];
 
+  // Validate input
+  if (typeof input !== 'string') {
+    console.error('[parseUserInput] Invalid input type:', typeof input);
+    return { parts: [] };
+  }
+
+  if (!Array.isArray(pendingAttachments)) {
+    console.error('[parseUserInput] Invalid attachments type:', typeof pendingAttachments);
+    return { parts: [{ type: 'text', content: input }] };
+  }
+
   // Create map for fast lookup
   const attachmentMap = new Map(
     pendingAttachments.map((a) => [a.relativePath, a])
@@ -102,6 +113,13 @@ export function parseUserInput(
   if (parts.length === 0 && input.length > 0) {
     // Input was only whitespace or invalid @refs
     parts.push({ type: 'text', content: input });
+  }
+
+  // Handle completely empty input - return at least one empty text part
+  // This prevents validation errors downstream
+  if (parts.length === 0) {
+    console.error('[parseUserInput] Input resulted in empty parts array, adding empty text part');
+    parts.push({ type: 'text', content: '' });
   }
 
   return { parts };

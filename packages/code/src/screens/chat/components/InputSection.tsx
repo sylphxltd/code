@@ -29,6 +29,10 @@ interface InputSectionProps {
   onCommandAutocompleteEnter?: () => void;
   onCommandAutocompleteUpArrow?: () => void;
   onCommandAutocompleteDownArrow?: () => void;
+  onFileAutocompleteTab?: () => void;
+  onFileAutocompleteEnter?: () => void;
+  onFileAutocompleteUpArrow?: () => void;
+  onFileAutocompleteDownArrow?: () => void;
 
   // Selection mode
   pendingInput: WaitForInputOptions | null;
@@ -97,6 +101,10 @@ export function InputSection({
   onCommandAutocompleteEnter,
   onCommandAutocompleteUpArrow,
   onCommandAutocompleteDownArrow,
+  onFileAutocompleteTab,
+  onFileAutocompleteEnter,
+  onFileAutocompleteUpArrow,
+  onFileAutocompleteDownArrow,
   pendingInput,
   multiSelectionPage,
   multiSelectionAnswers,
@@ -258,26 +266,38 @@ export function InputSection({
                 filteredFileInfo.hasAt || (input.startsWith('/') && filteredCommands.length > 0)
               }
               onTab={
-                // When command autocomplete is active, handle Tab via callback
-                input.startsWith('/') && filteredCommands.length > 0
+                // When file autocomplete is active, handle Tab
+                filteredFileInfo.hasAt
+                  ? onFileAutocompleteTab
+                  : // When command autocomplete is active, handle Tab via callback
+                  input.startsWith('/') && filteredCommands.length > 0
                   ? onCommandAutocompleteTab
                   : undefined
               }
               onEnter={
-                // When command autocomplete is active, handle Enter via callback
-                input.startsWith('/') && filteredCommands.length > 0
+                // When file autocomplete is active, handle Enter
+                filteredFileInfo.hasAt
+                  ? onFileAutocompleteEnter
+                  : // When command autocomplete is active, handle Enter via callback
+                  input.startsWith('/') && filteredCommands.length > 0
                   ? onCommandAutocompleteEnter
                   : undefined
               }
               onUpArrow={
-                // When command autocomplete is active, handle Up Arrow via callback
-                input.startsWith('/') && filteredCommands.length > 0
+                // When file autocomplete is active, handle Up Arrow
+                filteredFileInfo.hasAt
+                  ? onFileAutocompleteUpArrow
+                  : // When command autocomplete is active, handle Up Arrow via callback
+                  input.startsWith('/') && filteredCommands.length > 0
                   ? onCommandAutocompleteUpArrow
                   : undefined
               }
               onDownArrow={
-                // When command autocomplete is active, handle Down Arrow via callback
-                input.startsWith('/') && filteredCommands.length > 0
+                // When file autocomplete is active, handle Down Arrow
+                filteredFileInfo.hasAt
+                  ? onFileAutocompleteDownArrow
+                  : // When command autocomplete is active, handle Down Arrow via callback
+                  input.startsWith('/') && filteredCommands.length > 0
                   ? onCommandAutocompleteDownArrow
                   : undefined
               }

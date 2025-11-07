@@ -5,6 +5,7 @@
  */
 
 import { initTRPC, TRPCError } from '@trpc/server';
+import superjson from 'superjson';
 import type { Context, UserRole } from './context.js';
 import {
   strictRateLimiter,
@@ -14,9 +15,10 @@ import {
   type RateLimiter,
 } from '../services/rate-limiter.service.js';
 
-// Initialize tRPC with context and SSE support for subscriptions
+// Initialize tRPC with context, SSE support, and superjson transformer
 const t = initTRPC.context<Context>().create({
   sse: true, // Enable Server-Sent Events for subscriptions over HTTP
+  transformer: superjson, // Support Set, Map, Date, etc.
 });
 
 /**

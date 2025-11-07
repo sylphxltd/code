@@ -4,7 +4,7 @@
  * Content parts based design - own type system with proper conversion
  */
 
-import { streamText, type AssistantContent, type ModelMessage } from 'ai';
+import { streamText, TextPart, UserContent, type AssistantContent, type ModelMessage } from 'ai';
 import type { LanguageModelV2, LanguageModelV2ToolResultOutput } from '@ai-sdk/provider';
 import * as os from 'node:os';
 import { getAISDKTools } from '../tools/index.js';
@@ -372,12 +372,15 @@ function normalizeMessage(message: ModelMessage): ModelMessage {
   const content = message.content;
   if (typeof content === 'string') {
     // Legacy string format → convert to TextPart array
-    message.content =  [
-      {
-        type: 'text',
-        text: content,
-      },
-    ];
+    return {
+      ...message,
+      content: [
+        {
+          type: 'text' as const,
+          text: content,
+        },
+      ],
+    } as ModelMessage;
   }
 
   // Already array format (or other object)

@@ -38,8 +38,9 @@ export function buildModelMessages(
 function buildUserMessage(msg: Message, modelCapabilities?: ModelCapabilities): ModelMessage {
   const contentParts: UserContent = [];
 
-  // Check if model supports file input
-  const supportsFileInput = modelCapabilities?.has('file-input') || modelCapabilities?.has('image-input') || false;
+  // Check model capabilities
+  const supportsFileInput = modelCapabilities?.has('file-input') || false;
+  const supportsImageInput = modelCapabilities?.has('image-input') || false;
 
   // Inject system status from metadata
   if (msg.metadata) {
@@ -68,17 +69,21 @@ function buildUserMessage(msg: Message, modelCapabilities?: ModelCapabilities): 
         } else if (part.type === 'file') {
           // File content is frozen in database as base64
           const buffer = Buffer.from(part.base64, 'base64');
+          const isImage = part.mediaType.startsWith('image/');
 
-          if (supportsFileInput) {
-            // Model supports file input - send as FilePart
+          // Determine if we can send as FilePart
+          const canSendAsFile = supportsFileInput || (isImage && supportsImageInput);
+
+          if (canSendAsFile) {
+            // Model supports this file type - send as FilePart
             contentParts.push({
               type: 'file',
               data: buffer,
-              mimeType: part.mediaType,
+              mediaType: part.mediaType,
               filename: part.relativePath,
             });
           } else {
-            // Model doesn't support file input - convert to XML text
+            // Model doesn't support this file type - convert to XML text
             if (part.mediaType.startsWith('text/') || part.mediaType === 'application/json') {
               // Text file - include content
               const text = buffer.toString('utf-8');

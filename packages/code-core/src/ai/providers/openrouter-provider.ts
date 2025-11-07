@@ -61,6 +61,11 @@ export class OpenRouterProvider implements AIProvider {
       capabilities.add('image-input');
     }
 
+    // API tells us if model accepts file input (PDFs, documents, etc.)
+    if (inputModalities.includes('file')) {
+      capabilities.add('file-input');
+    }
+
     // API tells us if model can generate images
     if (outputModalities.includes('image')) {
       capabilities.add('image-output');

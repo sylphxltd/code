@@ -550,7 +550,7 @@ export const configRouter = router({
     }),
 
   /**
-   * Get model details (context length, pricing, etc.)
+   * Get model details (context length, pricing, capabilities, etc.)
    * SECURITY: No API keys needed - uses hardcoded metadata
    */
   getModelDetails: publicProcedure
@@ -558,13 +558,24 @@ export const configRouter = router({
       z.object({
         providerId: z.enum(['anthropic', 'openai', 'google', 'openrouter', 'claude-code', 'zai']),
         modelId: z.string(),
+        cwd: z.string().default(process.cwd()),
       })
     )
     .query(async ({ input }) => {
       try {
         const provider = getProvider(input.providerId);
+
+        // Get model details and capabilities
         const details = await provider.getModelDetails(input.modelId);
-        return { success: true as const, details };
+        const capabilities = provider.getModelCapabilities(input.modelId);
+
+        return {
+          success: true as const,
+          details: {
+            ...details,
+            capabilities,
+          },
+        };
       } catch (error) {
         return {
           success: false as const,

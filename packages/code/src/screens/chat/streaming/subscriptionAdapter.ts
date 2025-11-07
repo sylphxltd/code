@@ -164,6 +164,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       // Parse user input into ordered content parts
       const { parts: content } = parseUserInput(userMessage, attachments || []);
 
+      logSession('Parsed content:', JSON.stringify(content, null, 2));
       logSession('Calling streamResponse subscription', {
         sessionId,
         hasProvider: !!provider,

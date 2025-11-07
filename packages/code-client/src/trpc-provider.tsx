@@ -5,6 +5,7 @@
 
 import { createContext, useContext, type ReactNode } from 'react';
 import { createTRPCProxyClient } from '@trpc/client';
+import superjson from 'superjson';
 import { inProcessLink, type InProcessLinkOptions } from './trpc-links/index.js';
 import type { AppRouter } from '@sylphx/code-server';
 
@@ -63,6 +64,7 @@ export function createInProcessClient(
 ): TypedTRPCClient {
   return createTRPCProxyClient<AppRouter>({
     links: [inProcessLink(options)],
+    transformer: superjson,
   });
 }
 
@@ -90,6 +92,7 @@ export function createHTTPClient(serverUrl: string): TypedTRPCClient {
         }),
       }),
     ],
+    transformer: superjson,
   });
 }
 

@@ -5,11 +5,13 @@
 
 import { useEffect, useState } from 'react';
 import { useTRPCClient } from '../trpc-provider.js';
+import type { ModelCapabilities } from '@sylphx/code-core';
 
 interface ModelInfo {
   id: string;
   name: string;
   contextLength?: number;
+  capabilities?: ModelCapabilities;
 }
 
 /**

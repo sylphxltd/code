@@ -175,10 +175,25 @@ export default function ModelSelection() {
         m.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const items: MenuItem[] = filteredModels.slice(0, 20).map((model) => ({
-      label: model.name !== model.id ? `${model.name} (${model.id})` : model.id,
-      value: model.id,
-    }));
+    const items: MenuItem[] = filteredModels.slice(0, 20).map((model) => {
+      // Format capabilities with emoji
+      const caps: string[] = [];
+      if (model.capabilities && model.capabilities.size > 0) {
+        if (model.capabilities.has('image-input')) caps.push('👁️');
+        if (model.capabilities.has('file-input')) caps.push('📎');
+        if (model.capabilities.has('image-output')) caps.push('🎨');
+        if (model.capabilities.has('tools')) caps.push('🔧');
+        if (model.capabilities.has('reasoning')) caps.push('🧠');
+      }
+      const capsLabel = caps.length > 0 ? ` ${caps.join('')}` : '';
+
+      const nameLabel = model.name !== model.id ? `${model.name} (${model.id})` : model.id;
+
+      return {
+        label: `${nameLabel}${capsLabel}`,
+        value: model.id,
+      };
+    });
 
     const handleSelect = async (item: MenuItem) => {
       if (!selectedProvider) return;
@@ -249,8 +264,13 @@ export default function ModelSelection() {
           )}
         </Box>
 
-        <Box flexShrink={0} paddingTop={1}>
-          <Text dimColor>↑↓ Navigate · Type Search · Enter Select · Esc Cancel</Text>
+        <Box flexShrink={0} paddingTop={1} flexDirection="column">
+          <Box marginBottom={1}>
+            <Text dimColor>👁️=Vision 📎=Files 🎨=Image Gen 🔧=Tools 🧠=Reasoning</Text>
+          </Box>
+          <Box>
+            <Text dimColor>↑↓ Navigate · Type Search · Enter Select · Esc Cancel</Text>
+          </Box>
         </Box>
       </Box>
     );
