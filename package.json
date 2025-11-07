@@ -63,7 +63,7 @@
     "@jescalan/ink-markdown": "^2.0.0",
     "@libsql/client": "^0.15.15",
     "@modelcontextprotocol/sdk": "^1.21.0",
-    "@openrouter/ai-sdk-provider": "^1.2.0",
+    "@openrouter/ai-sdk-provider": "^1.2.1",
     "@trpc/client": "^11.7.1",
     "@trpc/server": "^11.7.1",
     "ai": "^5.0.88",

@@ -3,7 +3,7 @@
  * Uses OpenAI-compatible API
  */
 
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { openrouter } from '@openrouter/ai-sdk-provider';
 import type { LanguageModelV1 } from 'ai';
 import type { AIProvider, ProviderModelDetails, ConfigField, ProviderConfig, ModelInfo, ModelCapability, ModelCapabilities } from './base-provider.js';
 import { hasRequiredFields } from './base-provider.js';
@@ -237,32 +237,24 @@ export class OpenRouterProvider implements AIProvider {
     const capabilities = this.getModelCapabilities(modelId);
     const supportsImageGeneration = capabilities.has('image-output');
 
-    // Create OpenAI-compatible client with custom fetch for image generation
-    const openrouter = createOpenAICompatible({
-      baseURL: 'https://openrouter.ai/api/v1',
+    // Use official OpenRouter provider
+    // For image generation models, pass modalities via extraBody
+    const model = openrouter(modelId, {
       apiKey,
-      name: 'openrouter',
-      // Use custom fetch to inject modalities for image generation models
-      fetch: supportsImageGeneration
-        ? async (url, options) => {
-            const body = options?.body ? JSON.parse(options.body as string) : {};
-            const modifiedBody = {
-              ...body,
+      ...(supportsImageGeneration
+        ? {
+            extraBody: {
               modalities: ['image', 'text'],
               image_config: {
                 aspect_ratio: '16:9',
               },
-            };
-            console.log('[OpenRouter] Image generation request with modalities:', modifiedBody.modalities);
-            // Return response directly - streaming responses cannot be parsed as JSON
-            return fetch(url, {
-              ...options,
-              body: JSON.stringify(modifiedBody),
-            });
+            },
           }
-        : undefined,
+        : {}),
     });
 
-    return openrouter(modelId);
+    console.log('[OpenRouter] Created client for:', modelId, 'with capabilities:', Array.from(capabilities));
+
+    return model;
   }
 }
