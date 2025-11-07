@@ -89,7 +89,14 @@ interface CreateLoggerOptions {
 /**
  * Create a logger instance with the specified configuration and context
  */
-export function createLogger(options: Partial<LoggerConfig> | CreateLoggerOptions = {}): Logger {
+export function createLogger(
+  options: string | Partial<LoggerConfig> | CreateLoggerOptions = {}
+): Logger {
+  // Handle string argument (module name)
+  if (typeof options === 'string') {
+    options = { module: options };
+  }
+
   // Handle both old style (config object) and new style (options with config and context)
   const isOptionsStyle = 'config' in options || 'context' in options;
   const config = isOptionsStyle
