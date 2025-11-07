@@ -1,8 +1,9 @@
 /**
  * OpenRouter Provider
+ * Uses OpenAI-compatible API
  */
 
-import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModelV1 } from 'ai';
 import type { AIProvider, ProviderModelDetails, ConfigField, ProviderConfig, ModelInfo } from './base-provider.js';
 import { hasRequiredFields } from './base-provider.js';
@@ -118,7 +119,13 @@ export class OpenRouterProvider implements AIProvider {
 
   createClient(config: ProviderConfig, modelId: string): LanguageModelV1 {
     const apiKey = config.apiKey as string;
-    const openrouter = createOpenRouter({ apiKey });
+
+    // Create OpenAI-compatible client for OpenRouter
+    const openrouter = createOpenAICompatible({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey,
+      name: 'openrouter',
+    });
 
     // Check if model supports image generation
     // ASSUMPTION: Models with 'image' in name support image generation via modalities
