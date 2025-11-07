@@ -533,6 +533,12 @@ export default function Chat(_props: ChatProps) {
       // Let CommandAutocomplete or PendingCommandSelection handle navigation
       const hasAutocomplete = filteredCommands.length > 0 || (filteredFileInfo && filteredFileInfo.files.length > 0);
 
+      // If autocomplete is active, don't handle ANY keys (let useKeyboardNavigation handle)
+      if (hasAutocomplete && (key.upArrow || key.downArrow || key.tab || key.return)) {
+        console.log('[Chat.useInput] Early return: autocomplete active, key:', Object.keys(key).filter(k => key[k as keyof typeof key]));
+        return; // Let useKeyboardNavigation handle all navigation when autocomplete is active
+      }
+
       // Up arrow - navigate to previous message in history
       if (key.upArrow) {
         // Skip if autocomplete is showing - let autocomplete handle navigation
