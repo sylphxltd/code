@@ -130,7 +130,7 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
       return (
         <Box flexDirection="column" marginLeft={2} marginBottom={1}>
           <Text dimColor>Image ({part.mediaType}):</Text>
-          <Picture src={tempPath} alt="Generated image" />
+          <Picture src={tempPath} alt="Generated image" width={120} height={40} />
         </Box>
       );
     } else {

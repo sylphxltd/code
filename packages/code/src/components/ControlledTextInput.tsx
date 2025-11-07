@@ -61,6 +61,28 @@ function ControlledTextInput({
   // Memoize input handler to prevent recreating on every render
   const handleInput = useCallback(
     (input: string, key: any) => {
+      // Filter out terminal escape sequences (e.g., terminal capability responses)
+      // These can appear mixed with user input: "g[4;927;1707tenerate"
+      // Strip escape sequences from input before processing
+      if (input) {
+        // Remove CSI sequences: [ followed by digits/semicolons and letter
+        const cleanedInput = input.replace(/\[\d+[;\d]*[a-zA-Z]/g, '');
+
+        // If entire input was escape sequence, ignore it
+        if (cleanedInput !== input) {
+          if (cleanedInput.length === 0) {
+            return; // Ignore pure escape sequence input
+          }
+          // Use cleaned input instead
+          input = cleanedInput;
+        }
+
+        // Ignore pure control characters
+        if (/^[\x00-\x1f\x7f-\x9f]+$/.test(input)) {
+          return;
+        }
+      }
+
       // DEBUG: Log all key presses to understand Mac delete behavior
       if (process.env.DEBUG_INPUT) {
         console.log('[INPUT]', {
