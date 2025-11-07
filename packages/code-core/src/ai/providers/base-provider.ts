@@ -9,20 +9,31 @@ import type { ProviderId } from '../types/provider.types.js';
 /**
  * Model capability types
  * Set-based to ensure uniqueness and semantic correctness
+ *
+ * Hierarchy:
+ * - file-input: Universal file support (documents, images, videos, etc.)
+ * - image-input: Subset of file-input (image understanding/vision)
+ * - file-output: Universal file generation
+ * - image-output: Subset of file-output (image generation)
+ *
+ * Note: image-* capabilities are kept separate for backward compatibility
+ * and because image support is often explicitly advertised by providers.
  */
 export type ModelCapability =
   | 'tools'              // Native tool/function calling
-  | 'image-input'        // Image understanding (vision)
-  | 'image-output'       // Image generation
+  | 'file-input'         // File input support (any file type)
+  | 'file-output'        // File generation (any file type)
+  | 'image-input'        // Image understanding (vision) - implies file-input for images
+  | 'image-output'       // Image generation - implies file-output for images
   | 'reasoning'          // Extended thinking/reasoning
   | 'structured-output'; // JSON schema support
 
 /**
  * Model capabilities as ReadonlySet for type safety and uniqueness
  * Examples:
- * - new Set(['tools', 'image-input', 'structured-output'])
+ * - new Set(['tools', 'file-input', 'structured-output'])
  * - new Set(['image-output'])
- * - new Set(['tools', 'reasoning'])
+ * - new Set(['tools', 'reasoning', 'file-input'])
  */
 export type ModelCapabilities = ReadonlySet<ModelCapability>;
 

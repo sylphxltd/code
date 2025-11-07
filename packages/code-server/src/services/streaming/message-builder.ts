@@ -22,7 +22,7 @@ export async function buildModelMessages(
   return Promise.all(
     messages.map(async (msg) => {
       if (msg.role === 'user') {
-        return buildUserMessage(msg);
+        return buildUserMessage(msg, modelCapabilities);
       } else {
         return buildAssistantMessage(msg, modelCapabilities);
       }
@@ -33,8 +33,11 @@ export async function buildModelMessages(
 /**
  * Build user message with system status, todo context, and attachments
  */
-async function buildUserMessage(msg: Message): Promise<ModelMessage> {
+async function buildUserMessage(msg: Message, modelCapabilities?: ModelCapabilities): Promise<ModelMessage> {
   const contentParts: UserContent = [];
+
+  // Check if model supports file input
+  const supportsFileInput = modelCapabilities?.has('file-input') || modelCapabilities?.has('image-input') || false;
 
   // Inject system status from metadata
   if (msg.metadata) {
@@ -76,14 +79,31 @@ async function buildUserMessage(msg: Message): Promise<ModelMessage> {
     for (const attachment of msg.attachments) {
       const fs = await import('node:fs/promises');
       try {
-        const content = await fs.readFile(attachment.path, 'utf-8');
-        contentParts.push({
-          type: 'file',
-          data: content,
-          mimeType: 'text/plain',
-        });
+        if (supportsFileInput) {
+          // Model supports file input: send as file part
+          const content = await fs.readFile(attachment.path);
+          const mimeType = attachment.mimeType || 'application/octet-stream';
+          contentParts.push({
+            type: 'file',
+            data: content,
+            mimeType,
+            filename: attachment.relativePath,
+          });
+        } else {
+          // Model doesn't support file input: send as text with XML structure
+          const content = await fs.readFile(attachment.path, 'utf-8');
+          contentParts.push({
+            type: 'text',
+            text: `<file path="${attachment.path}">\n${content}\n</file>`,
+          });
+        }
       } catch (error) {
         console.error(`Failed to read attachment: ${attachment.path}`, error);
+        // Still include reference even if read failed
+        contentParts.push({
+          type: 'text',
+          text: `<file path="${attachment.path}" error="Failed to read file"></file>`,
+        });
       }
     }
   }
