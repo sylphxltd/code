@@ -26,14 +26,11 @@ export function useCommandAutocomplete(
   commands: Command[]
 ): Command[] {
   return useMemo(() => {
-    console.log('[commandAutocomplete] input:', JSON.stringify(input), 'cursor:', cursor, 'commands.length:', commands.length);
-
     if (!input.startsWith('/')) return [];
 
     // Only trigger if cursor is AFTER the / symbol
     // This prevents autocomplete when cursor is before / (e.g., |/ should not trigger)
     if (cursor === 0) {
-      console.log('[commandAutocomplete] cursor is 0, returning empty');
       return [];
     }
 
@@ -102,7 +99,6 @@ export function useCommandAutocomplete(
 
     // Return label matches first, then description matches
     const result = [...labelMatches, ...descriptionMatches];
-    console.log('[commandAutocomplete] query:', query, 'result.length:', result.length, 'results:', result.map(c => c.label));
     return result;
   }, [input, cursor, cachedOptions, createCommandContext, commands]); // Recompute when input, cursor or cached options change
 }

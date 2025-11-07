@@ -89,25 +89,14 @@ export function useMessageHistoryNavigation(options: UseMessageHistoryNavigation
   // IMPORTANT: Only handle up/down arrows here, let ControlledTextInput handle Enter
   useInput(
     (char, key) => {
-      console.log('[Chat.useInput] Key pressed:', {
-        char: JSON.stringify(char),
-        keys: Object.keys(key).filter((k) => key[k as keyof typeof key]),
-        inputComponent: !!inputComponent,
-        pendingInput: !!pendingInput,
-        pendingCommand: !!pendingCommand,
-        filteredCommandsLength: filteredCommands.length,
-      });
-
       // inputComponent has its own keyboard handling (e.g. ProviderManagement)
       // Don't interfere with it
       if (inputComponent) {
-        console.log('[Chat.useInput] Early return: inputComponent');
         return;
       }
 
       const isNormalMode = !pendingInput && !pendingCommand;
       if (!isNormalMode) {
-        console.log('[Chat.useInput] Early return: not normal mode');
         return;
       }
 
