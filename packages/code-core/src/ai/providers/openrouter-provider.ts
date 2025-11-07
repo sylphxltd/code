@@ -16,38 +16,55 @@ export class OpenRouterProvider implements AIProvider {
   readonly description = 'Access multiple AI providers';
 
   /**
-   * Helper: Infer model capabilities from model ID
-   * ASSUMPTION: Capabilities inferred from model naming patterns
-   * This is called during model creation to determine features like image generation
+   * Cache for model capabilities from OpenRouter API
+   * Maps modelId -> capabilities parsed from API response
    */
-  private inferCapabilities(modelId: string): ModelCapabilities {
-    const modelIdLower = modelId.toLowerCase();
+  private modelCapabilitiesCache = new Map<string, ModelCapabilities>();
+
+  /**
+   * Parse capabilities from OpenRouter API response
+   * Uses ONLY actual API data - no hardcoded model name patterns
+   */
+  private parseCapabilitiesFromAPI(model: {
+    id: string;
+    supported_parameters?: string[];
+    architecture?: {
+      modality?: string;
+      input_modalities?: string[];
+      output_modalities?: string[];
+    };
+  }): ModelCapabilities {
+    const supportedParams = model.supported_parameters || [];
+    const inputModalities = model.architecture?.input_modalities || [];
+    const outputModalities = model.architecture?.output_modalities || [];
 
     return {
-      // Most modern models support tools (except some legacy models)
-      supportsTools: !modelIdLower.includes('gpt-3.5-turbo-instruct'),
-      // Vision models: gpt-4o, gpt-4-turbo, gemini-*-vision, claude-3
-      supportsImageInput:
-        modelIdLower.includes('vision') ||
-        modelIdLower.includes('gpt-4o') ||
-        modelIdLower.includes('gpt-4-turbo') ||
-        (modelIdLower.includes('gemini') && modelIdLower.includes('pro')) ||
-        modelIdLower.includes('claude-3') ||
-        modelIdLower.includes('claude-3.5'),
-      // Image generation models
-      supportsImageOutput: modelIdLower.includes('image'),
-      // Reasoning models: o1, o3, deepseek-r1, qwq
-      supportsReasoning:
-        modelIdLower.includes('o1') ||
-        modelIdLower.includes('o3') ||
-        modelIdLower.includes('deepseek-r1') ||
-        modelIdLower.includes('qwq'),
-      // Structured output: GPT-4+, Claude 3+, Gemini 1.5+
-      supportsStructuredOutput:
-        modelIdLower.includes('gpt-4') ||
-        modelIdLower.includes('claude-3') ||
-        modelIdLower.includes('gemini-1.5') ||
-        modelIdLower.includes('gemini-2'),
+      // API explicitly tells us if model supports tools
+      supportsTools: supportedParams.includes('tools'),
+      // API tells us if model accepts image input
+      supportsImageInput: inputModalities.includes('image'),
+      // API tells us if model can generate images
+      supportsImageOutput: outputModalities.includes('image'),
+      // API doesn't provide reasoning info - default to false
+      // Models with extended thinking should set this via supported_parameters if OpenRouter adds it
+      supportsReasoning: false,
+      // API tells us if model supports structured outputs
+      supportsStructuredOutput: supportedParams.includes('structured_outputs') ||
+        supportedParams.includes('response_format'),
+    };
+  }
+
+  /**
+   * Default capabilities when API data is not available
+   * Returns conservative defaults (all false) - user must call fetchModels first
+   */
+  private getDefaultCapabilities(): ModelCapabilities {
+    return {
+      supportsTools: false,
+      supportsImageInput: false,
+      supportsImageOutput: false,
+      supportsReasoning: false,
+      supportsStructuredOutput: false,
     };
   }
 
@@ -70,7 +87,15 @@ export class OpenRouterProvider implements AIProvider {
   }
 
   getModelCapabilities(modelId: string): ModelCapabilities {
-    return this.inferCapabilities(modelId);
+    // Use cached capabilities from API if available (accurate)
+    const cached = this.modelCapabilitiesCache.get(modelId);
+    if (cached) {
+      return cached;
+    }
+
+    // Return conservative defaults if cache miss
+    // User must call fetchModels to populate cache with real API data
+    return this.getDefaultCapabilities();
   }
 
   async fetchModels(config: ProviderConfig): Promise<ModelInfo[]> {
@@ -91,6 +116,12 @@ export class OpenRouterProvider implements AIProvider {
           id: string;
           name: string;
           context_length?: number;
+          supported_parameters?: string[];
+          architecture?: {
+            modality?: string;
+            input_modalities?: string[];
+            output_modalities?: string[];
+          };
           pricing?: {
             prompt: string;
             completion: string;
@@ -98,11 +129,19 @@ export class OpenRouterProvider implements AIProvider {
         }>;
       };
 
-      return data.data.map((model) => ({
-        id: model.id,
-        name: model.name || model.id,
-        capabilities: this.inferCapabilities(model.id),
-      }));
+      return data.data.map((model) => {
+        // Parse capabilities from API response (use actual data, not guessing)
+        const capabilities = this.parseCapabilitiesFromAPI(model);
+
+        // Store in cache for getModelCapabilities to use
+        this.modelCapabilitiesCache.set(model.id, capabilities);
+
+        return {
+          id: model.id,
+          name: model.name || model.id,
+          capabilities,
+        };
+      });
     }, 2);
   }
 
