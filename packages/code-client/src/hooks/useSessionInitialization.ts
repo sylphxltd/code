@@ -32,24 +32,23 @@ export function useSessionInitialization({
     async function initializeSession() {
       if (!aiConfig?.defaultProvider) return;
 
-      // IMPORTANT: Always fetch models to populate provider capabilities cache
-      // This ensures image generation and other capabilities are detected correctly
-      let model: string | undefined;
-      try {
-        const result = await trpc.config.fetchModels.query({
-          providerId: aiConfig.defaultProvider,
-        });
-        if (result.success && result.models.length > 0) {
-          // Use configured default model if available, otherwise use first from API
-          const providerConfig = aiConfig.providers?.[aiConfig.defaultProvider];
-          const configuredModel = providerConfig?.defaultModel as string | undefined;
-          model = configuredModel || result.models[0].id;
+      // Get provider's default model (last used)
+      const providerConfig = aiConfig.providers?.[aiConfig.defaultProvider];
+      let model = providerConfig?.defaultModel as string | undefined;
+
+      // If no default model, fetch first available from server
+      if (!model) {
+        try {
+          const result = await trpc.config.fetchModels.query({
+            providerId: aiConfig.defaultProvider,
+          });
+          if (result.success && result.models.length > 0) {
+            model = result.models[0].id;
+          }
+        } catch (err) {
+          console.error('Failed to fetch default model:', err);
+          return;
         }
-      } catch (err) {
-        console.error('Failed to fetch models:', err);
-        // Fallback to configured model if fetch fails
-        const providerConfig = aiConfig.providers?.[aiConfig.defaultProvider];
-        model = providerConfig?.defaultModel as string | undefined;
       }
 
       if (model) {
