@@ -42,38 +42,7 @@ import type {
 } from '../types/session.types.js';
 import type { Todo as TodoType } from '../types/todo.types.js';
 import type { ProviderId } from '../config/ai-config.js';
-
-/**
- * Retry helper for handling SQLITE_BUSY errors
- * Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
- */
-async function retryOnBusy<T>(
-  operation: () => Promise<T>,
-  maxRetries = 5
-): Promise<T> {
-  let lastError: any;
-
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await operation();
-    } catch (error: any) {
-      lastError = error;
-
-      // Only retry on SQLITE_BUSY errors
-      if (error.message?.includes('SQLITE_BUSY') || error.code === 'SQLITE_BUSY') {
-        const delay = 50 * Math.pow(2, attempt);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        continue;
-      }
-
-      // Other errors: throw immediately
-      throw error;
-    }
-  }
-
-  // Max retries exceeded
-  throw lastError;
-}
+import { retryDatabase } from '../utils/retry.js';
 
 export class SessionRepository {
   constructor(private db: LibSQLDatabase) {}
@@ -131,7 +100,7 @@ export class SessionRepository {
     created: number;
     updated: number;
   }): Promise<void> {
-    await retryOnBusy(async () => {
+    await retryDatabase(async () => {
       const newSession: NewSession = {
         id: sessionData.id,
         title: sessionData.title || null,
@@ -553,7 +522,7 @@ export class SessionRepository {
       status,
     } = options;
 
-    return await retryOnBusy(async () => {
+    return await retryDatabase(async () => {
       const messageId = randomUUID();
       const stepId = `${messageId}-step-0`;
       const now = Date.now();
@@ -726,7 +695,7 @@ export class SessionRepository {
    * - New: Updates parts for specific step (more granular)
    */
   async updateStepParts(stepId: string, parts: MessagePart[]): Promise<void> {
-    await retryOnBusy(async () => {
+    await retryDatabase(async () => {
       await this.db.transaction(async (tx) => {
         // Delete existing parts for this step
         await tx.delete(stepParts).where(eq(stepParts.stepId, stepId));
@@ -762,7 +731,7 @@ export class SessionRepository {
     status: 'active' | 'completed' | 'error' | 'abort',
     finishReason?: string
   ): Promise<void> {
-    await retryOnBusy(async () => {
+    await retryDatabase(async () => {
       // Only update finishReason if explicitly provided
       const updates: {
         status: 'active' | 'completed' | 'error' | 'abort';
@@ -785,7 +754,7 @@ export class SessionRepository {
    * Inserts or replaces usage data for a message
    */
   async updateMessageUsage(messageId: string, usage: TokenUsage): Promise<void> {
-    await retryOnBusy(async () => {
+    await retryDatabase(async () => {
       // Check if usage already exists
       const [existing] = await this.db
         .select()
@@ -958,7 +927,7 @@ export class SessionRepository {
    * Update todos for session
    */
   async updateTodos(sessionId: string, newTodos: TodoType[], nextTodoId: number): Promise<void> {
-    await retryOnBusy(async () => {
+    await retryDatabase(async () => {
       await this.db.transaction(async (tx) => {
         // Delete existing todos
         await tx.delete(todos).where(eq(todos.sessionId, sessionId));
@@ -993,7 +962,7 @@ export class SessionRepository {
     messages: string[];
     nextCursor: number | null;
   }> {
-    return retryOnBusy(async () => {
+    return retryDatabase(async () => {
       // Query user messages with cursor
       const queryBuilder = this.db
         .select({

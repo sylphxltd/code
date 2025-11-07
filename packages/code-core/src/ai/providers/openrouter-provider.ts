@@ -6,7 +6,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import type { LanguageModelV1 } from 'ai';
 import type { AIProvider, ProviderModelDetails, ConfigField, ProviderConfig, ModelInfo } from './base-provider.js';
 import { hasRequiredFields } from './base-provider.js';
-
+import { retryNetwork } from '../../utils/retry.js';
 import { getModelMetadata } from '../../utils/models-dev.js';
 
 export class OpenRouterProvider implements AIProvider {
@@ -35,49 +35,33 @@ export class OpenRouterProvider implements AIProvider {
   async fetchModels(config: ProviderConfig): Promise<ModelInfo[]> {
     const apiKey = config.apiKey as string | undefined;
 
-    // Retry logic for transient network issues
-    const maxRetries = 2;
-    let lastError: Error | unknown;
+    return retryNetwork(async () => {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
+        signal: AbortSignal.timeout(10000), // 10s timeout
+      });
 
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await fetch('https://openrouter.ai/api/v1/models', {
-          headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : {},
-          signal: AbortSignal.timeout(10000), // 10s timeout
-        });
-
-        if (!response.ok) {
-          throw new Error(`API returned ${response.status}: ${response.statusText}`);
-        }
-
-        const data = (await response.json()) as {
-          data: Array<{
-            id: string;
-            name: string;
-            context_length?: number;
-            pricing?: {
-              prompt: string;
-              completion: string;
-            };
-          }>;
-        };
-
-        return data.data.map((model) => ({
-          id: model.id,
-          name: model.name || model.id,
-        }));
-      } catch (error) {
-        lastError = error;
-        // Wait before retry (exponential backoff)
-        if (attempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, attempt)));
-        }
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
       }
-    }
 
-    // All retries failed - throw detailed error
-    const errorMsg = lastError instanceof Error ? lastError.message : String(lastError);
-    throw new Error(`Failed to fetch models after ${maxRetries + 1} attempts: ${errorMsg}`);
+      const data = (await response.json()) as {
+        data: Array<{
+          id: string;
+          name: string;
+          context_length?: number;
+          pricing?: {
+            prompt: string;
+            completion: string;
+          };
+        }>;
+      };
+
+      return data.data.map((model) => ({
+        id: model.id,
+        name: model.name || model.id,
+      }));
+    }, 2);
   }
 
   async getModelDetails(modelId: string, config?: ProviderConfig): Promise<ProviderModelDetails | null> {
