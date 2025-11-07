@@ -39,34 +39,8 @@ export function getAgentById(id: string): Agent | null {
   return embeddedServerInstance.getAppContext().agentManager.getById(id);
 }
 
-/**
- * Get current agent (from Zustand store)
- * DEPRECATED: Use useAppStore directly
- */
-export function getCurrentAgent(): Agent {
-  const { useAppStore } = require('@sylphx/code-client');
-  const selectedAgentId = useAppStore.getState().selectedAgentId;
-  const agent = getAgentById(selectedAgentId);
-  if (!agent) {
-    throw new Error(`Current agent not found: ${selectedAgentId}`);
-  }
-  return agent;
-}
-
-/**
- * Switch to a different agent
- * DEPRECATED: Use useAppStore directly
- */
-export async function switchAgent(agentId: string): Promise<boolean> {
-  const agent = getAgentById(agentId);
-  if (!agent) {
-    return false;
-  }
-
-  const { useAppStore } = require('@sylphx/code-client');
-  await useAppStore.getState().setSelectedAgent(agentId);
-  return true;
-}
+// REMOVED: getCurrentAgent - use useAppStore.getState().selectedAgentId + getAgentById
+// REMOVED: switchAgent - use useAppStore.getState().setSelectedAgent
 
 /**
  * Get all available rules

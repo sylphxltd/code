@@ -139,28 +139,9 @@ const StreamEventSchema = z.discriminatedUnion('type', [
 export type StreamEvent = z.infer<typeof StreamEventSchema>;
 
 export const messageRouter = router({
-  /**
-   * Get messages for session (cursor-based pagination)
-   * DATA ON DEMAND: Fetch only needed messages, not entire history
-   * CURSOR-BASED PAGINATION: Use timestamp as cursor for efficient pagination
-   *
-   * Usage: For infinite scroll, lazy loading, chat history
-   */
-  getBySession: publicProcedure
-    .input(
-      z.object({
-        sessionId: z.string(),
-        limit: z.number().min(1).max(100).default(50),
-        cursor: z.number().optional(), // Timestamp of last message
-      })
-    )
-    .query(async ({ ctx, input }) => {
-      return await ctx.sessionRepository.getMessagesBySession(
-        input.sessionId,
-        input.limit,
-        input.cursor
-      );
-    }),
+  // REMOVED: getBySession
+  // Use session.getById instead - loads all messages with step-based architecture
+  // Pagination not needed for current use cases (sessions are reasonably sized)
 
   /**
    * Get message count for session

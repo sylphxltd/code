@@ -277,19 +277,8 @@ export class SessionRepository {
     return result;
   }
 
-  /**
-   * Get messages for a session with cursor-based pagination
-   * DATA ON DEMAND: Fetch only needed messages, not entire history
-   * CURSOR-BASED PAGINATION: Use message timestamp as cursor
-   *
-   * TODO: Update to use step-based architecture
-   */
-  async getMessagesBySession(sessionId: string, limit = 50, cursor?: number): Promise<{
-    messages: SessionMessage[];
-    nextCursor: number | null;
-  }> {
-    throw new Error('getMessagesBySession not yet updated for step-based architecture. Use getSessionById instead.');
-  }
+  // REMOVED: getMessagesBySession - not implemented for step-based architecture
+  // Use getSessionById instead (loads all messages efficiently)
 
   /**
    * Get messages for a session (all messages) with step-based structure

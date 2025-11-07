@@ -22,28 +22,30 @@ export const agentCommand: Command = {
     },
   ],
   execute: async (context) => {
-    const { getAllAgents, getCurrentAgent, switchAgent, getAgentById } = await import('../../embedded-context.js');
+    const { getAllAgents, getAgentById } = await import('../../embedded-context.js');
+    const { useAppStore } = await import('@sylphx/code-client');
 
     // If arg provided, switch directly
     if (context.args.length > 0) {
       const agentId = context.args[0];
-      const success = switchAgent(agentId);
+      const agent = getAgentById(agentId);
 
-      if (!success) {
+      if (!agent) {
         return `Agent not found: ${agentId}. Use /agent to see available agents.`;
       }
 
-      const selectedAgent = getAgentById(agentId);
-      if (!selectedAgent) {
-        return 'Failed to get agent details.';
-      }
-
-      return `Switched to agent: ${selectedAgent.metadata.name}\n${selectedAgent.metadata.description}`;
+      await useAppStore.getState().setSelectedAgent(agentId);
+      return `Switched to agent: ${agent.metadata.name}\n${agent.metadata.description}`;
     }
 
     // No args - show agent selection UI
     const agents = getAllAgents();
-    const currentAgent = getCurrentAgent();
+    const selectedAgentId = useAppStore.getState().selectedAgentId;
+    const currentAgent = getAgentById(selectedAgentId);
+
+    if (!currentAgent) {
+      return 'Current agent not found.';
+    }
 
     if (agents.length === 0) {
       return 'No agents available.';
@@ -60,20 +62,18 @@ export const agentCommand: Command = {
       <AgentSelection
         agents={agentsList}
         currentAgentId={currentAgent.id}
-        onSelect={(agentId) => {
-          const success = switchAgent(agentId);
+        onSelect={async (agentId) => {
+          const { useAppStore } = await import('@sylphx/code-client');
+          const selectedAgent = getAgentById(agentId);
 
-          if (!success) {
-            context.addLog(`[agent] Failed to switch to agent: ${agentId}`);
+          if (!selectedAgent) {
+            context.addLog(`[agent] Agent not found: ${agentId}`);
             context.setInputComponent(null);
             return;
           }
 
-          const selectedAgent = getAgentById(agentId);
-          if (selectedAgent) {
-            context.addLog(`[agent] Switched to agent: ${selectedAgent.metadata.name}`);
-          }
-
+          await useAppStore.getState().setSelectedAgent(agentId);
+          context.addLog(`[agent] Switched to agent: ${selectedAgent.metadata.name}`);
           context.setInputComponent(null);
         }}
         onCancel={() => {
