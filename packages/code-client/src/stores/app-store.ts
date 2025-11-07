@@ -108,6 +108,25 @@ export function useAppStore<T>(selector: (state: AppState) => T): T {
   return selector(combinedState);
 }
 
+/**
+ * Backward compatibility: getState() method for non-React contexts
+ * Combines all focused stores' states into a single object
+ */
+useAppStore.getState = (): AppState => {
+  return {
+    ...useNavigationStore.getState(),
+    ...useAIConfigStore.getState(),
+    ...useModelSelectionStore.getState(),
+    ...useSessionStore.getState(),
+    ...useMessageStore.getState(),
+    ...useTodoStore.getState(),
+    ...useUIStore.getState(),
+    ...useSettingsStore.getState(),
+    ...useDebugStore.getState(),
+    ...useNotificationStore.getState(),
+  };
+};
+
 // Export focused stores for direct access
 useAppStore.navigation = useNavigationStore;
 useAppStore.aiConfig = useAIConfigStore;
