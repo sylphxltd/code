@@ -134,19 +134,21 @@ function buildAssistantMessage(msg: Message, modelCapabilities?: ModelCapabiliti
           }
 
           case 'file':
-            // Handle file parts based on model capabilities
+            // Handle file parts - use AI SDK's FilePart type
+            // Check if model supports this file type
             if (part.mediaType.startsWith('image/')) {
-              // Image file
+              // Image files
               if (supportsImageInput) {
-                // Model supports image-input: send full base64 data
+                // Model supports image-input: send as file part with base64 data
                 return [
                   {
-                    type: 'image' as const,
-                    image: `data:${part.mediaType};base64,${part.base64}`,
+                    type: 'file' as const,
+                    data: part.base64, // AI SDK accepts base64 string directly
+                    mediaType: part.mediaType,
                   },
                 ];
               } else {
-                // Model doesn't support image-input: save to temp file and provide path
+                // Model doesn't support image-input: save to temp and provide path
                 try {
                   const ext = part.mediaType.split('/')[1] || 'png';
                   const filename = `sylphx-${randomBytes(8).toString('hex')}.${ext}`;
@@ -156,31 +158,22 @@ function buildAssistantMessage(msg: Message, modelCapabilities?: ModelCapabiliti
                   return [
                     {
                       type: 'text' as const,
-                      text: `[Generated image saved to: ${filepath}]`,
+                      text: `[I generated an image and saved it to: ${filepath}]`,
                     },
                   ];
                 } catch (err) {
-                  return [
-                    { type: 'text' as const, text: `[Generated image: ${part.mediaType}, failed to save]` },
-                  ];
+                  return [{ type: 'text' as const, text: `[I generated an image but failed to save it]` }];
                 }
               }
             } else {
-              // Non-image file: save to temp and provide path
-              try {
-                const ext = part.mediaType.split('/')[1] || 'bin';
-                const filename = `sylphx-${randomBytes(8).toString('hex')}.${ext}`;
-                const filepath = join(tmpdir(), filename);
-                const buffer = Buffer.from(part.base64, 'base64');
-                writeFileSync(filepath, buffer);
-                return [
-                  { type: 'text' as const, text: `[Generated file (${part.mediaType}) saved to: ${filepath}]` },
-                ];
-              } catch (err) {
-                return [
-                  { type: 'text' as const, text: `[Generated file: ${part.mediaType}, failed to save]` },
-                ];
-              }
+              // Non-image files: send as file part
+              return [
+                {
+                  type: 'file' as const,
+                  data: part.base64,
+                  mediaType: part.mediaType,
+                },
+              ];
             }
 
           case 'error':
@@ -224,19 +217,20 @@ function buildAssistantMessage(msg: Message, modelCapabilities?: ModelCapabiliti
         }
 
         case 'file':
-          // Handle file parts based on model capabilities
+          // Handle file parts - use AI SDK's FilePart type
           if (part.mediaType.startsWith('image/')) {
-            // Image file
+            // Image files
             if (supportsImageInput) {
-              // Model supports image-input: send full base64 data
+              // Model supports image-input: send as file part with base64 data
               return [
                 {
-                  type: 'image' as const,
-                  image: `data:${part.mediaType};base64,${part.base64}`,
+                  type: 'file' as const,
+                  data: part.base64,
+                  mediaType: part.mediaType,
                 },
               ];
             } else {
-              // Model doesn't support image-input: save to temp file and provide path
+              // Model doesn't support image-input: save to temp and provide path
               try {
                 const ext = part.mediaType.split('/')[1] || 'png';
                 const filename = `sylphx-${randomBytes(8).toString('hex')}.${ext}`;
@@ -246,31 +240,22 @@ function buildAssistantMessage(msg: Message, modelCapabilities?: ModelCapabiliti
                 return [
                   {
                     type: 'text' as const,
-                    text: `[Generated image saved to: ${filepath}]`,
+                    text: `[I generated an image and saved it to: ${filepath}]`,
                   },
                 ];
               } catch (err) {
-                return [
-                  { type: 'text' as const, text: `[Generated image: ${part.mediaType}, failed to save]` },
-                ];
+                return [{ type: 'text' as const, text: `[I generated an image but failed to save it]` }];
               }
             }
           } else {
-            // Non-image file: save to temp and provide path
-            try {
-              const ext = part.mediaType.split('/')[1] || 'bin';
-              const filename = `sylphx-${randomBytes(8).toString('hex')}.${ext}`;
-              const filepath = join(tmpdir(), filename);
-              const buffer = Buffer.from(part.base64, 'base64');
-              writeFileSync(filepath, buffer);
-              return [
-                { type: 'text' as const, text: `[Generated file (${part.mediaType}) saved to: ${filepath}]` },
-              ];
-            } catch (err) {
-              return [
-                { type: 'text' as const, text: `[Generated file: ${part.mediaType}, failed to save]` },
-              ];
-            }
+            // Non-image files: send as file part
+            return [
+              {
+                type: 'file' as const,
+                data: part.base64,
+                mediaType: part.mediaType,
+              },
+            ];
           }
 
         case 'error':
