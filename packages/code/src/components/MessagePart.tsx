@@ -9,7 +9,11 @@ import { useElapsedTime } from '@sylphx/code-client';
 import type { MessagePart as MessagePartType } from '@sylphx/code-core';
 import { Box, Text } from 'ink';
 import Picture from 'ink-picture';
-import React from 'react';
+import React, { useMemo } from 'react';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import MarkdownText from './MarkdownText.js';
 import Spinner from './Spinner.js';
 import { ToolDisplay } from './ToolDisplay.js';
@@ -99,12 +103,34 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
     const isImage = part.mediaType.startsWith('image/');
 
     if (isImage) {
-      // Render image using ink-picture
-      const dataUrl = `data:${part.mediaType};base64,${part.base64}`;
+      // Save base64 to temp file (ink-picture doesn't support data URLs)
+      const tempPath = useMemo(() => {
+        try {
+          const ext = part.mediaType.split('/')[1] || 'png';
+          const filename = `sylphx-${randomBytes(8).toString('hex')}.${ext}`;
+          const filepath = join(tmpdir(), filename);
+          const buffer = Buffer.from(part.base64, 'base64');
+          writeFileSync(filepath, buffer);
+          return filepath;
+        } catch (err) {
+          console.error('[MessagePart] Failed to save image:', err);
+          return null;
+        }
+      }, [part.base64, part.mediaType]);
+
+      if (!tempPath) {
+        return (
+          <Box flexDirection="column" marginLeft={2} marginBottom={1}>
+            <Text dimColor>Image ({part.mediaType}):</Text>
+            <Text color="red">Failed to load image</Text>
+          </Box>
+        );
+      }
+
       return (
         <Box flexDirection="column" marginLeft={2} marginBottom={1}>
           <Text dimColor>Image ({part.mediaType}):</Text>
-          <Picture src={dataUrl} alt="Generated image" />
+          <Picture src={tempPath} alt="Generated image" />
         </Box>
       );
     } else {

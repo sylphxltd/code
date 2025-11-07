@@ -5,7 +5,7 @@
 
 import { useAIConfig, useAppStore, useKeyboard, useSessionPersistence } from '@sylphx/code-client';
 import { Box, Text } from 'ink';
-import { TerminalInfoProvider } from 'ink-picture';
+import { TerminalInfoProvider, useTerminalInfo } from 'ink-picture';
 import React, { useEffect, useState } from 'react';
 import Chat from './screens/Chat.js';
 import CommandPalette from './screens/CommandPalette.js';
@@ -20,6 +20,23 @@ function AppContent() {
   const error = useAppStore((state) => state.error);
   const setError = useAppStore((state) => state.setError);
   const [commandPaletteCommand, setCommandPaletteCommand] = useState<string | null>(null);
+
+  // Wait for TerminalInfoProvider to complete initialization
+  // This prevents terminal query responses from interfering with user input
+  const terminalInfo = useTerminalInfo();
+  const [terminalReady, setTerminalReady] = useState(false);
+
+  useEffect(() => {
+    // Wait for terminal info to be available OR timeout after 500ms
+    if (terminalInfo) {
+      setTerminalReady(true);
+    } else {
+      const timeout = setTimeout(() => {
+        setTerminalReady(true);
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [terminalInfo]);
 
   // Load AI config on mount
   const { loadConfig } = useAIConfig();
@@ -51,6 +68,19 @@ function AppContent() {
       return () => clearTimeout(timeout);
     }
   }, [error, setError]);
+
+  // Show loading screen until terminal is ready
+  if (!terminalReady) {
+    return (
+      <Box flexDirection="column" width="100%" height="100%" paddingX={1}>
+        <Box paddingY={1}>
+          <Text bold color="#00D9FF">SYLPHX FLOW</Text>
+          <Text dimColor> │ </Text>
+          <Text dimColor>Initializing...</Text>
+        </Box>
+      </Box>
+    );
+  }
 
   // Full-screen screens - no app layout padding
   // These screens manage their own layout to handle Static/Dynamic boundary correctly
