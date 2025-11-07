@@ -247,6 +247,10 @@ export function InputSection({
                 // Disable up/down arrows when autocomplete is active
                 filteredFileInfo.hasAt || (input.startsWith('/') && filteredCommands.length > 0)
               }
+              disableTabEnter={
+                // Disable Tab/Enter when command autocomplete is active (let useKeyboardNavigation handle)
+                input.startsWith('/') && filteredCommands.length > 0
+              }
             />
           </Box>
 

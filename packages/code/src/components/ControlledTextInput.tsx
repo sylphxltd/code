@@ -27,6 +27,7 @@ export interface ControlledTextInputProps {
   validTags?: Set<string>; // Set of valid @file references for highlighting
   maxLines?: number; // Maximum lines to display (default: 10)
   disableUpDownArrows?: boolean; // Disable up/down arrow navigation (for autocomplete)
+  disableTabEnter?: boolean; // Disable Tab/Enter when autocomplete is active (let parent handle)
 }
 
 function ControlledTextInput({
@@ -41,6 +42,7 @@ function ControlledTextInput({
   validTags,
   maxLines = 10,
   disableUpDownArrows = false,
+  disableTabEnter = false,
 }: ControlledTextInputProps) {
   // Kill buffer for Ctrl+K, Ctrl+U, Ctrl+W → Ctrl+Y
   const killBufferRef = useRef('');
@@ -232,6 +234,11 @@ function ControlledTextInput({
 
       // Return key pressed (input will be '\r' or '\n')
       if (key.return) {
+        // If autocomplete is active, don't handle Enter (let parent handle)
+        if (disableTabEnter) {
+          return; // Event propagates to parent useInput hooks
+        }
+
         // Shift+Return or Option+Return (Meta+Return) - insert newline
         // Matches Claude Code official behavior
         if (key.shift || key.meta) {
@@ -261,6 +268,11 @@ function ControlledTextInput({
       // Regular Input
       // ===========================================
 
+      // Tab key - if autocomplete is active, don't insert tab (let parent handle)
+      if (key.tab && disableTabEnter) {
+        return; // Event propagates to parent useInput hooks
+      }
+
       // Ignore other control/meta combinations
       if (key.ctrl || key.meta) return;
 
@@ -272,7 +284,7 @@ function ControlledTextInput({
         onCursorChange(result.cursor);
       }
     },
-    [value, cursor, onChange, onCursorChange, onSubmit, availableWidth, disableUpDownArrows]
+    [value, cursor, onChange, onCursorChange, onSubmit, availableWidth, disableUpDownArrows, disableTabEnter]
   );
 
   useInput(handleInput, { isActive: focus });
@@ -415,6 +427,7 @@ export default React.memo(ControlledTextInput, (prevProps, nextProps) => {
     prevProps.showCursor === nextProps.showCursor &&
     prevProps.focus === nextProps.focus &&
     prevProps.maxLines === nextProps.maxLines &&
-    prevProps.disableUpDownArrows === nextProps.disableUpDownArrows
+    prevProps.disableUpDownArrows === nextProps.disableUpDownArrows &&
+    prevProps.disableTabEnter === nextProps.disableTabEnter
   );
 });

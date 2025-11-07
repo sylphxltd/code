@@ -127,6 +127,13 @@ export function useKeyboardNavigation(props: KeyboardNavigationProps) {
 
   useInput(
     async (char, key) => {
+      console.log('[useKeyboardNavigation] Key pressed:', {
+        char: JSON.stringify(char),
+        keys: Object.keys(key).filter(k => key[k as keyof typeof key]),
+        input: JSON.stringify(input),
+        filteredCommandsLength: filteredCommands.length,
+      });
+
       // ESC to abort streaming AI response (takes priority over other ESC actions)
       if (key.escape && isStreaming) {
         if (abortControllerRef.current) {
@@ -742,6 +749,8 @@ export function useKeyboardNavigation(props: KeyboardNavigationProps) {
 
       // Handle command autocomplete navigation
       else if (filteredCommands.length > 0 && !pendingInput) {
+        console.log('[useKeyboardNavigation] In command autocomplete mode, filteredCommands.length:', filteredCommands.length);
+
         // Arrow down - next command
         if (key.downArrow) {
           setSelectedCommandIndex((prev) =>
@@ -756,12 +765,14 @@ export function useKeyboardNavigation(props: KeyboardNavigationProps) {
         }
         // Tab - fill in autocomplete text only
         if (key.tab) {
+          console.log('[useKeyboardNavigation] Tab pressed in autocomplete mode');
           const selected = filteredCommands[selectedCommandIndex];
           if (selected) {
             const hasArgs = selected.args && selected.args.length > 0;
             const completedText = hasArgs ? `${selected.label} ` : selected.label;
 
             addLog(`[useInput] Tab autocomplete fill: ${completedText}`);
+            console.log('[useKeyboardNavigation] Tab filling:', completedText);
             setInput(completedText);
             setCursor(completedText.length); // Move cursor to end
             setSelectedCommandIndex(0);
@@ -771,6 +782,7 @@ export function useKeyboardNavigation(props: KeyboardNavigationProps) {
 
         // Enter - execute autocomplete selection
         if (key.return) {
+          console.log('[useKeyboardNavigation] Enter pressed in autocomplete mode');
           const selected = filteredCommands[selectedCommandIndex];
           if (selected) {
             skipNextSubmit.current = true; // Prevent TextInput's onSubmit from also executing
