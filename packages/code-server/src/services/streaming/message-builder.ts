@@ -123,6 +123,20 @@ function buildAssistantMessage(msg: Message): ModelMessage {
             return parts;
           }
 
+          case 'file':
+            // Convert file part to image part for LLM context
+            // LLM should know it generated this image
+            if (part.mediaType.startsWith('image/')) {
+              return [
+                {
+                  type: 'image' as const,
+                  image: `data:${part.mediaType};base64,${part.base64}`,
+                },
+              ];
+            }
+            // Non-image files: just note it was generated
+            return [{ type: 'text' as const, text: `[Generated file: ${part.mediaType}]` }];
+
           case 'error':
             return [{ type: 'text' as const, text: `[Error: ${part.error}]` }];
 
@@ -162,6 +176,18 @@ function buildAssistantMessage(msg: Message): ModelMessage {
 
           return parts;
         }
+
+        case 'file':
+          // Convert file part to image part for LLM context
+          if (part.mediaType.startsWith('image/')) {
+            return [
+              {
+                type: 'image' as const,
+                image: `data:${part.mediaType};base64,${part.base64}`,
+              },
+            ];
+          }
+          return [{ type: 'text' as const, text: `[Generated file: ${part.mediaType}]` }];
 
         case 'error':
           return [{ type: 'text' as const, text: `[Error: ${part.error}]` }];
