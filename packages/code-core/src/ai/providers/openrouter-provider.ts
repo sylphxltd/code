@@ -207,9 +207,9 @@ export class OpenRouterProvider implements AIProvider {
   createClient(config: ProviderConfig, modelId: string): LanguageModelV1 {
     const apiKey = config.apiKey as string;
 
-    // Infer capabilities to determine features like image generation
-    const capabilities = this.inferCapabilities(modelId);
-    const supportsImageGeneration = capabilities.supportsImageOutput;
+    // Get capabilities to determine features like image generation
+    const capabilities = this.getModelCapabilities(modelId);
+    const supportsImageGeneration = capabilities.has('image-output');
 
     // Create OpenAI-compatible client with custom fetch for image generation
     const openrouter = createOpenAICompatible({
