@@ -30,6 +30,44 @@ export interface StoredEvent<T = any> {
 }
 
 /**
+ * Retry helper for handling SQLITE_BUSY errors
+ * Exponential backoff: 50ms, 100ms, 200ms, 400ms, 800ms
+ */
+async function retryOnBusy<T>(
+  operation: () => Promise<T>,
+  maxRetries = 5
+): Promise<T> {
+  let lastError: any;
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+
+      // Check for SQLITE_BUSY in error or nested cause
+      const isBusy =
+        error.message?.includes('SQLITE_BUSY') ||
+        error.code === 'SQLITE_BUSY' ||
+        error.cause?.code === 'SQLITE_BUSY' ||
+        error.cause?.message?.includes('SQLITE_BUSY');
+
+      if (isBusy) {
+        const delay = 50 * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      // Other errors: throw immediately
+      throw error;
+    }
+  }
+
+  // Max retries exceeded
+  throw lastError;
+}
+
+/**
  * Event Persistence using Drizzle ORM
  * Database-agnostic (works with SQLite and PostgreSQL)
  */
@@ -38,16 +76,19 @@ export class EventPersistence {
 
   /**
    * Save event to database (XADD equivalent)
+   * Retries on SQLITE_BUSY errors with exponential backoff
    */
   async save(channel: string, event: StoredEvent): Promise<void> {
-    await this.db.insert(events).values({
-      id: event.id,
-      channel: event.channel,
-      type: event.type,
-      timestamp: event.cursor.timestamp,
-      sequence: event.cursor.sequence,
-      payload: event.payload,
-      createdAt: Date.now(),
+    await retryOnBusy(async () => {
+      await this.db.insert(events).values({
+        id: event.id,
+        channel: event.channel,
+        type: event.type,
+        timestamp: event.cursor.timestamp,
+        sequence: event.cursor.sequence,
+        payload: event.payload,
+        createdAt: Date.now(),
+      })
     })
   }
 
