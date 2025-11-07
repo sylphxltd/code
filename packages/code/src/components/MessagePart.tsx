@@ -145,17 +145,18 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
         capabilities?.supportsSixelGraphics;
 
       // Determine best protocol and dimensions
-      let protocol: 'auto' | 'halfBlock' | 'kitty' | 'iterm2' | 'sixel' = 'auto';
+      let protocol: 'auto' | 'halfBlock' | 'braille' | 'kitty' | 'iterm2' | 'sixel' = 'auto';
       let imageHeight: number | undefined;
 
       if (hasGraphicsProtocol) {
         // High-res protocols: let them preserve aspect ratio
         imageHeight = undefined;
       } else {
-        // ASCII fallback: use halfBlock protocol with explicit height
-        protocol = 'halfBlock';
-        // halfBlock uses 2x1 blocks, so calculate height for ~16:9 aspect ratio
-        imageHeight = Math.floor((imageWidth * 9) / 16 / 2);
+        // ASCII fallback: try braille protocol (higher resolution than halfBlock)
+        protocol = 'braille';
+        // Braille uses 2x4 dot blocks, so can achieve higher resolution
+        // Calculate height for visible image
+        imageHeight = Math.floor((imageWidth * 9) / 16);
       }
 
       console.log('[MessagePart] Image capabilities:', {
@@ -177,7 +178,10 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
                 ? 'iTerm2'
                 : capabilities?.supportsSixelGraphics
                   ? 'Sixel'
-                  : 'halfBlock (ASCII)'}
+                  : `${protocol} (ASCII)`}
+          </Text>
+          <Text color="yellow" dimColor>
+            ⚠️ For better image quality, use iTerm2, WezTerm, or Kitty terminal
           </Text>
           <Picture
             src={tempPath}
