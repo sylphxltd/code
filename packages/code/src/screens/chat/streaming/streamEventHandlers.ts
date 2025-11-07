@@ -361,6 +361,25 @@ function handleTextEnd(event: Extract<StreamEvent, { type: 'text-end' }>, contex
 }
 
 // ============================================================================
+// File Events
+// ============================================================================
+
+function handleFile(event: Extract<StreamEvent, { type: 'file' }>, context: EventHandlerContext) {
+  const currentSessionId = useAppStore.getState().currentSessionId;
+
+  logContent('File received, mediaType:', event.mediaType, 'size:', event.base64.length);
+  updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => [
+    ...prev,
+    {
+      type: 'file',
+      mediaType: event.mediaType,
+      base64: event.base64,
+      status: 'completed',
+    } as MessagePart,
+  ]);
+}
+
+// ============================================================================
 // Tool Events
 // ============================================================================
 
@@ -485,6 +504,12 @@ const eventHandlers: Record<StreamEvent['type'], EventHandler> = {
   'tool-call': handleToolCall,
   'tool-result': handleToolResult,
   'tool-error': handleToolError,
+  'tool-input-start': () => {},  // Not used in TUI
+  'tool-input-delta': () => {},  // Not used in TUI
+  'tool-input-end': () => {},    // Not used in TUI
+
+  // File events
+  'file': handleFile,
 
   // Completion events
   'complete': handleComplete,

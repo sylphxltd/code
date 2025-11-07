@@ -67,6 +67,7 @@ export type StreamEvent =
   | { type: 'tool-input-end'; toolCallId: string }
   | { type: 'tool-result'; toolCallId: string; toolName: string; result: any; duration: number }
   | { type: 'tool-error'; toolCallId: string; toolName: string; error: string; duration: number }
+  | { type: 'file'; mediaType: string; base64: string }
 
   // Message completion
   | { type: 'complete'; usage?: TokenUsage; finishReason?: string }
@@ -315,6 +316,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             observer.next({ type: 'tool-result', toolCallId, toolName, result, duration }),
           onToolError: (toolCallId, toolName, error, duration) =>
             observer.next({ type: 'tool-error', toolCallId, toolName, error, duration }),
+          onFile: (mediaType, base64) =>
+            observer.next({ type: 'file', mediaType, base64 }),
           onAbort: () => {
             aborted = true;
             observer.next({ type: 'abort' });

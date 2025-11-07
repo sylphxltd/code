@@ -38,6 +38,9 @@ export interface EventStreamCallbacks {
   onToolResult?: (toolCallId: string, toolName: string, result: unknown, duration: number) => void;
   onToolError?: (toolCallId: string, toolName: string, error: string, duration: number) => void;
 
+  // File streaming (images, PDFs, etc.)
+  onFile?: (mediaType: string, base64: string) => void;
+
   // Ask tool
   onAskQuestion?: (questionId: string, questions: Array<{
     question: string;
@@ -168,6 +171,10 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
 
             case 'tool-error':
               callbacks.onToolError?.(event.toolCallId, event.toolName, event.error, event.duration);
+              break;
+
+            case 'file':
+              callbacks.onFile?.(event.mediaType, event.base64);
               break;
 
             case 'ask-question':
