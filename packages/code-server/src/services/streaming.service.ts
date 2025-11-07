@@ -570,9 +570,7 @@ Now generate the title:`,
             observer.next({ type: 'abort' });
           },
           onError: (error) => {
-            console.error('[streamAIResponse] onError callback called with:', error);
             observer.next({ type: 'error', error });
-            console.error('[streamAIResponse] Error event emitted to observable');
           },
         };
 
@@ -580,18 +578,15 @@ Now generate the title:`,
 
         // Emit error event if no valid response (ensures error message reaches UI)
         if (!result.usage && !aborted) {
-          console.error('[streamAIResponse] No usage data, checking for errors. messageParts:', result.messageParts.length);
           // Check if there's an error part in messageParts
           const errorPart = result.messageParts.find(p => p.type === 'error');
           if (errorPart && errorPart.type === 'error') {
             // Re-emit error event to ensure it reaches subscription handlers
-            console.error('[streamAIResponse] Re-emitting error event:', errorPart.error);
             observer.next({
               type: 'error',
               error: errorPart.error,
             });
           } else {
-            console.error('[streamAIResponse] No error part found, emitting generic error');
             // No error part found, emit generic error
             observer.next({
               type: 'error',

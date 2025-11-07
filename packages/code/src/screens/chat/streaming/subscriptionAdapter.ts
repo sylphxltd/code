@@ -217,9 +217,6 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
           },
           onData: (event: StreamEvent) => {
             logMessage('Received event:', event.type);
-            if (event.type === 'error') {
-              console.error('[subscriptionAdapter] onData received error event:', event.error);
-            }
             handleStreamEvent(event, {
               currentSessionId: sessionId,
               updateSessionTitle,
@@ -369,13 +366,9 @@ function handleStreamEvent(
     notificationSettings: { notifyOnCompletion: boolean; notifyOnError: boolean };
   }
 ) {
-  console.error('[handleStreamEvent] Called with event type:', event.type);
-
   // IMPORTANT: Get currentSessionId from store (not from context)
   // For lazy sessions, the sessionId is updated in store after session-created event
   const currentSessionId = useAppStore.getState().currentSessionId;
-
-  console.error('[handleStreamEvent] currentSessionId from store:', currentSessionId);
 
   switch (event.type) {
     case 'session-created':
@@ -686,23 +679,16 @@ function handleStreamEvent(
       break;
 
     case 'error':
-      console.error('[handleStreamEvent] ERROR CASE - event.error:', event.error);
-      console.error('[handleStreamEvent] ERROR CASE - currentSessionId:', currentSessionId);
-      console.error('[handleStreamEvent] ERROR CASE - streamingMessageIdRef:', context.streamingMessageIdRef.current);
-
       logContent('Error event received:', event.error);
       context.lastErrorRef.current = event.error;
       updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
-        console.error('[handleStreamEvent] ERROR CASE - updateActiveMessageContent callback called, prev.length:', prev.length);
         const newContent = [
           ...prev,
           { type: 'error', error: event.error, status: 'completed' } as MessagePart,
         ];
-        console.error('[handleStreamEvent] ERROR CASE - newContent.length:', newContent.length);
         logContent('Updated content with error, total parts:', newContent.length);
         return newContent;
       });
-      console.error('[handleStreamEvent] ERROR CASE - updateActiveMessageContent called');
       break;
 
     case 'abort':
@@ -788,8 +774,6 @@ async function cleanupAfterStream(context: {
       } catch (error) {
         console.error('[cleanupAfterStream] Failed to reload session:', error);
       }
-    } else if (hasError) {
-      console.error('[cleanupAfterStream] Skipping session reload due to errors - preserving in-memory error parts');
     }
 
     // Send notifications
