@@ -497,21 +497,23 @@ Now generate the title:`,
 
               let fullTitle = '';
 
-              // Publish title start event directly to event stream
+              // Emit AND publish title start event
               const startEvent = { type: 'session-title-updated-start' as const, sessionId };
-              await opts.appContext.eventStream.publish(`session:${sessionId}`, startEvent);
+              observer.next(startEvent); // For current client
+              await opts.appContext.eventStream.publish(`session:${sessionId}`, startEvent); // For other clients
 
               // Stream title chunks to client in real-time
               for await (const chunk of titleStream) {
                 if (chunk.type === 'text-delta' && chunk.textDelta) {
                   fullTitle += chunk.textDelta;
-                  // Publish each chunk directly to event stream
+                  // Emit AND publish each chunk
                   const deltaEvent = {
                     type: 'session-title-updated-delta' as const,
                     sessionId,
                     text: chunk.textDelta
                   };
-                  await opts.appContext.eventStream.publish(`session:${sessionId}`, deltaEvent);
+                  observer.next(deltaEvent); // For current client
+                  await opts.appContext.eventStream.publish(`session:${sessionId}`, deltaEvent); // For other clients
                 }
               }
 
@@ -519,9 +521,10 @@ Now generate the title:`,
               const cleaned = cleanAITitle(fullTitle, 50);
               await sessionRepository.updateSession(sessionId, { title: cleaned });
 
-              // Publish title end event directly to event stream
+              // Emit AND publish title end event
               const endEvent = { type: 'session-title-updated-end' as const, sessionId, title: cleaned };
-              await opts.appContext.eventStream.publish(`session:${sessionId}`, endEvent);
+              observer.next(endEvent); // For current client
+              await opts.appContext.eventStream.publish(`session:${sessionId}`, endEvent); // For other clients
 
               return cleaned;
             } catch (error) {
@@ -605,22 +608,22 @@ Now generate the title:`,
           await sessionRepository.updateMessageUsage(assistantMessageId, result.usage);
         }
 
-        // 12. Emit complete event (message content is done)
+        // 12. Wait for title generation to complete (if any)
+        // This ensures client receives all title events through same subscription
+        await titlePromise.catch((error) => {
+          console.error('[Title Generation] Error:', error);
+          // Continue even if title generation fails
+        });
+
+        // 13. Emit complete event (message content and title are done)
         observer.next({
           type: 'complete',
           usage: result.usage,
           finishReason: result.finishReason,
         });
 
-        // 13. Complete observable immediately (don't wait for title)
-        // Title generation continues in background, updates database when done
-        // Client will see updated title when reloading session or switching sessions
+        // 14. Complete observable
         observer.complete();
-
-        // Let title promise finish in background, catch errors
-        titlePromise.catch((error) => {
-          console.error('[Title Generation] Background error:', error);
-        });
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);
         observer.next({
