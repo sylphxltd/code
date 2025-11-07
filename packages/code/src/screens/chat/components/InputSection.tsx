@@ -179,18 +179,13 @@ export function InputSection({
             );
             if (currentSessionId && response) {
               const aiConfig = getAIConfig();
-              await addMessage(
-                currentSessionId,
-                'assistant',
-                response,
-                undefined, // attachments
-                undefined, // usage
-                undefined, // finishReason
-                undefined, // metadata
-                undefined, // todoSnapshot
-                aiConfig?.defaultProvider,
-                aiConfig?.defaultModel
-              );
+              await addMessage({
+                sessionId: currentSessionId,
+                role: 'assistant',
+                content: response,
+                provider: aiConfig?.defaultProvider,
+                model: aiConfig?.defaultModel,
+              });
             }
             setPendingCommand(null);
             setSelectedCommandIndex(0);

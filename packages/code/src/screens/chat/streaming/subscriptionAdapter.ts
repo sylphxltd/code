@@ -42,18 +42,19 @@ export interface SubscriptionAdapterParams {
   selectedModel: string | null;
 
   // Functions from hooks/store
-  addMessage: (
-    sessionId: string | null,
-    role: 'user' | 'assistant',
-    content: string,
-    attachments?: FileAttachment[],
-    usage?: TokenUsage,
-    finishReason?: string,
-    metadata?: any,
-    todoSnapshot?: any[],
-    provider?: string,
-    model?: string
-  ) => Promise<string>;
+  addMessage: (params: {
+    sessionId: string | null;
+    role: 'user' | 'assistant';
+    content: string | MessagePart[];
+    attachments?: FileAttachment[];
+    usage?: TokenUsage;
+    finishReason?: string;
+    metadata?: any;
+    todoSnapshot?: any[];
+    status?: 'active' | 'completed' | 'error' | 'abort';
+    provider?: string;
+    model?: string;
+  }) => Promise<string>;
   addLog: (message: string) => void;
   updateSessionTitle: (sessionId: string, title: string) => void;
   notificationSettings: { notifyOnCompletion: boolean; notifyOnError: boolean };
@@ -144,24 +145,19 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 
       // Add error message to UI (pre-validation error, no streaming involved)
       if (currentSessionId) {
-        await addMessage(
-          currentSessionId,
-          'assistant',
-          [
+        await addMessage({
+          sessionId: currentSessionId,
+          role: 'assistant',
+          content: [
             {
               type: 'error',
               error: 'No AI provider configured. Please configure a provider using the /provider command.',
               status: 'completed',
             } as MessagePart,
           ],
-          undefined, // attachments
-          undefined, // usage
-          undefined, // finishReason
-          undefined, // metadata
-          undefined, // todoSnapshot
           provider,
-          model
-        );
+          model,
+        });
       }
       return;
     }

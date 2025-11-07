@@ -69,19 +69,19 @@ export interface AppState {
   deleteSession: (sessionId: string) => Promise<void>;
 
   // Message mutations
-  addMessage: (
-    sessionId: string | null, // null = create new session
-    role: 'user' | 'assistant',
-    content: string | MessagePart[],
-    attachments?: FileAttachment[],
-    usage?: TokenUsage,
-    finishReason?: string,
-    metadata?: MessageMetadata,
-    todoSnapshot?: Todo[],
-    status?: 'active' | 'completed' | 'error' | 'abort',
-    provider?: ProviderId, // Required if sessionId is null
-    model?: string         // Required if sessionId is null
-  ) => Promise<string>; // Returns sessionId (either existing or newly created)
+  addMessage: (params: {
+    sessionId: string | null; // null = create new session
+    role: 'user' | 'assistant';
+    content: string | MessagePart[];
+    attachments?: FileAttachment[];
+    usage?: TokenUsage;
+    finishReason?: string;
+    metadata?: MessageMetadata;
+    todoSnapshot?: Todo[];
+    status?: 'active' | 'completed' | 'error' | 'abort';
+    provider?: ProviderId; // Required if sessionId is null
+    model?: string;        // Required if sessionId is null
+  }) => Promise<string>; // Returns sessionId (either existing or newly created)
 
   // UI State
   isLoading: boolean;
@@ -361,7 +361,9 @@ export const useAppStore = create<AppState>()(
       /**
        * Add message to session
        */
-      addMessage: async (sessionId, role, content, attachments, usage, finishReason, metadata, todoSnapshot, status, provider, model) => {
+      addMessage: async (params) => {
+        const { sessionId, role, content, attachments, usage, finishReason, metadata, todoSnapshot, status, provider, model } = params;
+
         // Normalize content for tRPC wire format (no status on parts)
         const wireContent =
           typeof content === 'string' ? [{ type: 'text', content } as const] : content;

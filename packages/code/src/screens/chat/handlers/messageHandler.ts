@@ -15,18 +15,19 @@ export interface MessageHandlerParams {
   isStreaming: boolean;
 
   // Store methods
-  addMessage: (
-    sessionId: string | null,
-    role: 'user' | 'assistant',
-    content: string,
-    attachments?: any[],
-    usage?: any,
-    finishReason?: string,
-    metadata?: any,
-    todoSnapshot?: any[],
-    provider?: ProviderId,
-    model?: string
-  ) => Promise<string>;
+  addMessage: (params: {
+    sessionId: string | null;
+    role: 'user' | 'assistant';
+    content: string;
+    attachments?: any[];
+    usage?: any;
+    finishReason?: string;
+    metadata?: any;
+    todoSnapshot?: any[];
+    status?: 'active' | 'completed' | 'error' | 'abort';
+    provider?: ProviderId;
+    model?: string;
+  }) => Promise<string>;
   getAIConfig: () => { defaultProvider?: string; defaultModel?: string } | null;
   setCurrentSession: (sessionId: string | null) => Promise<void>;
 
@@ -125,18 +126,13 @@ export function createHandleSubmit(params: MessageHandlerParams) {
       const { provider, model } = resolveProviderAndModel(aiConfig);
 
       const sessionIdToUse = commandSessionRef.current || currentSessionId;
-      const resultSessionId = await addMessage(
-        sessionIdToUse,
-        'user',
-        value.trim(),
-        undefined, // attachments
-        undefined, // usage
-        undefined, // finishReason
-        undefined, // metadata
-        undefined, // todoSnapshot
+      const resultSessionId = await addMessage({
+        sessionId: sessionIdToUse,
+        role: 'user',
+        content: value.trim(),
         provider,
-        model
-      );
+        model,
+      });
 
       // Store session ID if created
       if (!commandSessionRef.current) {
@@ -189,14 +185,13 @@ export function createHandleSubmit(params: MessageHandlerParams) {
         const { provider, model } = resolveProviderAndModel(aiConfig);
 
         const sessionIdToUse = commandSessionRef.current || currentSessionId;
-        const resultSessionId = await addMessage(
-          sessionIdToUse,
-          'user',
-          userMessage,
-          undefined, undefined, undefined, undefined, undefined,
+        const resultSessionId = await addMessage({
+          sessionId: sessionIdToUse,
+          role: 'user',
+          content: userMessage,
           provider,
-          model
-        );
+          model,
+        });
 
         if (!commandSessionRef.current) {
           commandSessionRef.current = resultSessionId;
@@ -204,14 +199,13 @@ export function createHandleSubmit(params: MessageHandlerParams) {
           await setCurrentSession(resultSessionId);
         }
 
-        await addMessage(
-          commandSessionRef.current,
-          'assistant',
-          `Unknown command: ${commandName}. Type /help for available commands.`,
-          undefined, undefined, undefined, undefined, undefined,
+        await addMessage({
+          sessionId: commandSessionRef.current,
+          role: 'assistant',
+          content: `Unknown command: ${commandName}. Type /help for available commands.`,
           provider,
-          model
-        );
+          model,
+        });
         return;
       }
 
@@ -223,14 +217,13 @@ export function createHandleSubmit(params: MessageHandlerParams) {
       const { provider, model } = resolveProviderAndModel(aiConfig);
 
       const sessionIdToUse = commandSessionRef.current || currentSessionId;
-      const resultSessionId = await addMessage(
-        sessionIdToUse,
-        'user',
-        userMessage,
-        undefined, undefined, undefined, undefined, undefined,
+      const resultSessionId = await addMessage({
+        sessionId: sessionIdToUse,
+        role: 'user',
+        content: userMessage,
         provider,
-        model
-      );
+        model,
+      });
 
       if (!commandSessionRef.current) {
         commandSessionRef.current = resultSessionId;
@@ -244,19 +237,19 @@ export function createHandleSubmit(params: MessageHandlerParams) {
 
         // If command returns a result string, add it to conversation
         if (result && typeof result === 'string' && commandSessionRef.current) {
-          await addMessage(
-            commandSessionRef.current,
-            'assistant',
-            result
-          );
+          await addMessage({
+            sessionId: commandSessionRef.current,
+            role: 'assistant',
+            content: result,
+          });
         }
       } catch (error) {
         if (commandSessionRef.current) {
-          await addMessage(
-            commandSessionRef.current,
-            'assistant',
-            `Error: ${error instanceof Error ? error.message : 'Command failed'}`
-          );
+          await addMessage({
+            sessionId: commandSessionRef.current,
+            role: 'assistant',
+            content: `Error: ${error instanceof Error ? error.message : 'Command failed'}`,
+          });
         }
       }
 
