@@ -20,7 +20,7 @@
  * - All state changes are event-driven in switch/case handlers
  */
 
-import { getTRPCClient, useAppStore } from '@sylphx/code-client';
+import { getTRPCClient, useAppStore, parseUserInput } from '@sylphx/code-client';
 import type { AIConfig, FileAttachment, MessagePart, TokenUsage } from '@sylphx/code-core';
 import { createLogger } from '@sylphx/code-core';
 import type { StreamEvent } from '@sylphx/code-server';
@@ -161,11 +161,15 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       const caller = await getTRPCClient();
       logSession('tRPC client obtained');
 
+      // Parse user input into ordered content parts
+      const { parts: content } = parseUserInput(userMessage, attachments || []);
+
       logSession('Calling streamResponse subscription', {
         sessionId,
         hasProvider: !!provider,
         hasModel: !!model,
         messageLength: userMessage.length,
+        contentParts: content.length,
       });
 
       // Call subscription procedure (returns Observable)
@@ -178,8 +182,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
           sessionId: sessionId,
           provider: sessionId ? undefined : provider,
           model: sessionId ? undefined : model,
-          userMessage,
-          attachments,
+          content,
         },
         {
           onStarted: () => {

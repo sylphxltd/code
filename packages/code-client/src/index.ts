@@ -86,6 +86,7 @@ export * from './utils/config.js'
 // API functions
 export * from './api/sessions.js'
 export * from './utils/cursor-utils.js'
+export * from './utils/parse-user-input.js'
 export * from './utils/scroll-viewport.js'
 export * from './utils/text-rendering-utils.js'
 export * from './utils/todo-formatters.js'
