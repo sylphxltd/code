@@ -76,3 +76,41 @@ export function getActionCompletions(): CompletionOption[] {
     { id: 'configure', label: 'configure', value: 'configure' },
   ];
 }
+
+/**
+ * Get subaction completion options for configure command (static)
+ */
+export function getSubactionCompletions(): CompletionOption[] {
+  return [
+    { id: 'set', label: 'set', value: 'set' },
+    { id: 'get', label: 'get', value: 'get' },
+    { id: 'show', label: 'show', value: 'show' },
+  ];
+}
+
+/**
+ * Get provider configuration key completions
+ * Dynamically fetches schema from provider
+ */
+export async function getProviderKeyCompletions(providerId: string): Promise<CompletionOption[]> {
+  try {
+    const trpc = getTRPCClient();
+    const result = await trpc.config.getProviderSchema.query({
+      providerId: providerId as any
+    });
+
+    if (!result.success || !result.schema) {
+      return [];
+    }
+
+    // Return all config field keys
+    return result.schema.map(field => ({
+      id: field.key,
+      label: field.key,
+      value: field.key,
+    }));
+  } catch (error) {
+    console.error('[completions] Failed to load provider schema:', error);
+    return [];
+  }
+}
