@@ -332,8 +332,10 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             observer.next({ type: 'tool-result', toolCallId, toolName, result, duration }),
           onToolError: (toolCallId, toolName, error, duration) =>
             observer.next({ type: 'tool-error', toolCallId, toolName, error, duration }),
-          onFile: (mediaType, base64) =>
-            observer.next({ type: 'file', mediaType, base64 }),
+          onFile: (mediaType, base64) => {
+            console.log('[Streaming Service] FILE EVENT:', { mediaType, size: base64.length });
+            observer.next({ type: 'file', mediaType, base64 });
+          },
           onAbort: () => {
             aborted = true;
             observer.next({ type: 'abort' });
