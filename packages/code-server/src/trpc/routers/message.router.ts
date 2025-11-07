@@ -6,14 +6,12 @@
  */
 
 import { z } from 'zod';
-import { observable } from '@trpc/server/observable';
 import {
   router,
   publicProcedure,
   moderateProcedure,
   streamingProcedure,
 } from '../trpc.js';
-import { eventBus } from '../../services/event-bus.service.js';
 
 // Zod schemas for type safety
 const MessagePartSchema = z.union([
@@ -213,9 +211,9 @@ export const messageRouter = router({
         );
         sessionId = session.id;
 
-        // Emit session-created event
-        eventBus.emitEvent({
-          type: 'session-created',
+        // Publish session-created event to event stream
+        await ctx.appContext.eventStream.publish('session-events', {
+          type: 'session-created' as const,
           sessionId: sessionId,
           provider: input.provider,
           model: input.model,
@@ -234,14 +232,7 @@ export const messageRouter = router({
         input.status
       );
 
-      // Emit event for reactive clients
-      eventBus.emitEvent({
-        type: 'message-added',
-        sessionId: sessionId,
-        messageId: messageId,
-        role: input.role,
-      });
-
+      // Note: Message events are published by streaming.service.ts
       return { messageId, sessionId };
     }),
 
@@ -260,12 +251,7 @@ export const messageRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await ctx.sessionRepository.updateMessageParts(input.messageId, input.parts);
-
-      eventBus.emitEvent({
-        type: 'message-updated',
-        messageId: input.messageId,
-        field: 'parts',
-      });
+      // Note: Message updates are published by streaming.service.ts
     }),
 
   /**
@@ -288,12 +274,7 @@ export const messageRouter = router({
         input.status,
         input.finishReason
       );
-
-      eventBus.emitEvent({
-        type: 'message-updated',
-        messageId: input.messageId,
-        field: 'status',
-      });
+      // Note: Message updates are published by streaming.service.ts
     }),
 
   /**
@@ -311,12 +292,7 @@ export const messageRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await ctx.sessionRepository.updateMessageUsage(input.messageId, input.usage);
-
-      eventBus.emitEvent({
-        type: 'message-updated',
-        messageId: input.messageId,
-        field: 'usage',
-      });
+      // Note: Message updates are published by streaming.service.ts
     }),
 
   /**
@@ -448,45 +424,6 @@ export const messageRouter = router({
       return { success: true };
     }),
 
-  /**
-   * Subscribe to message changes (SUBSCRIPTION)
-   * Real-time sync for all clients (non-streaming updates)
-   *
-   * Emits events:
-   * - message-added: New message added to session
-   * - message-updated: Message parts/status/usage updated
-   */
-  onChange: publicProcedure
-    .input(
-      z.object({
-        sessionId: z.string().optional(), // Optional - subscribe to all if not provided
-      })
-    )
-    .subscription(({ input }) => {
-      return observable<{
-        type: 'message-added' | 'message-updated';
-        sessionId?: string;
-        messageId: string;
-        role?: 'user' | 'assistant';
-        field?: 'parts' | 'status' | 'usage';
-      }>((emit) => {
-        // Subscribe to event bus
-        const unsubscribe = eventBus.onAppEvent((event) => {
-          // Filter message events
-          if (event.type === 'message-added') {
-            // If sessionId filter provided, only emit matching events
-            if (!input.sessionId || event.sessionId === input.sessionId) {
-              emit.next(event);
-            }
-          } else if (event.type === 'message-updated') {
-            emit.next(event);
-          }
-        });
-
-        // Cleanup on unsubscribe
-        return () => {
-          unsubscribe();
-        };
-      });
-    }),
+  // Note: Message events are now delivered via events.subscribeToSession
+  // which subscribes to the 'session:{id}' channel and receives all streaming events
 });

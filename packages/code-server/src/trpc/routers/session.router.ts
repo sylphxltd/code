@@ -6,7 +6,6 @@
  */
 
 import { z } from 'zod';
-import { observable } from '@trpc/server/observable';
 import {
   router,
   publicProcedure,
@@ -14,7 +13,6 @@ import {
   moderateProcedure,
 } from '../trpc.js';
 import type { ProviderId } from '@sylphx/code-core';
-import { eventBus } from '../../services/event-bus.service.js';
 
 export const sessionRouter = router({
   /**
@@ -99,15 +97,7 @@ export const sessionRouter = router({
         input.enabledRuleIds || [] // Initialize with provided rules or empty
       );
 
-      // Emit event for reactive clients (local event bus - backwards compatibility)
-      eventBus.emitEvent({
-        type: 'session-created',
-        sessionId: session.id,
-        provider: input.provider,
-        model: input.model,
-      });
-
-      // Publish to persistent event stream for multi-client sync
+      // Publish to event stream for multi-client sync
       await ctx.appContext.eventStream.publish('session-events', {
         type: 'session-created' as const,
         sessionId: session.id,
@@ -133,15 +123,7 @@ export const sessionRouter = router({
     .mutation(async ({ ctx, input }) => {
       await ctx.sessionRepository.updateSessionTitle(input.sessionId, input.title);
 
-      // Local event bus (backwards compatibility)
-      eventBus.emitEvent({
-        type: 'session-updated',
-        sessionId: input.sessionId,
-        field: 'title',
-        value: input.title,
-      });
-
-      // Publish to persistent event stream for multi-client sync
+      // Publish to event stream for multi-client sync
       await ctx.appContext.eventStream.publish('session-events', {
         type: 'session-title-updated' as const,
         sessionId: input.sessionId,
@@ -164,15 +146,7 @@ export const sessionRouter = router({
     .mutation(async ({ ctx, input }) => {
       await ctx.sessionRepository.updateSessionModel(input.sessionId, input.model);
 
-      // Local event bus (backwards compatibility)
-      eventBus.emitEvent({
-        type: 'session-updated',
-        sessionId: input.sessionId,
-        field: 'model',
-        value: input.model,
-      });
-
-      // Publish to persistent event stream for multi-client sync
+      // Publish to event stream for multi-client sync
       await ctx.appContext.eventStream.publish('session-events', {
         type: 'session-model-updated' as const,
         sessionId: input.sessionId,
@@ -200,15 +174,7 @@ export const sessionRouter = router({
         input.model
       );
 
-      // Local event bus (backwards compatibility)
-      eventBus.emitEvent({
-        type: 'session-updated',
-        sessionId: input.sessionId,
-        field: 'provider',
-        value: `${input.provider}:${input.model}`,
-      });
-
-      // Publish to persistent event stream for multi-client sync
+      // Publish to event stream for multi-client sync
       await ctx.appContext.eventStream.publish('session-events', {
         type: 'session-provider-updated' as const,
         sessionId: input.sessionId,
@@ -234,12 +200,7 @@ export const sessionRouter = router({
         enabledRuleIds: input.enabledRuleIds,
       });
 
-      eventBus.emitEvent({
-        type: 'session-updated',
-        sessionId: input.sessionId,
-        field: 'enabledRuleIds',
-        value: JSON.stringify(input.enabledRuleIds),
-      });
+      // Note: Rules updates are internal, no event stream needed
     }),
 
   /**
@@ -253,53 +214,13 @@ export const sessionRouter = router({
     .mutation(async ({ ctx, input }) => {
       await ctx.sessionRepository.deleteSession(input.sessionId);
 
-      // Local event bus (backwards compatibility)
-      eventBus.emitEvent({
-        type: 'session-deleted',
-        sessionId: input.sessionId,
-      });
-
-      // Publish to persistent event stream for multi-client sync
+      // Publish to event stream for multi-client sync
       await ctx.appContext.eventStream.publish('session-events', {
         type: 'session-deleted' as const,
         sessionId: input.sessionId,
       });
     }),
 
-  /**
-   * Subscribe to session changes (SUBSCRIPTION)
-   * Real-time sync for all clients
-   *
-   * Emits events:
-   * - session-created: New session created
-   * - session-updated: Session field changed
-   * - session-deleted: Session removed
-   */
-  onChange: publicProcedure.subscription(() => {
-    return observable<{
-      type: 'session-created' | 'session-updated' | 'session-deleted';
-      sessionId: string;
-      provider?: string;
-      model?: string;
-      field?: 'title' | 'model' | 'provider' | 'enabledRuleIds';
-      value?: string;
-    }>((emit) => {
-      // Subscribe to event bus
-      const unsubscribe = eventBus.onAppEvent((event) => {
-        // Filter session events
-        if (
-          event.type === 'session-created' ||
-          event.type === 'session-updated' ||
-          event.type === 'session-deleted'
-        ) {
-          emit.next(event);
-        }
-      });
-
-      // Cleanup on unsubscribe
-      return () => {
-        unsubscribe();
-      };
-    });
-  }),
+  // Note: Session events are now delivered via events.subscribeToAllSessions
+  // which subscribes to the 'session-events' channel
 });

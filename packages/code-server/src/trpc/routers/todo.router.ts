@@ -1,14 +1,11 @@
 /**
  * Todo Router
  * Efficient todo management per session
- * REACTIVE: Emits events for all state changes
  * SECURITY: Protected mutations (OWASP API2) + Rate limiting (OWASP API4)
  */
 
 import { z } from 'zod';
-import { observable } from '@trpc/server/observable';
 import { router, publicProcedure, moderateProcedure } from '../trpc.js';
-import { eventBus } from '../../services/event-bus.service.js';
 
 const TodoSchema = z.object({
   id: z.number(),
@@ -22,7 +19,6 @@ export const todoRouter = router({
   /**
    * Update todos for session
    * Atomically replaces all todos
-   * REACTIVE: Emits todos-updated event
    * SECURITY: Protected + moderate rate limiting (30 req/min)
    */
   update: moderateProcedure
@@ -35,55 +31,9 @@ export const todoRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await ctx.sessionRepository.updateTodos(input.sessionId, input.todos, input.nextTodoId);
-
-      // Emit event for reactive clients
-      eventBus.emitEvent({
-        type: 'todos-updated',
-        sessionId: input.sessionId,
-        todos: input.todos,
-      });
+      // Note: Todos are stored per-session, no real-time sync needed
     }),
 
-  /**
-   * Subscribe to todo changes (SUBSCRIPTION)
-   * Real-time sync for all clients
-   *
-   * Emits events:
-   * - todos-updated: Todo list changed for a session
-   */
-  onChange: publicProcedure
-    .input(
-      z.object({
-        sessionId: z.string().optional(), // Optional - subscribe to all if not provided
-      })
-    )
-    .subscription(({ input }) => {
-      return observable<{
-        type: 'todos-updated';
-        sessionId: string;
-        todos: Array<{
-          id: number;
-          content: string;
-          activeForm: string;
-          status: 'pending' | 'in_progress' | 'completed';
-          ordering: number;
-        }>;
-      }>((emit) => {
-        // Subscribe to event bus
-        const unsubscribe = eventBus.onAppEvent((event) => {
-          // Filter todo events
-          if (event.type === 'todos-updated') {
-            // If sessionId filter provided, only emit matching events
-            if (!input.sessionId || event.sessionId === input.sessionId) {
-              emit.next(event);
-            }
-          }
-        });
-
-        // Cleanup on unsubscribe
-        return () => {
-          unsubscribe();
-        };
-      });
-    }),
+  // Note: Todo updates are persisted in database and loaded with session
+  // No event stream needed as todos are not shared across clients
 });
