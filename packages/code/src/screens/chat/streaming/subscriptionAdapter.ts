@@ -369,9 +369,13 @@ function handleStreamEvent(
     notificationSettings: { notifyOnCompletion: boolean; notifyOnError: boolean };
   }
 ) {
+  console.error('[handleStreamEvent] Called with event type:', event.type);
+
   // IMPORTANT: Get currentSessionId from store (not from context)
   // For lazy sessions, the sessionId is updated in store after session-created event
   const currentSessionId = useAppStore.getState().currentSessionId;
+
+  console.error('[handleStreamEvent] currentSessionId from store:', currentSessionId);
 
   switch (event.type) {
     case 'session-created':
