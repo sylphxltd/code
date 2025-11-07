@@ -325,7 +325,14 @@ export function ProviderManagement({
                     />
                   ) : (
                     <Text color={isEmpty ? 'gray' : isSelected ? 'cyan' : 'white'}>
-                      {field.secret && value ? '•'.repeat(String(value).length) : value || '(empty)'}
+                      {field.secret && value
+                        ? '••••••••' // Fixed 8 dots for secret fields
+                        : value
+                          ? String(value).length > 50
+                            ? String(value).substring(0, 47) + '...' // Truncate long values
+                            : value
+                          : '(empty)'
+                      }
                     </Text>
                   )}
                 </Box>
