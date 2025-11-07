@@ -497,19 +497,21 @@ Now generate the title:`,
 
               let fullTitle = '';
 
-              // Emit title update start event
-              observer.next({ type: 'session-title-updated-start', sessionId });
+              // Publish title start event directly to event stream
+              const startEvent = { type: 'session-title-updated-start' as const, sessionId };
+              await opts.appContext.eventStream.publish(`session:${sessionId}`, startEvent);
 
               // Stream title chunks to client in real-time
               for await (const chunk of titleStream) {
                 if (chunk.type === 'text-delta' && chunk.textDelta) {
                   fullTitle += chunk.textDelta;
-                  // Emit each chunk to client
-                  observer.next({
-                    type: 'session-title-updated-delta',
+                  // Publish each chunk directly to event stream
+                  const deltaEvent = {
+                    type: 'session-title-updated-delta' as const,
                     sessionId,
                     text: chunk.textDelta
-                  });
+                  };
+                  await opts.appContext.eventStream.publish(`session:${sessionId}`, deltaEvent);
                 }
               }
 
@@ -517,8 +519,9 @@ Now generate the title:`,
               const cleaned = cleanAITitle(fullTitle, 50);
               await sessionRepository.updateSession(sessionId, { title: cleaned });
 
-              // Emit title update end event
-              observer.next({ type: 'session-title-updated-end', sessionId, title: cleaned });
+              // Publish title end event directly to event stream
+              const endEvent = { type: 'session-title-updated-end' as const, sessionId, title: cleaned };
+              await opts.appContext.eventStream.publish(`session:${sessionId}`, endEvent);
 
               return cleaned;
             } catch (error) {
