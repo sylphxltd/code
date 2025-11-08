@@ -130,7 +130,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           abortSignal,
         } = opts;
 
-        console.log('[streamAIResponse] Received content:', JSON.stringify(content));
+        console.log('[streamAIResponse] Received content:', JSON.stringify(content, null, 2));
+        console.log('[streamAIResponse] Content count:', content.length);
 
         // 1. Ensure session exists (create if needed)
         let sessionId: string;
@@ -196,6 +197,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         const frozenContent: MessagePart[] = [];
         for (const part of content) {
+          console.log('[streamAIResponse] Processing content part:', { type: part.type, ...('relativePath' in part ? { relativePath: part.relativePath } : {}) });
+
           if (part.type === 'text') {
             frozenContent.push({
               type: 'text',
@@ -204,10 +207,19 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             });
           } else if (part.type === 'file') {
             try {
+              console.log('[streamAIResponse] Reading file:', part.path);
               // READ NOW and freeze as base64 - never re-read from disk
               const buffer = await fs.readFile(part.path);
               const base64 = buffer.toString('base64');
               const mimeType = part.mimeType || lookup(part.path) || 'application/octet-stream';
+
+              console.log('[streamAIResponse] File read successfully:', {
+                relativePath: part.relativePath,
+                size: buffer.length,
+                mediaType: mimeType,
+                base64Length: base64.length,
+                base64Preview: base64.substring(0, 100),
+              });
 
               frozenContent.push({
                 type: 'file',
@@ -219,6 +231,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
               });
             } catch (error) {
               // File read failed - save error
+              console.error('[streamAIResponse] File read failed:', error);
               frozenContent.push({
                 type: 'error',
                 error: `Failed to read file: ${part.relativePath}`,
@@ -227,6 +240,12 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             }
           }
         }
+
+        console.log('[streamAIResponse] Frozen content created:', {
+          count: frozenContent.length,
+          types: frozenContent.map(p => p.type),
+          fileCount: frozenContent.filter(p => p.type === 'file').length,
+        });
 
         // 4. Add user message to session (with frozen content)
         const userMessageId = await messageRepository.addMessage({
@@ -279,7 +298,29 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         }
 
         // 6. Build ModelMessage[] for AI (transforms frozen content, no file reading)
+        console.log('[streamAIResponse] Session messages from DB:', {
+          count: updatedSession.messages.length,
+          lastMessage: updatedSession.messages[updatedSession.messages.length - 1] ? {
+            role: updatedSession.messages[updatedSession.messages.length - 1].role,
+            stepsCount: updatedSession.messages[updatedSession.messages.length - 1].steps?.length || 0,
+            parts: updatedSession.messages[updatedSession.messages.length - 1].steps?.[0]?.parts?.map(p => ({
+              type: p.type,
+              ...('base64' in p ? { base64Length: p.base64?.length || 0 } : {}),
+              ...('content' in p ? { contentLength: p.content?.length || 0 } : {}),
+            })) || [],
+          } : null,
+        });
+
         const messages = buildModelMessages(updatedSession.messages, modelCapabilities);
+
+        console.log('[streamAIResponse] Built ModelMessage[] for AI:', {
+          count: messages.length,
+          lastMessage: messages[messages.length - 1] ? {
+            role: messages[messages.length - 1].role,
+            contentCount: Array.isArray(messages[messages.length - 1].content) ? messages[messages.length - 1].content.length : 1,
+            contentTypes: Array.isArray(messages[messages.length - 1].content) ? messages[messages.length - 1].content.map((c: any) => c.type) : ['single'],
+          } : null,
+        });
 
         // 7. Determine agentId and build system prompt
         // STATELESS: Use explicit parameters from AppContext
