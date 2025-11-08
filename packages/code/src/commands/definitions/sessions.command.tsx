@@ -9,7 +9,6 @@ import type { Command } from '../types.js';
 export const sessionsCommand: Command = {
   id: 'sessions',
   label: '/sessions',
-  aliases: ['/session'], // Support both /session and /sessions
   description: 'View and switch between chat sessions',
   execute: async (context) => {
     const { formatSessionDisplay } = await import('@sylphx/code-core');

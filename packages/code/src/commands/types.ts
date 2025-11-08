@@ -103,7 +103,6 @@ export interface CommandContext {
 export interface Command {
   id: string;
   label: string;
-  aliases?: string[]; // Alternative labels for the command (e.g., ['/session'] for '/sessions')
   description: string;
   args?: CommandArg[];
   execute: (context: CommandContext) => Promise<void>;
