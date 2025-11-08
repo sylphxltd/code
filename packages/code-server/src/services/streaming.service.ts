@@ -314,6 +314,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           } : null,
         });
 
+        console.log('[streamAIResponse] 7. Determining agentId and building system prompt...');
+
         // 7. Determine agentId and build system prompt
         // STATELESS: Use explicit parameters from AppContext
         const agentId = inputAgentId || session.agentId || DEFAULT_AGENT_ID;
@@ -321,12 +323,16 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         const enabledRuleIds = session.enabledRuleIds || [];
         const enabledRules = opts.appContext.ruleManager.getEnabled(enabledRuleIds);
         const systemPrompt = buildSystemPrompt(agentId, agents, enabledRules);
+        console.log('[streamAIResponse] 7. System prompt built, length:', systemPrompt.length);
 
         // 8. Create AI model
+        console.log('[streamAIResponse] 8. Creating AI model for provider:', provider, 'model:', modelName);
         const model = providerInstance.createClient(providerConfig, modelName);
+        console.log('[streamAIResponse] 8. AI model created successfully');
 
         // 9. Determine tool support from capabilities
         const enableTools = modelCapabilities.has('tools');
+        console.log('[streamAIResponse] 9. Tool support:', enableTools);
 
         // 10. Create AI stream with system prompt
         // Only enable native tools if model supports them
@@ -342,17 +348,22 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             return injectSystemStatusToOutput(output, systemStatus);
           },
         });
+        console.log('[streamAIResponse] 10. AI stream created successfully');
 
         // 9. Create assistant message in database (status: active)
+        console.log('[streamAIResponse] Creating assistant message in database...');
         const assistantMessageId = await messageRepository.addMessage({
           sessionId,
           role: 'assistant',
           content: [], // Empty content initially
           status: 'active',
         });
+        console.log('[streamAIResponse] Assistant message created, ID:', assistantMessageId);
 
         // 9.1. Emit assistant message created event
+        console.log('[streamAIResponse] Emitting assistant-message-created event...');
         observer.next({ type: 'assistant-message-created', messageId: assistantMessageId });
+        console.log('[streamAIResponse] assistant-message-created event emitted');
 
         // 9.2. Capture metadata and todoSnapshot for step-0
         const currentSystemStatus = getSystemStatus();
