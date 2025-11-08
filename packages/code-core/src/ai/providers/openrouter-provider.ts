@@ -61,10 +61,14 @@ export class OpenRouterProvider implements AIProvider {
       capabilities.add('image-input');
     }
 
-    // API tells us if model accepts file input (PDFs, documents, etc.)
-    if (inputModalities.includes('file')) {
-      capabilities.add('file-input');
-    }
+    // NOTE: OpenRouter's API reports file input support, but OpenRouter doesn't properly
+    // forward file attachments from AI SDK to the underlying models. The file data gets lost.
+    // We intentionally DON'T add 'file-input' here so the message builder falls back to
+    // XML text format (<file>...</file>) which works correctly.
+    // Reference: File attachments sent via AI SDK FilePart format are silently dropped by OpenRouter
+    // if (inputModalities.includes('file')) {
+    //   capabilities.add('file-input');
+    // }
 
     // API tells us if model can generate images
     if (outputModalities.includes('image')) {
