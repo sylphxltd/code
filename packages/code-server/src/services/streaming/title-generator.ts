@@ -32,6 +32,92 @@ export async function generateSessionTitle(
   console.log(`[TitleGen] 0ms - Function called, starting title generation`);
 
   try {
+    // FAST PATH: Use first user message as title (zero latency)
+    // AI-generated titles take 5+ seconds TTFB - unacceptable for UX
+    const { cleanAITitle } = await import('@sylphx/code-core');
+    const cleaned = cleanAITitle(userMessage, 50);
+
+    console.log(`[TitleGen] ${Date.now() - startTime}ms - Fast path: using user message as title: "${cleaned}"`);
+
+    // Emit start event
+    if (callbacks) {
+      callbacks.onStart();
+    } else {
+      const startEvent = { type: 'session-title-updated-start' as const, sessionId: session.id };
+      appContext.eventStream.publish(`session:${session.id}`, startEvent).catch(err => {
+        console.error('[TitleGen] Failed to publish START event:', err);
+      });
+    }
+
+    // Simulate streaming for consistency (split into words)
+    const words = cleaned.split(' ');
+    let accumulated = '';
+
+    for (let i = 0; i < words.length; i++) {
+      const word = i === 0 ? words[i] : ' ' + words[i];
+      accumulated += word;
+
+      if (callbacks) {
+        callbacks.onDelta(word);
+      } else {
+        const deltaEvent = {
+          type: 'session-title-updated-delta' as const,
+          sessionId: session.id,
+          text: word,
+        };
+        appContext.eventStream.publish(`session:${session.id}`, deltaEvent).catch(err => {
+          console.error('[TitleGen] Failed to publish DELTA event:', err);
+        });
+      }
+
+      // Small delay between words for visual effect
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    // Save to database
+    try {
+      await sessionRepository.updateSession(session.id, { title: cleaned });
+
+      // Emit end event
+      if (callbacks) {
+        callbacks.onEnd(cleaned);
+      } else {
+        const endEvent = {
+          type: 'session-title-updated-end' as const,
+          sessionId: session.id,
+          title: cleaned,
+        };
+        appContext.eventStream.publish(`session:${session.id}`, endEvent).catch(err => {
+          console.error('[TitleGen] Failed to publish END event:', err);
+        });
+      }
+
+      console.log(`[TitleGen] ${Date.now() - startTime}ms - Title saved: "${cleaned}"`);
+      return cleaned;
+    } catch (dbError) {
+      console.error('[Title Generation] Failed to save title:', dbError);
+      return cleaned;
+    }
+  } catch (error) {
+    console.error('[Title Generation] Error:', error);
+    return null;
+  }
+}
+
+// ARCHIVED: AI-based title generation (too slow - 5+ sec TTFB)
+async function generateSessionTitleWithAI(
+  appContext: AppContext,
+  sessionRepository: SessionRepository,
+  aiConfig: AIConfig,
+  session: Session,
+  userMessage: string,
+  callbacks?: TitleStreamCallbacks
+): Promise<string | null> {
+  // START TIMING FROM FUNCTION ENTRY
+  const startTime = Date.now();
+  console.log(`[TitleGen] 0ms - Function called, starting title generation`);
+
+  try {
     const importStart = Date.now();
     const { createAIStream, cleanAITitle, getProvider } = await import('@sylphx/code-core');
     console.log(`[TitleGen] ${Date.now() - startTime}ms - Dynamic import completed (took ${Date.now() - importStart}ms)`);
