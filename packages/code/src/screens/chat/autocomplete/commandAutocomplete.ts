@@ -99,6 +99,9 @@ export function useCommandAutocomplete(
 
     // Return label matches first, then description matches
     const result = [...labelMatches, ...descriptionMatches];
+    if (result.length > 0) {
+      console.log('[commandAutocomplete] Filtered commands:', result.map((c) => c.label));
+    }
     return result;
   }, [input, cursor, cachedOptions, createCommandContext, commands]); // Recompute when input, cursor or cached options change
 }
