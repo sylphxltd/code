@@ -14,7 +14,7 @@ import { getTRPCClient } from '../trpc-provider.js';
 import { useSessionStore } from '../stores/session-store.js';
 
 export function useCurrentSession() {
-  const currentSessionId = useSessionStore((state) => state.currentSessionId);
+  const currentSessionId = useSessionStore((state) => state?.currentSessionId ?? null);
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
