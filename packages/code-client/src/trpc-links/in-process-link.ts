@@ -90,15 +90,24 @@ export function inProcessLink<TRouter extends AnyRouter>(
                 const sub = subscription.subscribe({
                   next: (data: any) => {
                     log('Observable next:', data?.type || typeof data);
-                    observer.next({ result: { type: 'data', data } });
+                    // Use setImmediate to yield control back to event loop
+                    // This allows multiple subscriptions to execute concurrently
+                    // Mimics HTTP link behavior (async I/O)
+                    setImmediate(() => {
+                      observer.next({ result: { type: 'data', data } });
+                    });
                   },
                   error: (err: any) => {
                     log('Observable error:', err instanceof Error ? err.message : String(err));
-                    observer.error(err);
+                    setImmediate(() => {
+                      observer.error(err);
+                    });
                   },
                   complete: () => {
                     log('Observable complete');
-                    observer.complete();
+                    setImmediate(() => {
+                      observer.complete();
+                    });
                   },
                 });
 
