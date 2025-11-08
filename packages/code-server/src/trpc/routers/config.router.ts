@@ -550,6 +550,46 @@ export const configRouter = router({
     }),
 
   /**
+   * Update enabled rules
+   * SERVER DECIDES: If sessionId provided → session table, else → global config
+   * MULTI-CLIENT SYNC: Changes propagate to all clients via event stream
+   * SECURITY: Protected + moderate rate limiting (30 req/min)
+   *
+   * Pure UI Client: Client doesn't decide where to persist, server does
+   */
+  updateRules: moderateProcedure
+    .input(
+      z.object({
+        ruleIds: z.array(z.string()),
+        sessionId: z.string().optional(), // If provided → session-specific, else → global
+        cwd: z.string().default(process.cwd()),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.sessionId) {
+        // Session-specific rules → persist to session table
+        await ctx.sessionRepository.updateSession(input.sessionId, {
+          enabledRuleIds: input.ruleIds,
+        });
+        return { success: true as const, scope: 'session' as const };
+      } else {
+        // Global rules → persist to config file
+        const result = await loadAIConfig(input.cwd);
+        if (result._tag === 'Failure') {
+          return { success: false as const, error: result.error.message };
+        }
+
+        const updated = { ...result.value, defaultEnabledRuleIds: input.ruleIds };
+        const saveResult = await saveAIConfig(updated, input.cwd);
+
+        if (saveResult._tag === 'Success') {
+          return { success: true as const, scope: 'global' as const };
+        }
+        return { success: false as const, error: saveResult.error.message };
+      }
+    }),
+
+  /**
    * Get model details (context length, pricing, capabilities, etc.)
    * SECURITY: No API keys needed - uses hardcoded metadata
    */

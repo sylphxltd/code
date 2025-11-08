@@ -55,7 +55,7 @@ export const useSettingsStore = create<SettingsState>()(
 
     /**
      * Set enabled rules and persist
-     * Saves to session if exists, otherwise to global config
+     * Pure UI Client: Server decides where to persist (session vs global config)
      */
     setEnabledRuleIds: async (ruleIds) => {
       // Update client state immediately (optimistic)
@@ -63,32 +63,18 @@ export const useSettingsStore = create<SettingsState>()(
         state.enabledRuleIds = ruleIds;
       });
 
-      // Get session and AI config stores
+      // Get current session ID (if any)
       const { useSessionStore } = await import('./session-store.js');
-      const { useAIConfigStore } = await import('./ai-config-store.js');
       const { currentSessionId } = useSessionStore.getState();
-      const { aiConfig } = useAIConfigStore.getState();
 
-      if (currentSessionId) {
-        // Has session: persist to session database
-        await useSessionStore.getState().updateSessionRules(currentSessionId, ruleIds);
-      } else {
-        // No session: persist to global config (user settings)
-        const client = getTRPCClient();
-        await client.config.save.mutate({
-          config: {
-            ...aiConfig,
-            defaultEnabledRuleIds: ruleIds,
-          },
-        });
+      // Call server endpoint - SERVER decides where to persist
+      const client = getTRPCClient();
+      await client.config.updateRules.mutate({
+        ruleIds,
+        sessionId: currentSessionId || undefined,
+      });
 
-        // Update AI config store cache
-        useAIConfigStore.setState((state) => {
-          if (state.aiConfig) {
-            state.aiConfig.defaultEnabledRuleIds = ruleIds;
-          }
-        });
-      }
+      // Multi-client sync: Server events will propagate changes to all clients
     },
   }))
 );
