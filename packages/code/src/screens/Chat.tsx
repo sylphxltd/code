@@ -18,6 +18,7 @@ import {
   useEventStream,
   useFileAttachments,
   useKeyboardNavigation,
+  useMessageStore,
   useProjectFiles,
   useSessionInitialization,
   useSessionStore,
@@ -63,7 +64,8 @@ export default function Chat(_props: ChatProps) {
   const addDebugLog = useAppStore((state) => state.addDebugLog);
   const navigateTo = useAppStore((state) => state.navigateTo);
   const aiConfig = useAppStore((state) => state.aiConfig);
-  // IMPORTANT: Use useSessionStore directly for better reactivity
+  // IMPORTANT: Use specific stores directly for better reactivity and to avoid infinite loops
+  // DO NOT use useAppStore for functions - it creates new references on every render
   const currentSessionId = useSessionStore((state) => state.currentSessionId);
   const currentSession = useSessionStore((state) => state.currentSession);
   const createSession = useSessionStore((state) => state.createSession);
@@ -71,9 +73,9 @@ export default function Chat(_props: ChatProps) {
   const updateSessionProvider = useSessionStore((state) => state.updateSessionProvider);
   const updateSessionTitle = useSessionStore((state) => state.updateSessionTitle);
   const setCurrentSession = useSessionStore((state) => state.setCurrentSession);
+  const addMessage = useMessageStore((state) => state.addMessage);
   const updateProvider = useAppStore((state) => state.updateProvider);
   const setAIConfig = useAppStore((state) => state.setAIConfig);
-  const addMessage = useAppStore((state) => state.addMessage);
   const setSelectedProvider = useAppStore((state) => state.setSelectedProvider);
   const setSelectedModel = useAppStore((state) => state.setSelectedModel);
   const updateNotificationSettings = useAppStore((state) => state.updateNotificationSettings);
