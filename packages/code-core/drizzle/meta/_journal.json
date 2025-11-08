@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1731062149307,
-      "tag": "0000_demonic_korath",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1731071193955,
-      "tag": "0001_wet_randall_flagg",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1731239900000,
-      "tag": "0002_step_based_architecture",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1731268800000,
-      "tag": "0003_add_events_table",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1731339506764,
-      "tag": "0004_entity_normalization",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1731042000000,
-      "tag": "0005_add_file_contents",
+      "when": 1762579266437,
+      "tag": "0000_bent_wild_child",
       "breakpoints": true
     }
   ]
