@@ -26,8 +26,15 @@
     {
       "idx": 3,
       "version": "6",
+      "when": 1762494400000,
+      "tag": "0003_add_events_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
       "when": 1762565106764,
-      "tag": "0003_black_maginty",
+      "tag": "0004_entity_normalization",
       "breakpoints": true
     }
   ]
