@@ -74,6 +74,18 @@ export interface ConfigField {
  */
 export type ProviderConfig = Record<string, string | number | boolean | undefined>;
 
+/**
+ * Provider-agnostic streaming options
+ * Used to configure AI behavior without knowing provider details
+ */
+export interface StreamingOptions {
+  /**
+   * Disable reasoning/extended thinking mode
+   * Provider will translate this to provider-specific parameters
+   */
+  disableReasoning?: boolean;
+}
+
 export interface AIProvider {
   readonly id: ProviderId;
   readonly name: string;
@@ -114,6 +126,14 @@ export interface AIProvider {
    * Uses provider config instead of just apiKey
    */
   createClient(config: ProviderConfig, modelId: string): LanguageModelV2;
+
+  /**
+   * Build provider-specific options from generic streaming options
+   * Translates provider-agnostic options to provider-specific format
+   * @param options - Generic streaming options (disableReasoning, etc)
+   * @returns Provider-specific options object for AI SDK's providerOptions parameter
+   */
+  buildProviderOptions?(options: StreamingOptions): Record<string, unknown>;
 }
 
 /**

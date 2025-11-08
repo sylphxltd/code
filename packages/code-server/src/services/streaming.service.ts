@@ -310,6 +310,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // Models without native support (like claude-code) will fall back to text-based tools
         const stream = createAIStream({
           model,
+          providerInstance, // Pass provider for reasoning control
           messages,
           system: systemPrompt,
           enableTools, // Conditional tool usage based on model capabilities

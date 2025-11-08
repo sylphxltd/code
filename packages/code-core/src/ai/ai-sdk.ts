@@ -176,6 +176,12 @@ export interface CreateAIStreamOptions {
   messages: ModelMessage[];
   systemPrompt?: string;
   /**
+   * Provider instance (optional)
+   * Used to translate generic options (disableReasoning) to provider-specific format
+   * If not provided, provider-specific features may not work
+   */
+  providerInstance?: any; // AIProvider type causes circular dependency
+  /**
    * Enable tool usage (default: true)
    * Set to false for scenarios like title generation where tools are unnecessary
    * Improves performance and reduces token usage
@@ -185,7 +191,7 @@ export interface CreateAIStreamOptions {
    * Disable reasoning/extended thinking mode (default: false)
    * Set to true for scenarios like title generation where reasoning is unnecessary
    * Prevents AI from spending time on internal reasoning before generating output
-   * Only supported by models with reasoning capabilities (e.g., Grok, o1, Gemini Thinking)
+   * Requires providerInstance to be provided for provider-specific translation
    */
   disableReasoning?: boolean;
   /**
@@ -405,6 +411,7 @@ export async function* createAIStream(
     systemPrompt = getSystemPrompt(),
     model,
     messages: initialMessages,
+    providerInstance,
     enableTools = true,
     disableReasoning = false,
     abortSignal,
@@ -431,6 +438,21 @@ export async function* createAIStream(
       ? onPrepareMessages(messageHistory, stepNumber)
       : messageHistory;
 
+    // Build provider-specific options (if provider instance provided)
+    let providerOptions: Record<string, Record<string, unknown>> | undefined;
+    if (providerInstance && (disableReasoning)) {
+      // Provider translates generic options to provider-specific format
+      const streamingOptions = { disableReasoning };
+      const providerSpecificOptions = providerInstance.buildProviderOptions?.(streamingOptions);
+
+      if (providerSpecificOptions) {
+        // Wrap in provider ID key for AI SDK's providerOptions format
+        providerOptions = {
+          [providerInstance.id]: providerSpecificOptions
+        };
+      }
+    }
+
     // Call AI SDK with single step
     const { fullStream, response, finishReason, usage, content } = streamText({
       model,
@@ -440,16 +462,8 @@ export async function* createAIStream(
       ...(enableTools ? { tools: getAISDKTools({ interactive: hasUserInputHandler() }) } : {}),
       // Only pass abortSignal if provided (exactOptionalPropertyTypes compliance)
       ...(abortSignal ? { abortSignal } : {}),
-      // Disable reasoning for providers that support it (e.g., OpenRouter Grok)
-      ...(disableReasoning ? {
-        providerOptions: {
-          openrouter: {
-            reasoning: {
-              enabled: false
-            }
-          }
-        }
-      } : {}),
+      // Provider-specific options (reasoning control, etc)
+      ...(providerOptions ? { providerOptions } : {}),
       // Don't handle errors here - let them propagate to the caller
       // onError callback is for non-fatal errors, fatal ones should throw
     });

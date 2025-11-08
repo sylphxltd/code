@@ -48,7 +48,23 @@ export async function generateSessionTitle(
     // Create AI stream for title generation (no tools, no reasoning - fastest possible)
     const titleStream = createAIStream({
       model,
-      systemPrompt: 'Generate a short title (max 50 chars) summarizing this message. Output only the title, nothing else.',
+      providerInstance, // Pass provider for reasoning control
+      systemPrompt: `Generate a concise title for this conversation.
+
+Requirements:
+- 2-6 words maximum
+- Descriptive and specific (what is the user asking or doing?)
+- No filler words ("about", "how to", "question about")
+- No punctuation at the end
+- Direct and clear
+
+Examples:
+- User: "Help me debug this error" → Title: "Debug error"
+- User: "How do I install Node.js?" → Title: "Install Node.js"
+- User: "Explain quantum computing" → Title: "Quantum computing explanation"
+- User: "Write a function to sort arrays" → Title: "Array sorting function"
+
+Output only the title, nothing else.`,
       messages: [
         {
           role: 'user',

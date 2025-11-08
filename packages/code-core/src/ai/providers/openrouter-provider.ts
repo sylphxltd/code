@@ -5,7 +5,7 @@
 
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import type { LanguageModelV1 } from 'ai';
-import type { AIProvider, ProviderModelDetails, ConfigField, ProviderConfig, ModelInfo, ModelCapability, ModelCapabilities } from './base-provider.js';
+import type { AIProvider, ProviderModelDetails, ConfigField, ProviderConfig, ModelInfo, ModelCapability, ModelCapabilities, StreamingOptions } from './base-provider.js';
 import { hasRequiredFields } from './base-provider.js';
 import { retryNetwork } from '../../utils/retry.js';
 import { getModelMetadata } from '../../utils/models-dev.js';
@@ -270,5 +270,22 @@ export class OpenRouterProvider implements AIProvider {
     );
 
     return model;
+  }
+
+  /**
+   * Build OpenRouter-specific provider options
+   * Translates generic options to OpenRouter API format
+   */
+  buildProviderOptions(options: StreamingOptions): Record<string, unknown> {
+    const providerOptions: Record<string, unknown> = {};
+
+    // Translate disableReasoning to OpenRouter's reasoning control
+    if (options.disableReasoning) {
+      providerOptions.reasoning = {
+        enabled: false
+      };
+    }
+
+    return providerOptions;
   }
 }
