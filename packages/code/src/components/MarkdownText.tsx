@@ -46,6 +46,9 @@ const MarkdownText = React.memo(function MarkdownText({
   prefix,
   prefixColor,
 }: MarkdownTextProps) {
+  // Generate a stable but unique prefix for this component instance (must be before any returns)
+  const instanceId = React.useId();
+
   // Guard against undefined children
   if (!children || typeof children !== 'string') {
     return null;
@@ -63,12 +66,13 @@ const MarkdownText = React.memo(function MarkdownText({
   }
 
   // Process line by line for HR detection and/or prefix
+
   return (
     <Box flexDirection="column">
       {lines.map((line, idx) => {
         const isHR = isHorizontalRule(line);
-        // Use unique key combining index and content hash to avoid duplicate key warnings
-        const key = `${idx}-${line.substring(0, 20)}-${line.length}`;
+        // Use unique key with component instance ID to avoid duplicate keys across different instances
+        const key = `${instanceId}-line-${idx}`;
 
         if (isHR) {
           // Custom HR: fixed width (48 chars), centered with dashes
