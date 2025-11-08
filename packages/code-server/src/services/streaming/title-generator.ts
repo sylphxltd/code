@@ -27,14 +27,8 @@ export async function generateSessionTitle(
   userMessage: string,
   callbacks?: TitleStreamCallbacks
 ): Promise<string | null> {
-  // START TIMING FROM FUNCTION ENTRY
-  const startTime = Date.now();
-  console.log(`[TitleGen] 0ms - Function called, starting title generation`);
-
   try {
-    const importStart = Date.now();
     const { createAIStream, cleanAITitle, getProvider } = await import('@sylphx/code-core');
-    console.log(`[TitleGen] ${Date.now() - startTime}ms - Dynamic import completed (took ${Date.now() - importStart}ms)`);
 
     const provider = session.provider;
     const modelName = session.model;
@@ -49,14 +43,9 @@ export async function generateSessionTitle(
       return null;
     }
 
-    console.log(`[TitleGen] ${Date.now() - startTime}ms - Provider config validated`);
-
-    const clientStart = Date.now();
     const model = providerInstance.createClient(providerConfig, modelName);
-    console.log(`[TitleGen] ${Date.now() - startTime}ms - Client created (took ${Date.now() - clientStart}ms)`);
 
     // Create AI stream for title generation (no tools needed - faster and cheaper)
-    const streamStart = Date.now();
     const titleStream = createAIStream({
       model,
       messages: [
@@ -82,7 +71,6 @@ Now generate the title:`,
       ],
       enableTools: false, // Title generation doesn't need tools
     });
-    console.log(`[TitleGen] ${Date.now() - startTime}ms - AI stream created (took ${Date.now() - streamStart}ms)`);
 
     let fullTitle = '';
 
@@ -90,7 +78,6 @@ Now generate the title:`,
     if (callbacks) {
       callbacks.onStart();
     } else {
-      console.log(`[TitleGen] ${Date.now() - startTime}ms - Publishing START`);
       const startEvent = { type: 'session-title-updated-start' as const, sessionId: session.id };
       // Fire-and-forget publish (non-blocking, same as message streaming)
       appContext.eventStream.publish(`session:${session.id}`, startEvent).catch(err => {
@@ -99,7 +86,6 @@ Now generate the title:`,
     }
 
     // Stream title chunks
-    console.log(`[TitleGen] ${Date.now() - startTime}ms - Starting to iterate stream (waiting for first chunk...)`);
     try {
       for await (const chunk of titleStream) {
         if (chunk.type === 'text-delta' && chunk.textDelta) {
@@ -109,7 +95,6 @@ Now generate the title:`,
           if (callbacks) {
             callbacks.onDelta(chunk.textDelta);
           } else {
-            console.log(`[TitleGen] ${Date.now() - startTime}ms - DELTA: "${chunk.textDelta}" (total: "${fullTitle}")`);
             const deltaEvent = {
               type: 'session-title-updated-delta' as const,
               sessionId: session.id,
@@ -122,7 +107,6 @@ Now generate the title:`,
           }
         }
       }
-      console.log(`[TitleGen] ${Date.now() - startTime}ms - Stream completed, fullTitle: "${fullTitle}"`);
     } catch (streamError) {
       // Catch NoOutputGeneratedError and other stream errors
       console.error('[Title Generation] Stream error:', streamError);
@@ -143,7 +127,6 @@ Now generate the title:`,
         if (callbacks) {
           callbacks.onEnd(cleaned);
         } else {
-          console.log(`[TitleGen] ${Date.now() - startTime}ms - Publishing END: "${cleaned}"`);
           const endEvent = {
             type: 'session-title-updated-end' as const,
             sessionId: session.id,

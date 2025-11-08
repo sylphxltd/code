@@ -224,33 +224,21 @@ export default function Chat(_props: ChatProps) {
       // ENABLED: Title streaming (independent channel, no loop issues)
       onSessionTitleStart: (sessionId: string) => {
         const currentSessionId = useSessionStore.getState().currentSessionId;
-        console.log('[Chat] onSessionTitleStart check:', { sessionId, currentSessionId, match: sessionId === currentSessionId });
         if (sessionId === currentSessionId) {
-          console.log('[Chat] Calling setIsTitleStreaming(true)');
           setIsTitleStreaming(true);
-          console.log('[Chat] Calling setStreamingTitle("")');
           setStreamingTitle('');
         }
       },
       onSessionTitleDelta: (sessionId: string, text: string) => {
         const currentSessionId = useSessionStore.getState().currentSessionId;
-        console.log('[Chat] onSessionTitleDelta check:', { sessionId, currentSessionId, text, match: sessionId === currentSessionId });
         if (sessionId === currentSessionId) {
-          console.log('[Chat] Calling setStreamingTitle with:', text);
-          setStreamingTitle((prev) => {
-            const newTitle = prev + text;
-            console.log('[Chat] setStreamingTitle callback, prev:', prev, 'new:', newTitle);
-            return newTitle;
-          });
+          setStreamingTitle((prev) => prev + text);
         }
       },
       onSessionTitleComplete: (sessionId: string, title: string) => {
         const currentSessionId = useSessionStore.getState().currentSessionId;
-        console.log('[Chat] onSessionTitleComplete check:', { sessionId, currentSessionId, title, match: sessionId === currentSessionId });
         if (sessionId === currentSessionId) {
-          console.log('[Chat] Calling setIsTitleStreaming(false)');
           setIsTitleStreaming(false);
-          console.log('[Chat] Calling setStreamingTitle("")');
           setStreamingTitle('');
         }
       },

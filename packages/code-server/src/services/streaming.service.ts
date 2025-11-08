@@ -358,7 +358,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           todoSnapshot: currentTodos,
         });
 
-        // 9.5. Check if title generation needed (but defer to after main response)
+        // 9.5. Check if title generation needed (defer to after main response)
         const isFirstMessage =
           updatedSession.messages.filter((m) => m.role === 'user').length === 1;
         const shouldGenerateTitle = needsTitleGeneration(updatedSession, isNewSession, isFirstMessage);
@@ -403,10 +403,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         let result;
         try {
-          console.log('[StreamingService] Starting processStream() (main AI response)');
-          const processStart = Date.now();
           result = await processStream(stream, callbacks);
-          console.log(`[StreamingService] processStream() completed (took ${Date.now() - processStart}ms)`);
         } catch (processError) {
           console.error('[streamAIResponse] 10. processStream FAILED:', processError);
           throw processError;
@@ -491,21 +488,15 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // 13. Complete observable (main response done)
         observer.complete();
 
-        // 14. Generate title AFTER main response completes (sequential, but faster than fake parallel)
-        // Why sequential? OpenRouter/AI SDK serializes requests anyway, so explicit sequential
-        // is faster because title starts immediately after main response instead of waiting in queue
+        // 14. Generate title after main response completes
         if (shouldGenerateTitle) {
-          console.log('[StreamingService] Main response complete, starting title generation NOW');
-          const titleStartTime = Date.now();
           generateSessionTitle(
             opts.appContext,
             sessionRepository,
             aiConfig,
             updatedSession,
             userMessageText
-          ).then((title) => {
-            console.log(`[StreamingService] Title generation completed in ${Date.now() - titleStartTime}ms: "${title}"`);
-          }).catch((error) => {
+          ).catch((error) => {
             console.error('[Title Generation] Error:', error);
           });
         }
