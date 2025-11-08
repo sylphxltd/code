@@ -66,11 +66,6 @@ export default function Chat(_props: ChatProps) {
   // IMPORTANT: Use useSessionStore directly for better reactivity
   const currentSessionId = useSessionStore((state) => state.currentSessionId);
   const currentSession = useSessionStore((state) => state.currentSession);
-  console.log('[Chat] currentSession from useSessionStore:', currentSession ? {
-    id: currentSession.id,
-    title: currentSession.title,
-    messageCount: currentSession.messages?.length || 0
-  } : null);
   const createSession = useSessionStore((state) => state.createSession);
   const updateSessionModel = useSessionStore((state) => state.updateSessionModel);
   const updateSessionProvider = useSessionStore((state) => state.updateSessionProvider);
@@ -282,7 +277,6 @@ export default function Chat(_props: ChatProps) {
   });
 
   // Create sendUserMessageToAI function using new subscription adapter
-  console.log('[Chat] Creating sendUserMessageToAI callback');
   const sendUserMessageToAI = useCallback(
     createSubscriptionSendUserMessageToAI({
       aiConfig,
