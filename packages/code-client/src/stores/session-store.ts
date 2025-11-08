@@ -28,7 +28,7 @@ export interface SessionState {
   deleteSession: (sessionId: string) => Promise<void>;
 }
 
-export const useSessionStore = create<SessionState>()((set, get) => ({
+export const useSessionStore = create<SessionState>((set, get) => ({
   currentSessionId: null,
 
   /**
