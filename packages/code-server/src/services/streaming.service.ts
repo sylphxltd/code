@@ -229,7 +229,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           }
         }
 
-        console.log('[streamAIResponse] Frozen content created:', {
           count: frozenContent.length,
           types: frozenContent.map(p => p.type),
           fileCount: frozenContent.filter(p => p.type === 'file').length,
@@ -286,7 +285,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         }
 
         // 6. Build ModelMessage[] for AI (transforms frozen content, no file reading)
-        console.log('[streamAIResponse] Session messages from DB:', {
           count: updatedSession.messages.length,
           lastMessage: updatedSession.messages[updatedSession.messages.length - 1] ? {
             role: updatedSession.messages[updatedSession.messages.length - 1].role,
@@ -305,7 +303,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           messageRepository.getFileRepository()
         );
 
-        console.log('[streamAIResponse] Built ModelMessage[] for AI:', {
           count: messages.length,
           lastMessage: messages[messages.length - 1] ? {
             role: messages[messages.length - 1].role,
@@ -314,7 +311,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           } : null,
         });
 
-        console.log('[streamAIResponse] 7. Determining agentId and building system prompt...');
 
         // 7. Determine agentId and build system prompt
         // STATELESS: Use explicit parameters from AppContext
@@ -323,16 +319,12 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         const enabledRuleIds = session.enabledRuleIds || [];
         const enabledRules = opts.appContext.ruleManager.getEnabled(enabledRuleIds);
         const systemPrompt = buildSystemPrompt(agentId, agents, enabledRules);
-        console.log('[streamAIResponse] 7. System prompt built, length:', systemPrompt.length);
 
         // 8. Create AI model
-        console.log('[streamAIResponse] 8. Creating AI model for provider:', provider, 'model:', modelName);
         const model = providerInstance.createClient(providerConfig, modelName);
-        console.log('[streamAIResponse] 8. AI model created successfully');
 
         // 9. Determine tool support from capabilities
         const enableTools = modelCapabilities.has('tools');
-        console.log('[streamAIResponse] 9. Tool support:', enableTools);
 
         // 10. Create AI stream with system prompt
         // Only enable native tools if model supports them
@@ -348,35 +340,27 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             return injectSystemStatusToOutput(output, systemStatus);
           },
         });
-        console.log('[streamAIResponse] 10. AI stream created successfully');
 
         // 9. Create assistant message in database (status: active)
-        console.log('[streamAIResponse] Creating assistant message in database...');
         const assistantMessageId = await messageRepository.addMessage({
           sessionId,
           role: 'assistant',
           content: [], // Empty content initially
           status: 'active',
         });
-        console.log('[streamAIResponse] Assistant message created, ID:', assistantMessageId);
 
         // 9.1. Emit assistant message created event
-        console.log('[streamAIResponse] Emitting assistant-message-created event...');
         observer.next({ type: 'assistant-message-created', messageId: assistantMessageId });
-        console.log('[streamAIResponse] assistant-message-created event emitted');
 
         // 9.2. Capture metadata and todoSnapshot for step-0
-        console.log('[streamAIResponse] 9.2. Capturing metadata for step-0...');
         const currentSystemStatus = getSystemStatus();
         const currentTodos = updatedSession.todos || [];
         const stepMetadata = {
           cpu: currentSystemStatus.cpu,
           memory: currentSystemStatus.memory,
         };
-        console.log('[streamAIResponse] 9.2. Metadata captured, todos:', currentTodos.length);
 
         // 9.3. Create step-0 in database
-        console.log('[streamAIResponse] 9.3. Creating step-0 in database...');
         const stepId = `${assistantMessageId}-step-0`;
         try {
           await createMessageStep(
@@ -386,14 +370,12 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             stepMetadata,
             currentTodos
           );
-          console.log('[streamAIResponse] 9.3. Step-0 created successfully, ID:', stepId);
         } catch (stepError) {
           console.error('[streamAIResponse] 9.3. FAILED to create step:', stepError);
           throw stepError;
         }
 
         // 9.4. Emit step-start event
-        console.log('[streamAIResponse] 9.4. Emitting step-start event...');
         observer.next({
           type: 'step-start',
           stepId,
@@ -401,16 +383,13 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           metadata: stepMetadata,
           todoSnapshot: currentTodos,
         });
-        console.log('[streamAIResponse] 9.4. step-start event emitted');
 
         // 9.5. Start title generation in parallel with streaming (real-time updates)
-        console.log('[streamAIResponse] 9.5. Checking if title generation needed...');
         const isFirstMessage =
           updatedSession.messages.filter((m) => m.role === 'user').length === 1;
 
         let titlePromise: Promise<string | null> = Promise.resolve(null);
         if (needsTitleGeneration(updatedSession, isNewSession, isFirstMessage)) {
-          console.log('[streamAIResponse] 9.5. Starting title generation in parallel...');
           titlePromise = generateSessionTitle(
             opts.appContext,
             sessionRepository,
@@ -419,11 +398,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             userMessageText
           );
         } else {
-          console.log('[streamAIResponse] 9.5. Title generation not needed');
         }
 
         // 10. Process stream and emit events
-        console.log('[streamAIResponse] 10. Setting up stream callbacks...');
         const callbacks: StreamCallbacks = {
           onTextStart: () => {
             observer.next({ type: 'text-start' });
@@ -460,12 +437,10 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             observer.next({ type: 'error', error });
           },
         };
-        console.log('[streamAIResponse] 10. Callbacks defined, starting processStream...');
 
         let result;
         try {
           result = await processStream(stream, callbacks);
-          console.log('[streamAIResponse] 10. processStream completed, result:', {
             hasUsage: !!result.usage,
             partsCount: result.messageParts.length,
             finishReason: result.finishReason
@@ -545,18 +520,14 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // The updateMessageUsage call is now a no-op for backward compatibility
 
         // 12. Emit complete event (message content done, title continues in background)
-        console.log('[streamAIResponse] 12. Emitting complete event...');
         observer.next({
           type: 'complete',
           usage: result.usage,
           finishReason: result.finishReason,
         });
-        console.log('[streamAIResponse] 12. Complete event emitted');
 
         // 13. Complete observable (clients receive title events via useEventStream)
-        console.log('[streamAIResponse] 13. Completing observable...');
         observer.complete();
-        console.log('[streamAIResponse] 13. Observable completed successfully');
 
         // 14. Let title generation finish in background
         // NOTE: This catch() should never fire because titlePromise has internal try-catch

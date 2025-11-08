@@ -22,40 +22,7 @@ import type {
   MessageMetadata,
 } from '../types/session.types.js';
 import type { Todo as TodoType } from '../types/todo.types.js';
-
-/**
- * Retry helper for database operations that may encounter SQLITE_BUSY
- * Uses exponential backoff with jitter
- */
-async function retryOnBusy<T>(
-  operation: () => Promise<T>,
-  maxRetries = 5,
-  baseDelay = 50
-): Promise<T> {
-  let lastError: any;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await operation();
-    } catch (error: any) {
-      lastError = error;
-
-      // Check if error is SQLITE_BUSY
-      const isBusy = error?.message?.includes('SQLITE_BUSY') ||
-                     error?.code === 'SQLITE_BUSY';
-
-      if (!isBusy || attempt === maxRetries) {
-        throw error;
-      }
-
-      // Exponential backoff with jitter: delay = baseDelay * 2^attempt + random(0, baseDelay)
-      const delay = baseDelay * Math.pow(2, attempt) + Math.random() * baseDelay;
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-
-  throw lastError;
-}
+import { retryDatabase } from '../utils/retry.js';
 
 /**
  * Create a new step in a message
@@ -74,7 +41,7 @@ export async function createMessageStep(
   const stepId = `${messageId}-step-${stepIndex}`;
   const now = Date.now();
 
-  await retryOnBusy(() =>
+  await retryDatabase(() =>
     db.transaction(async (tx) => {
       // Insert step
       const newStep: NewMessageStep = {
@@ -109,7 +76,7 @@ export async function updateStepParts(
   stepId: string,
   parts: MessagePart[]
 ): Promise<void> {
-  await retryOnBusy(() =>
+  await retryDatabase(() =>
     db.transaction(async (tx) => {
       // Delete existing parts
       await tx.delete(stepParts).where(eq(stepParts.stepId, stepId));
@@ -144,7 +111,7 @@ export async function completeMessageStep(
 ): Promise<void> {
   const endTime = Date.now();
 
-  await retryOnBusy(() =>
+  await retryDatabase(() =>
     db.transaction(async (tx) => {
       // Get start time to calculate duration
       const [step] = await tx

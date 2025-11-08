@@ -60,18 +60,9 @@ export function updateActiveMessageContent(
   const session = state.currentSession;
 
   if (!session || session.id !== currentSessionId) {
-    console.error('[updateActiveMessageContent] Session mismatch!', {
-      expected: currentSessionId,
-      got: session?.id
-    });
+    logContent('Session mismatch! expected:', currentSessionId, 'got:', session?.id);
     return;
   }
-
-  console.log('[updateActiveMessageContent] Looking for active message:', {
-    messageId,
-    totalMessages: session.messages.length,
-    messages: session.messages.map(m => ({ id: m.id, role: m.role, status: m.status }))
-  });
 
   // Find active message by ID if provided, otherwise find any active message
   const activeMessage = messageId
@@ -79,15 +70,9 @@ export function updateActiveMessageContent(
     : session.messages.find((m) => m.status === 'active');
 
   if (!activeMessage) {
-    console.error('[updateActiveMessageContent] NO ACTIVE MESSAGE FOUND!', {
-      totalMessages: session.messages.length,
-      searchingForId: messageId,
-      allStatuses: session.messages.map(m => m.status)
-    });
+    logContent('No active message found! messages:', session.messages.length, 'messageId:', messageId);
     return;
   }
-
-  console.log('[updateActiveMessageContent] Found active message:', activeMessage.id);
 
   // IMMUTABLE UPDATE: Create new messages array with updated content
   const updatedMessages = session.messages.map(msg =>
@@ -277,22 +262,13 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
   const state = useSessionStore.getState();
 
   context.streamingMessageIdRef.current = event.messageId;
-  console.log('[handleAssistantMessageCreated] Event received:', {
-    messageId: event.messageId,
-    currentSessionId: state.currentSessionId,
-    currentSession: state.currentSession?.id,
-    hasSession: !!state.currentSession
-  });
+  logMessage('Message created:', event.messageId, 'session:', state.currentSessionId);
 
   // Start streaming UI
   context.setIsStreaming(true);
 
   if (!state.currentSession || state.currentSession.id !== state.currentSessionId) {
-    console.error('[handleAssistantMessageCreated] SESSION MISMATCH! Cannot add assistant message', {
-      expected: state.currentSessionId,
-      got: state.currentSession?.id,
-      hasSession: !!state.currentSession
-    });
+    logMessage('Session mismatch! expected:', state.currentSessionId, 'got:', state.currentSession?.id);
     return;
   }
 
@@ -315,19 +291,7 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
     }
   });
 
-  console.log('[handleAssistantMessageCreated] Added assistant message to store:', {
-    messageId: event.messageId,
-    previousCount: state.currentSession.messages.length,
-    newCount: state.currentSession.messages.length + 1,
-    newMessage
-  });
-
-  // Verify it was added
-  const verifyState = useSessionStore.getState();
-  console.log('[handleAssistantMessageCreated] Verification - messages in store:', {
-    count: verifyState.currentSession?.messages.length,
-    lastMessage: verifyState.currentSession?.messages[verifyState.currentSession.messages.length - 1]
-  });
+  logMessage('Added assistant message, total:', state.currentSession.messages.length + 1);
 }
 
 // ============================================================================
@@ -414,7 +378,6 @@ function handleTextStart(event: Extract<StreamEvent, { type: 'text-start' }>, co
 
 function handleTextDelta(event: Extract<StreamEvent, { type: 'text-delta' }>, context: EventHandlerContext) {
   const currentSessionId = useSessionStore.getState().currentSessionId;
-  console.log('[handleTextDelta] Received text:', event.text.substring(0, 50));
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
     const newParts = [...prev];

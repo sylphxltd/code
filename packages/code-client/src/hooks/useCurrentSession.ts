@@ -59,7 +59,6 @@ export function useCurrentSession() {
           );
 
           if (hasActiveAssistantMessage) {
-            console.log('[useCurrentSession] Skipping session update - active assistant message in progress');
             // Don't overwrite - streaming is in progress
             return;
           }
