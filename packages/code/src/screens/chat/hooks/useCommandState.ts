@@ -56,7 +56,6 @@ export function useCommandState(): CommandState {
   const [inputComponentTitle, setInputComponentTitle] = useState<string | null>(null);
 
   const handleSetInputComponent = (component: ReactNode | null, title?: string) => {
-    console.log('[useCommandState] setInputComponent called:', { hasComponent: !!component, title });
     setInputComponent(component);
     setInputComponentTitle(title || null);
   };

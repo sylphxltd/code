@@ -157,11 +157,6 @@ export function InputSection({
 
   const headerTitle = getHeaderTitle();
 
-  // Debug logging
-  if (inputComponent) {
-    console.log('[InputSection] Rendering with custom inputComponent, title:', inputComponentTitle);
-  }
-
   return (
     <Box flexDirection="column" flexShrink={0}>
       {/* Dynamic Header */}
