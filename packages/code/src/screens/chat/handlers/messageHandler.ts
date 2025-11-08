@@ -3,7 +3,7 @@
  * Creates handleSubmit callback for message submission
  */
 
-import { resolveProviderAndModel } from '@sylphx/code-client';
+import { resolveProviderAndModel, extractFileReferences } from '@sylphx/code-client';
 import type { FileAttachment } from '@sylphx/code-core';
 import type { CommandContext } from '../../../commands/types.js';
 
@@ -35,6 +35,7 @@ export interface MessageHandlerParams {
   pendingInput: WaitForInputOptions | null;
   filteredCommands: Command[];
   pendingAttachments: FileAttachment[];
+  projectFiles?: Array<{ path: string; relativePath: string; size: number }>;
 
   // UI state setters
   setHistoryIndex: (index: number) => void;
@@ -71,6 +72,48 @@ import type { ProviderId } from '@sylphx/code-core';
 import type { Command, WaitForInputOptions } from '../../../commands/types.js';
 
 /**
+ * Auto-resolve missing file references from user message
+ *
+ * When user types @file without using autocomplete, the file isn't in pendingAttachments.
+ * This function finds those missing files from projectFiles and adds them.
+ */
+function autoResolveFileReferences(
+  userMessage: string,
+  pendingAttachments: FileAttachment[],
+  projectFiles: Array<{ path: string; relativePath: string; size: number }> = []
+): FileAttachment[] {
+  // Extract all @file references from message
+  const fileRefs = extractFileReferences(userMessage);
+
+  // Create set of already attached files
+  const attachedFiles = new Set(pendingAttachments.map((a) => a.relativePath));
+
+  // Find missing file references
+  const missingRefs = Array.from(fileRefs).filter((ref) => !attachedFiles.has(ref));
+
+  if (missingRefs.length === 0) {
+    return pendingAttachments;
+  }
+
+  // Try to resolve missing refs from projectFiles
+  const resolvedAttachments: FileAttachment[] = [...pendingAttachments];
+
+  for (const ref of missingRefs) {
+    const projectFile = projectFiles.find((f) => f.relativePath === ref);
+    if (projectFile) {
+      resolvedAttachments.push({
+        path: projectFile.path,
+        relativePath: projectFile.relativePath,
+        size: projectFile.size,
+        mimeType: undefined, // Will be inferred by server from file extension
+      });
+    }
+  }
+
+  return resolvedAttachments;
+}
+
+/**
  * Create handleSubmit callback for message submission
  *
  * Factory function that creates the handleSubmit callback.
@@ -85,6 +128,7 @@ export function createHandleSubmit(params: MessageHandlerParams) {
     pendingInput,
     filteredCommands,
     pendingAttachments,
+    projectFiles,
     setHistoryIndex,
     setTempInput,
     setInput,
@@ -261,7 +305,12 @@ export function createHandleSubmit(params: MessageHandlerParams) {
     setInput('');
 
     // Get attachments for this message
-    const attachmentsForMessage: FileAttachment[] = [...pendingAttachments];
+    // Auto-resolve any @file references that weren't explicitly added via autocomplete
+    const attachmentsForMessage: FileAttachment[] = autoResolveFileReferences(
+      userMessage,
+      pendingAttachments,
+      projectFiles
+    );
 
     // Clear pending attachments after capturing them
     clearAttachments();
