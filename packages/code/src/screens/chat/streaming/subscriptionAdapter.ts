@@ -252,6 +252,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
         logSession('Creating temporary session for optimistic display');
 
         useSessionStore.setState({
+          currentSessionId: 'temp-session',
           currentSession: {
             id: 'temp-session',
             title: 'New Chat',

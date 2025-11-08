@@ -23,6 +23,14 @@ export function useCurrentSession() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
+  console.log('[useCurrentSession] Render:', {
+    currentSessionId,
+    optimisticSessionId: optimisticSession?.id,
+    hasOptimistic: !!optimisticSession,
+    optimisticMessagesCount: optimisticSession?.messages?.length,
+    hasServer: !!serverSession,
+  });
+
   // Fetch session data from server when currentSessionId changes
   useEffect(() => {
     if (!currentSessionId) {
