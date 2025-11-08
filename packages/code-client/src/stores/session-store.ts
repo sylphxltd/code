@@ -17,6 +17,7 @@ export interface SessionState {
 
   // Session operations
   setCurrentSession: (sessionId: string | null) => Promise<void>;
+  loadSession: (sessionId: string) => Promise<Session>;
   refreshCurrentSession: () => Promise<void>;
 
   // Session CRUD
@@ -33,48 +34,38 @@ export const useSessionStore = create<SessionState>()((set, get) => ({
     currentSession: null,
 
     /**
-     * Set current session and load it from database
+     * Set current session ID (synchronous)
+     * Session data will be loaded by React layer
      */
     setCurrentSession: async (sessionId) => {
-      console.log('[SessionStore] setCurrentSession called with:', sessionId);
-
-      // First update: set sessionId, clear session
       set({
         currentSessionId: sessionId,
-        currentSession: null,
+        currentSession: null, // Will be loaded by useEffect
       });
-      console.log('[SessionStore] State updated: currentSessionId set, currentSession cleared');
 
       if (!sessionId) {
-        console.log('[SessionStore] No sessionId, clearing rules');
         // Clear enabled rules when no session
         const { useSettingsStore } = await import('./settings-store.js');
         useSettingsStore.getState().setEnabledRuleIds([]);
-        console.log('[SessionStore] Done clearing');
-        return;
       }
+    },
 
-      console.log('[SessionStore] Fetching session from tRPC...');
-      // Fetch session from tRPC
+    /**
+     * Load session data (called from React layer)
+     */
+    loadSession: async (sessionId: string) => {
       const client = getTRPCClient();
       const session = await client.session.getById.query({ sessionId });
-      console.log('[SessionStore] Session fetched:', {
-        id: session.id,
-        title: session.title,
-        messageCount: session.messages?.length || 0,
-      });
 
-      // Second update: set session
       set({
         currentSession: session,
       });
-      console.log('[SessionStore] State updated: currentSession set');
 
       // Load session's enabled rules into settings store
-      console.log('[SessionStore] Loading enabled rules...');
       const { useSettingsStore } = await import('./settings-store.js');
       useSettingsStore.getState().setEnabledRuleIds(session.enabledRuleIds || []);
-      console.log('[SessionStore] setCurrentSession complete');
+
+      return session;
     },
 
     /**

@@ -394,6 +394,22 @@ export default function Chat(_props: ChatProps) {
     addLog
   );
 
+  // Load session data when currentSessionId changes (React-layer data loading)
+  useEffect(() => {
+    const loadCurrentSession = async () => {
+      if (!currentSessionId) {
+        return;
+      }
+
+      console.log('[Chat] useEffect - Loading session data for:', currentSessionId);
+      const sessionStore = useSessionStore.getState();
+      await sessionStore.loadSession(currentSessionId);
+      console.log('[Chat] useEffect - Session data loaded');
+    };
+
+    loadCurrentSession();
+  }, [currentSessionId]);
+
   // Sync UI streaming state with server state on session switch
   // When user switches to different session, check if that session has active streaming
   // This syncs UI state (isStreaming) with server state (message.status === 'active')
