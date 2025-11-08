@@ -95,15 +95,37 @@ export async function retry<T>(
 
 /**
  * Predicate: Check if error is SQLITE_BUSY
+ * Checks error message, code, and nested cause for SQLITE_BUSY errors
  */
 export function isSQLiteBusyError(error: unknown): boolean {
-  if (error && typeof error === 'object' && 'message' in error) {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  // Check error message
+  if ('message' in error) {
     const message = String(error.message);
-    return message.includes('SQLITE_BUSY');
+    if (message.includes('SQLITE_BUSY') || message.includes('database is locked')) {
+      return true;
+    }
   }
-  if (error && typeof error === 'object' && 'code' in error) {
-    return error.code === 'SQLITE_BUSY';
+
+  // Check error code
+  if ('code' in error && error.code === 'SQLITE_BUSY') {
+    return true;
   }
+
+  // Check nested cause (DrizzleQueryError -> LibsqlError)
+  if ('cause' in error && error.cause && typeof error.cause === 'object') {
+    if ('code' in error.cause && error.cause.code === 'SQLITE_BUSY') {
+      return true;
+    }
+    // Recursively check nested causes
+    if (isSQLiteBusyError(error.cause)) {
+      return true;
+    }
+  }
+
   return false;
 }
 
