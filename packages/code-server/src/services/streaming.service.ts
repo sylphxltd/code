@@ -130,8 +130,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           abortSignal,
         } = opts;
 
-        console.log('[streamAIResponse] Received content:', JSON.stringify(content, null, 2));
-        console.log('[streamAIResponse] Content count:', content.length);
 
         // 1. Ensure session exists (create if needed)
         let sessionId: string;
@@ -197,8 +195,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         const frozenContent: MessagePart[] = [];
         for (const part of content) {
-          console.log('[streamAIResponse] Processing content part:', { type: part.type, ...('relativePath' in part ? { relativePath: part.relativePath } : {}) });
-
           if (part.type === 'text') {
             frozenContent.push({
               type: 'text',
@@ -207,19 +203,10 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             });
           } else if (part.type === 'file') {
             try {
-              console.log('[streamAIResponse] Reading file:', part.path);
               // READ NOW and freeze as base64 - never re-read from disk
               const buffer = await fs.readFile(part.path);
               const base64 = buffer.toString('base64');
               const mimeType = part.mimeType || lookup(part.path) || 'application/octet-stream';
-
-              console.log('[streamAIResponse] File read successfully:', {
-                relativePath: part.relativePath,
-                size: buffer.length,
-                mediaType: mimeType,
-                base64Length: base64.length,
-                base64Preview: base64.substring(0, 100),
-              });
 
               frozenContent.push({
                 type: 'file',
