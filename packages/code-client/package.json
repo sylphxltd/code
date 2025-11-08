@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/code-client",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Sylphx Code Client - Shared React hooks and components",
   "type": "module",
   "main": "./src/index.ts",

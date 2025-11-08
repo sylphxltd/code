@@ -1,6 +1,6 @@
 {
   "name": "@sylphx/code-core",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Sylphx Code SDK - Complete headless SDK with all business logic",
   "type": "module",
   "main": "./dist/index.js",
