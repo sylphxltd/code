@@ -100,10 +100,6 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
   } = params;
 
   return async (userMessage: string, attachments?: FileAttachment[]) => {
-    console.log('[OPTIMISTIC] Send user message called');
-    console.log('[OPTIMISTIC] User message:', userMessage);
-    console.log('[OPTIMISTIC] Attachments:', attachments?.length || 0);
-
     logSession('Send user message called');
     logSession('User message length:', userMessage.length);
     logSession('Provider:', selectedProvider, 'Model:', selectedModel);
@@ -171,12 +167,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       logSession('Creating optimistic update:', { sessionId, hasSession: !!sessionId });
 
       // Build MessagePart[] from content and attachments
-      console.log('[OPTIMISTIC] Content parts:', content);
-      console.log('[OPTIMISTIC] Attachments:', attachments);
-
       const messageParts: MessagePart[] = content.map((part) => {
-        console.log('[OPTIMISTIC] Processing part:', part);
-
         if (part.type === 'text') {
           return {
             type: 'text',
@@ -184,7 +175,6 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
             status: 'completed' as const,
           };
         } else if (part.type === 'file') {
-          console.log('[OPTIMISTIC] File part:', part.relativePath);
           // For optimistic update, create file part WITHOUT base64
           // Server will handle actual file reading and freezing
           // We just need to display it correctly in UI
@@ -210,19 +200,14 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 
       logSession('Built message parts:', messageParts.length, 'parts');
 
-      console.log('[OPTIMISTIC] Built message parts:', messageParts);
-
       // Add optimistic message to store (works for both existing and new sessions)
       // IMPORTANT: Use getState() to avoid triggering re-renders during subscription setup
       const currentState = useSessionStore.getState();
       const shouldCreateTempSession = !sessionId || !currentState.currentSession || currentState.currentSession.id !== sessionId;
 
-      console.log('[OPTIMISTIC] Should create temp session:', shouldCreateTempSession);
-
       // IMMUTABLE UPDATE: Zustand needs immutable updates to trigger re-renders
       if (sessionId && currentState.currentSession?.id === sessionId) {
         // For existing sessions, add to current session
-        console.log('[OPTIMISTIC] Adding to existing session');
         const beforeCount = currentState.currentSession.messages.length;
 
         useSessionStore.setState({
@@ -248,7 +233,6 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
         });
       } else {
         // For new sessions or no current session, create temporary session for display
-        console.log('[OPTIMISTIC] Creating temporary session');
         logSession('Creating temporary session for optimistic display');
 
         useSessionStore.setState({

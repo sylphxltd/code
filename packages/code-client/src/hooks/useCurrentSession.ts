@@ -23,14 +23,6 @@ export function useCurrentSession() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  console.log('[useCurrentSession] Render:', {
-    currentSessionId,
-    optimisticSessionId: optimisticSession?.id,
-    hasOptimistic: !!optimisticSession,
-    optimisticMessagesCount: optimisticSession?.messages?.length,
-    hasServer: !!serverSession,
-  });
-
   // Fetch session data from server when currentSessionId changes
   useEffect(() => {
     if (!currentSessionId) {
@@ -41,7 +33,7 @@ export function useCurrentSession() {
     }
 
     // Skip server fetch if we have optimistic data for a temp session
-    if (currentSessionId === 'temp-session' && optimisticSession) {
+    if (currentSessionId === 'temp-session') {
       setIsLoading(false);
       return;
     }
@@ -56,7 +48,11 @@ export function useCurrentSession() {
         setIsLoading(false);
 
         // Replace optimistic data with server data
-        setCurrentSession?.(session);
+        // IMPORTANT: Don't include setCurrentSession in dependencies to avoid infinite loop
+        const store = useSessionStore.getState();
+        if (store.setCurrentSession) {
+          store.setCurrentSession(session);
+        }
 
         // Load session's enabled rules into settings store
         import('../stores/settings-store.js').then(({ useSettingsStore }) => {
@@ -67,7 +63,7 @@ export function useCurrentSession() {
         setError(err as Error);
         setIsLoading(false);
       });
-  }, [currentSessionId, optimisticSession, setCurrentSession]);
+  }, [currentSessionId]);  // ONLY depend on currentSessionId to prevent infinite loop
 
   // Return optimistic data if available (instant UI), otherwise server data
   const currentSession = optimisticSession || serverSession;
