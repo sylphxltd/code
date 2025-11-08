@@ -166,14 +166,14 @@ export class SessionRepository {
       sessionRecords = await query;
     } catch (error) {
       // JSON parse error in corrupted session data - fix corrupted records
-      console.error('[getRecentSessionsMetadata] Error fetching sessions (likely corrupted JSON):', error);
+      console.warn('[getRecentSessionsMetadata] Detected corrupted JSON, auto-repairing...');
 
       // Query with raw SQL to bypass Drizzle's JSON parsing
       const rawSessions = await this.db.all(sql`
         SELECT * FROM sessions
+        ${cursor ? sql`WHERE updated < ${cursor}` : sql``}
         ORDER BY updated DESC
         LIMIT ${limit + 1}
-        ${cursor ? sql`WHERE updated < ${cursor}` : sql``}
       `);
 
       // Manually parse and fix corrupted records
@@ -187,7 +187,6 @@ export class SessionRepository {
               enabledRuleIds = JSON.parse(raw.enabled_rule_ids as string);
             } catch {
               // Corrupted JSON - default to empty array and fix it
-              console.warn(`[getRecentSessionsMetadata] Fixing corrupted enabledRuleIds for session ${raw.id}`);
               enabledRuleIds = [];
               // Fix the corrupted record
               await this.db.update(sessions)
@@ -211,8 +210,7 @@ export class SessionRepository {
             updated: raw.updated as number,
           });
         } catch (parseError) {
-          console.error(`[getRecentSessionsMetadata] Failed to parse session ${raw.id}:`, parseError);
-          // Skip this session
+          // Skip this session - too corrupted to parse
         }
       }
     }
