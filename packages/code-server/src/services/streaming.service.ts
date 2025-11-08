@@ -507,23 +507,23 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // REMOVED: Message usage table - usage now computed from stepUsage on demand
         // The updateMessageUsage call is now a no-op for backward compatibility
 
-        // 12. Emit complete event (message content done, title continues in background)
+        // 12. Emit complete event (message content done)
         observer.next({
           type: 'complete',
           usage: result.usage,
           finishReason: result.finishReason,
         });
 
-        // 13. Complete observable
-        observer.complete();
-
-        // 14. Let title generation finish in background
-        // NOTE: This catch() should never fire because titlePromise has internal try-catch
-        // But we add it as a safety net to prevent any unhandled rejections
-        titlePromise.catch((error) => {
-          console.error('[Title Generation] Background error (should not happen):', error);
-          return null; // Return null to complete the promise chain
+        // 13. Wait for title generation to complete before closing observer
+        console.log('[StreamAI] Waiting for title generation to complete...');
+        await titlePromise.catch((error) => {
+          console.error('[Title Generation] Error (caught):', error);
+          return null;
         });
+        console.log('[StreamAI] Title generation finished, completing observer');
+
+        // 14. Complete observable (after title finishes)
+        observer.complete();
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);
         console.error('[streamAIResponse] Error type:', error?.constructor?.name);
