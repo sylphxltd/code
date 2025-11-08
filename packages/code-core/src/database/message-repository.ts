@@ -8,7 +8,7 @@
  * - Query message counts and user message history
  */
 
-import { eq, desc, and, sql, inArray } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray, lt, sum } from 'drizzle-orm';
 import type { LibSQLDatabase } from 'drizzle-orm/libsql';
 import { randomUUID } from 'node:crypto';
 import {
@@ -273,23 +273,24 @@ export class MessageRepository {
     return retryDatabase(async () => {
       const [result] = await this.db
         .select({
-          promptTokens: sql<number>`COALESCE(SUM(${stepUsage.promptTokens}), 0)`,
-          completionTokens: sql<number>`COALESCE(SUM(${stepUsage.completionTokens}), 0)`,
-          totalTokens: sql<number>`COALESCE(SUM(${stepUsage.totalTokens}), 0)`,
+          promptTokens: sum(stepUsage.promptTokens),
+          completionTokens: sum(stepUsage.completionTokens),
+          totalTokens: sum(stepUsage.totalTokens),
         })
         .from(stepUsage)
         .innerJoin(messageSteps, eq(messageSteps.id, stepUsage.stepId))
         .where(eq(messageSteps.messageId, messageId));
 
-      if (!result || result.totalTokens === 0) {
+      // sum() returns string | null, convert to number
+      const promptTokens = result.promptTokens ? Number(result.promptTokens) : 0;
+      const completionTokens = result.completionTokens ? Number(result.completionTokens) : 0;
+      const totalTokens = result.totalTokens ? Number(result.totalTokens) : 0;
+
+      if (totalTokens === 0) {
         return null;
       }
 
-      return {
-        promptTokens: result.promptTokens,
-        completionTokens: result.completionTokens,
-        totalTokens: result.totalTokens,
-      };
+      return { promptTokens, completionTokens, totalTokens };
     });
   }
 
@@ -317,24 +318,20 @@ export class MessageRepository {
   }> {
     return retryDatabase(async () => {
       // Query user messages with cursor
+      const conditions = [eq(messages.role, 'user')];
+      if (cursor) {
+        conditions.push(lt(messages.timestamp, cursor));
+      }
+
       const queryBuilder = this.db
         .select({
           messageId: messages.id,
           timestamp: messages.timestamp,
         })
         .from(messages)
-        .where(eq(messages.role, 'user'))
+        .where(and(...conditions))
         .orderBy(desc(messages.timestamp))
         .limit(limit + 1);
-
-      if (cursor) {
-        queryBuilder.where(
-          and(
-            eq(messages.role, 'user'),
-            sql`${messages.timestamp} < ${cursor}`
-          )
-        );
-      }
 
       const userMessages = await queryBuilder;
 

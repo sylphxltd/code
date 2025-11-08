@@ -22,7 +22,7 @@
  * - Efficient updates: Update specific fields without rewriting entire file
  */
 
-import { eq, desc, and, like, sql, inArray } from 'drizzle-orm';
+import { eq, desc, and, like, sql, inArray, lt } from 'drizzle-orm';
 import type { LibSQLDatabase } from 'drizzle-orm/libsql';
 import { randomUUID } from 'node:crypto';
 import {
@@ -148,29 +148,30 @@ export class SessionRepository {
     nextCursor: number | null;
   }> {
     // Build query with cursor
-    const query = this.db
+    const queryBuilder = this.db
       .select()
       .from(sessions)
       .orderBy(desc(sessions.updated))
       .limit(limit + 1); // Fetch one extra to determine if there's a next page
 
     if (cursor) {
-      query.where(sql`${sessions.updated} < ${cursor}`);
+      queryBuilder.where(lt(sessions.updated, cursor));
     }
 
     let sessionRecords: typeof sessions.$inferSelect[];
 
     try {
-      sessionRecords = await query;
+      sessionRecords = await queryBuilder;
     } catch (error) {
       // JSON parse error in corrupted session data - fix corrupted records
       console.warn('[getRecentSessionsMetadata] Detected corrupted JSON, auto-repairing...');
 
       // Query with raw SQL to bypass Drizzle's JSON parsing
+      // Note: Raw SQL needed here to skip JSON validation on corrupted data
       const rawSessions = await this.db.all(sql`
         SELECT * FROM sessions
-        ${cursor ? sql`WHERE updated < ${cursor}` : sql``}
-        ORDER BY updated DESC
+        ${cursor ? sql`WHERE ${sessions.updated} < ${cursor}` : sql``}
+        ORDER BY ${sessions.updated} DESC
         LIMIT ${limit + 1}
       `);
 
@@ -576,21 +577,17 @@ export class SessionRepository {
     }>;
     nextCursor: number | null;
   }> {
+    const conditions = [like(sessions.title, `%${query}%`)];
+    if (cursor) {
+      conditions.push(lt(sessions.updated, cursor));
+    }
+
     const queryBuilder = this.db
       .select()
       .from(sessions)
-      .where(like(sessions.title, `%${query}%`))
+      .where(and(...conditions))
       .orderBy(desc(sessions.updated))
       .limit(limit + 1);
-
-    if (cursor) {
-      queryBuilder.where(
-        and(
-          like(sessions.title, `%${query}%`),
-          sql`${sessions.updated} < ${cursor}`
-        )
-      );
-    }
 
     const sessionRecords = await queryBuilder;
 
