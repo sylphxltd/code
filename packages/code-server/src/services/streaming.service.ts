@@ -358,22 +358,10 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           todoSnapshot: currentTodos,
         });
 
-        // 9.5. Start title generation in parallel with streaming (real-time updates)
+        // 9.5. Check if title generation needed (but defer to after main response)
         const isFirstMessage =
           updatedSession.messages.filter((m) => m.role === 'user').length === 1;
-
-        // Title generation (runs independently in background, publishes to eventStream)
-        let titlePromise: Promise<string | null> = Promise.resolve(null);
-
-        if (needsTitleGeneration(updatedSession, isNewSession, isFirstMessage)) {
-          titlePromise = generateSessionTitle(
-            opts.appContext,
-            sessionRepository,
-            aiConfig,
-            updatedSession,
-            userMessageText
-          );
-        }
+        const shouldGenerateTitle = needsTitleGeneration(updatedSession, isNewSession, isFirstMessage);
 
         // 10. Process stream and emit events
         const callbacks: StreamCallbacks = {
@@ -415,7 +403,10 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         let result;
         try {
+          console.log('[StreamingService] Starting processStream() (main AI response)');
+          const processStart = Date.now();
           result = await processStream(stream, callbacks);
+          console.log(`[StreamingService] processStream() completed (took ${Date.now() - processStart}ms)`);
         } catch (processError) {
           console.error('[streamAIResponse] 10. processStream FAILED:', processError);
           throw processError;
@@ -497,14 +488,27 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           finishReason: result.finishReason,
         });
 
-        // 13. Complete observable (title continues independently via eventStream)
+        // 13. Complete observable (main response done)
         observer.complete();
 
-        // 14. Let title generation finish in background (publishes to eventStream)
-        titlePromise.catch((error) => {
-          console.error('[Title Generation] Background error:', error);
-          return null;
-        });
+        // 14. Generate title AFTER main response completes (sequential, but faster than fake parallel)
+        // Why sequential? OpenRouter/AI SDK serializes requests anyway, so explicit sequential
+        // is faster because title starts immediately after main response instead of waiting in queue
+        if (shouldGenerateTitle) {
+          console.log('[StreamingService] Main response complete, starting title generation NOW');
+          const titleStartTime = Date.now();
+          generateSessionTitle(
+            opts.appContext,
+            sessionRepository,
+            aiConfig,
+            updatedSession,
+            userMessageText
+          ).then((title) => {
+            console.log(`[StreamingService] Title generation completed in ${Date.now() - titleStartTime}ms: "${title}"`);
+          }).catch((error) => {
+            console.error('[Title Generation] Error:', error);
+          });
+        }
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);
         console.error('[streamAIResponse] Error type:', error?.constructor?.name);

@@ -27,8 +27,14 @@ export async function generateSessionTitle(
   userMessage: string,
   callbacks?: TitleStreamCallbacks
 ): Promise<string | null> {
+  // START TIMING FROM FUNCTION ENTRY
+  const startTime = Date.now();
+  console.log(`[TitleGen] 0ms - Function called, starting title generation`);
+
   try {
+    const importStart = Date.now();
     const { createAIStream, cleanAITitle, getProvider } = await import('@sylphx/code-core');
+    console.log(`[TitleGen] ${Date.now() - startTime}ms - Dynamic import completed (took ${Date.now() - importStart}ms)`);
 
     const provider = session.provider;
     const modelName = session.model;
@@ -43,9 +49,14 @@ export async function generateSessionTitle(
       return null;
     }
 
+    console.log(`[TitleGen] ${Date.now() - startTime}ms - Provider config validated`);
+
+    const clientStart = Date.now();
     const model = providerInstance.createClient(providerConfig, modelName);
+    console.log(`[TitleGen] ${Date.now() - startTime}ms - Client created (took ${Date.now() - clientStart}ms)`);
 
     // Create AI stream for title generation (no tools needed - faster and cheaper)
+    const streamStart = Date.now();
     const titleStream = createAIStream({
       model,
       messages: [
@@ -71,8 +82,8 @@ Now generate the title:`,
       ],
       enableTools: false, // Title generation doesn't need tools
     });
+    console.log(`[TitleGen] ${Date.now() - startTime}ms - AI stream created (took ${Date.now() - streamStart}ms)`);
 
-    const startTime = Date.now();
     let fullTitle = '';
 
     // Emit start event
@@ -88,6 +99,7 @@ Now generate the title:`,
     }
 
     // Stream title chunks
+    console.log(`[TitleGen] ${Date.now() - startTime}ms - Starting to iterate stream (waiting for first chunk...)`);
     try {
       for await (const chunk of titleStream) {
         if (chunk.type === 'text-delta' && chunk.textDelta) {
