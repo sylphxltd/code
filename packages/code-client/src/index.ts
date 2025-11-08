@@ -37,6 +37,7 @@ export { inProcessLink, type InProcessLinkOptions } from './trpc-links/index.js'
 // State Management
 // ============================================================================
 export { useAppStore, type AppState, type Screen } from './stores/app-store.js'
+export { useSessionStore, type SessionState } from './stores/session-store.js'
 
 // ============================================================================
 // Types (re-exported from dependencies)
