@@ -55,44 +55,31 @@ export const sessionsCommand: Command = {
         sessions={sessionData}
         onSelect={async (sessionId) => {
           try {
-            console.log('[sessions] onSelect called with sessionId:', sessionId);
-
-            // IMPORTANT: Clear inputComponent FIRST, before setCurrentSession
-            // setCurrentSession triggers Chat re-render, which can interfere with state updates
+            // Clear inputComponent before switching sessions
             context.setInputComponent(null);
-            console.log('[sessions] inputComponent cleared');
 
-            // Use session store directly instead of useAppStore wrapper
+            // Switch to selected session
             const { useSessionStore } = await import('@sylphx/code-client');
             const sessionStore = useSessionStore.getState();
-
-            console.log('[sessions] About to call setCurrentSession');
-            // Switch to selected session
             await sessionStore.setCurrentSession(sessionId);
-            console.log('[sessions] setCurrentSession completed');
 
             const selectedSession = sortedSessions.find((s) => s.id === sessionId);
             const displayName = selectedSession
               ? formatSessionDisplay(selectedSession.title, selectedSession.created)
               : 'Unknown session';
 
-            context.addLog(`[sessions] Switched to session: ${displayName}`);
-            console.log('[sessions] All done');
+            context.addLog(`Switched to session: ${displayName}`);
           } catch (error) {
-            console.error('[sessions] Error in onSelect:', error);
-            context.addLog(`[sessions] Error switching session: ${error instanceof Error ? error.message : String(error)}`);
+            context.addLog(`Error switching session: ${error instanceof Error ? error.message : String(error)}`);
             context.setInputComponent(null);
           }
         }}
         onCancel={() => {
           context.setInputComponent(null);
-          context.addLog('[sessions] Session selection cancelled');
         }}
       />,
       'Session Selection'
     );
-
-    context.addLog('[sessions] Session selection opened');
   },
 };
 
