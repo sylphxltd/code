@@ -40,9 +40,10 @@ export const useSessionStore = create<SessionState>()(
     setCurrentSession: async (sessionId) => {
       console.log('[SessionStore] setCurrentSession called with:', sessionId);
 
-      set((state) => {
-        state.currentSessionId = sessionId;
-        state.currentSession = null; // Clear immediately
+      // First update: set sessionId, clear session
+      set({
+        currentSessionId: sessionId,
+        currentSession: null,
       });
       console.log('[SessionStore] State updated: currentSessionId set, currentSession cleared');
 
@@ -65,8 +66,9 @@ export const useSessionStore = create<SessionState>()(
         messageCount: session.messages?.length || 0,
       });
 
-      set((state) => {
-        state.currentSession = session;
+      // Second update: set session
+      set({
+        currentSession: session,
       });
       console.log('[SessionStore] State updated: currentSession set');
 
