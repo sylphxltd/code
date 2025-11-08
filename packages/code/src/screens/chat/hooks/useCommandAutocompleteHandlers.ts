@@ -59,12 +59,20 @@ export function useCommandAutocompleteHandlers(options: UseCommandAutocompleteHa
 
   // Enter: execute the selected command
   const handleEnter = useCallback(async () => {
+    console.log('[handleCommandAutocompleteEnter] Called with:', {
+      filteredCommandsLength: filteredCommands.length,
+      selectedCommandIndex,
+      hasPendingInput: !!pendingInput,
+    });
+
     if (filteredCommands.length === 0 || pendingInput) {
+      console.log('[handleCommandAutocompleteEnter] Early return - no commands or pending input');
       return;
     }
 
     const selected = filteredCommands[selectedCommandIndex];
     if (!selected) {
+      console.log('[handleCommandAutocompleteEnter] Early return - no selected command');
       return;
     }
 
@@ -76,6 +84,7 @@ export function useCommandAutocompleteHandlers(options: UseCommandAutocompleteHa
       setSelectedCommandIndex(0);
 
       // Execute command directly
+      console.log(`[handleCommandAutocompleteEnter] Executing command: ${selected.label}`);
       addLog(`[useInput] Enter autocomplete execute: ${selected.label}`);
 
       // Add user message to conversation (lazy create session if needed)
@@ -98,10 +107,13 @@ export function useCommandAutocompleteHandlers(options: UseCommandAutocompleteHa
       }
 
       // Execute command - it will use waitForInput if needed
+      console.log('[handleCommandAutocompleteEnter] About to execute command');
       const response = await selected.execute(createCommandContext([]));
+      console.log('[handleCommandAutocompleteEnter] Command executed, response:', response);
 
       // Add final response if any
       if (response) {
+        console.log('[handleCommandAutocompleteEnter] Adding response message');
         await addMessage({
           sessionId: commandSessionRef.current,
           role: 'assistant',
@@ -109,6 +121,8 @@ export function useCommandAutocompleteHandlers(options: UseCommandAutocompleteHa
           provider,
           model,
         });
+      } else {
+        console.log('[handleCommandAutocompleteEnter] No response to add');
       }
     } catch (error) {
       console.error('[handleCommandAutocompleteEnter] ERROR:', error);
