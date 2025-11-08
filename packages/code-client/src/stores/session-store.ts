@@ -12,6 +12,7 @@
 import { create } from 'zustand';
 import type { ProviderId, Session } from '@sylphx/code-core';
 import { getTRPCClient } from '../trpc-provider.js';
+import { eventBus } from '../lib/event-bus.js';
 
 export interface SessionState {
   // UI State: Which session is currently being viewed
@@ -27,7 +28,7 @@ export interface SessionState {
   setCurrentSession: (session: Session | null) => void;
 
   // Server Actions: Delegate to tRPC (return sessionId for convenience)
-  createSession: (provider: ProviderId, model: string) => Promise<string>;
+  createSession: (provider: ProviderId, model: string, agentId?: string, enabledRuleIds?: string[]) => Promise<string>;
   updateSessionModel: (sessionId: string, model: string) => Promise<void>;
   updateSessionProvider: (sessionId: string, provider: ProviderId, model: string) => Promise<void>;
   updateSessionTitle: (sessionId: string, title: string) => Promise<void>;
@@ -46,12 +47,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   setCurrentSessionId: (sessionId) => {
     set({ currentSessionId: sessionId });
 
-    // Clear enabled rules when no session
-    if (!sessionId) {
-      import('./settings-store.js').then(({ useSettingsStore }) => {
-        useSettingsStore.getState().setEnabledRuleIds([]);
-      });
-    }
+    // Emit event for other stores to react
+    eventBus.emit('session:changed', { sessionId });
   },
 
   /**
@@ -65,26 +62,28 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   /**
    * Create new session (server action)
    * Returns sessionId, sets it as current
+   *
+   * Note: Requires agentId and enabledRuleIds as parameters
+   * Caller (UI component) should get these from settings store
    */
-  createSession: async (provider, model) => {
+  createSession: async (provider, model, agentId?: string, enabledRuleIds?: string[]) => {
     const client = getTRPCClient();
-
-    // Get agent and rules from settings store
-    const { useSettingsStore } = await import('./settings-store.js');
-    const { selectedAgentId, enabledRuleIds } = useSettingsStore.getState();
 
     const session = await client.session.create.mutate({
       provider,
       model,
-      agentId: selectedAgentId,
+      agentId,
       enabledRuleIds,
     });
 
     // Set as current session (UI state only)
     set({ currentSessionId: session.id });
 
-    // Update settings store with session's rules
-    useSettingsStore.getState().setEnabledRuleIds(session.enabledRuleIds || []);
+    // Emit event for other stores to react
+    eventBus.emit('session:created', {
+      sessionId: session.id,
+      enabledRuleIds: session.enabledRuleIds || [],
+    });
 
     return session.id;
   },
@@ -124,10 +123,9 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const client = getTRPCClient();
     await client.session.updateRules.mutate({ sessionId, enabledRuleIds });
 
-    // Also update settings store for UI (if current session)
+    // Emit event for other stores to react (if current session)
     if (get().currentSessionId === sessionId) {
-      const { useSettingsStore } = await import('./settings-store.js');
-      useSettingsStore.getState().setEnabledRuleIds(enabledRuleIds);
+      eventBus.emit('session:rulesUpdated', { sessionId, enabledRuleIds });
     }
   },
 

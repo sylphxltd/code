@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { getTRPCClient } from '../trpc-provider.js';
+import { eventBus } from '../lib/event-bus.js';
 
 export interface SettingsState {
   // Agent selection
@@ -16,7 +17,7 @@ export interface SettingsState {
 
   // Rule selection
   enabledRuleIds: string[];
-  setEnabledRuleIds: (ruleIds: string[]) => Promise<void>;
+  setEnabledRuleIds: (ruleIds: string[], sessionId?: string | null) => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -56,25 +57,42 @@ export const useSettingsStore = create<SettingsState>()(
     /**
      * Set enabled rules and persist
      * Pure UI Client: Server decides where to persist (session vs global config)
+     *
+     * Note: Requires sessionId as parameter
+     * Caller should provide currentSessionId from session store
      */
-    setEnabledRuleIds: async (ruleIds) => {
+    setEnabledRuleIds: async (ruleIds, sessionId?: string | null) => {
       // Update client state immediately (optimistic)
       set((state) => {
         state.enabledRuleIds = ruleIds;
       });
 
-      // Get current session ID (if any)
-      const { useSessionStore } = await import('./session-store.js');
-      const { currentSessionId } = useSessionStore.getState();
-
       // Call server endpoint - SERVER decides where to persist
       const client = getTRPCClient();
       await client.config.updateRules.mutate({
         ruleIds,
-        sessionId: currentSessionId || undefined,
+        sessionId: sessionId || undefined,
       });
 
       // Multi-client sync: Server events will propagate changes to all clients
     },
   }))
 );
+
+// Subscribe to session events
+eventBus.on('session:changed', ({ sessionId }) => {
+  // Clear enabled rules when no session
+  if (!sessionId) {
+    useSettingsStore.getState().setEnabledRuleIds([], null);
+  }
+});
+
+eventBus.on('session:created', ({ enabledRuleIds }) => {
+  // Update settings with new session's rules
+  useSettingsStore.setState({ enabledRuleIds });
+});
+
+eventBus.on('session:rulesUpdated', ({ enabledRuleIds }) => {
+  // Update settings when current session's rules change
+  useSettingsStore.setState({ enabledRuleIds });
+});
