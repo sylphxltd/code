@@ -45,7 +45,7 @@ export async function generateSessionTitle(
 
     const model = providerInstance.createClient(providerConfig, modelName);
 
-    // Create AI stream for title generation (no tools needed - faster and cheaper)
+    // Create AI stream for title generation (no tools, no reasoning - fastest possible)
     const titleStream = createAIStream({
       model,
       systemPrompt: 'Generate a short title (max 50 chars) summarizing this message. Output only the title, nothing else.',
@@ -56,6 +56,7 @@ export async function generateSessionTitle(
         },
       ],
       enableTools: false, // Title generation doesn't need tools
+      disableReasoning: true, // Disable extended thinking to prevent 3+ second delays
     });
 
     let fullTitle = '';

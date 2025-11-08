@@ -182,6 +182,13 @@ export interface CreateAIStreamOptions {
    */
   enableTools?: boolean;
   /**
+   * Disable reasoning/extended thinking mode (default: false)
+   * Set to true for scenarios like title generation where reasoning is unnecessary
+   * Prevents AI from spending time on internal reasoning before generating output
+   * Only supported by models with reasoning capabilities (e.g., Grok, o1, Gemini Thinking)
+   */
+  disableReasoning?: boolean;
+  /**
    * Optional abort signal to cancel the stream
    */
   abortSignal?: AbortSignal;
@@ -399,6 +406,7 @@ export async function* createAIStream(
     model,
     messages: initialMessages,
     enableTools = true,
+    disableReasoning = false,
     abortSignal,
     onStepFinish,
     onPrepareMessages,
@@ -432,6 +440,16 @@ export async function* createAIStream(
       ...(enableTools ? { tools: getAISDKTools({ interactive: hasUserInputHandler() }) } : {}),
       // Only pass abortSignal if provided (exactOptionalPropertyTypes compliance)
       ...(abortSignal ? { abortSignal } : {}),
+      // Disable reasoning for providers that support it (e.g., OpenRouter Grok)
+      ...(disableReasoning ? {
+        providerOptions: {
+          openrouter: {
+            reasoning: {
+              enabled: false
+            }
+          }
+        }
+      } : {}),
       // Don't handle errors here - let them propagate to the caller
       // onError callback is for non-fatal errors, fatal ones should throw
     });
