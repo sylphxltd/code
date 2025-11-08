@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1c6c0974-27c9-4f1a-8318-17c14e4307dc",
+  "id": "2ea14ced-5363-4000-aea5-5d14f7966013",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "codebase_files": {
@@ -98,6 +98,220 @@
       },
       "indexes": {},
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "events": {
+      "name": "events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sequence": {
+          "name": "sequence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_events_channel_cursor": {
+          "name": "idx_events_channel_cursor",
+          "columns": [
+            "channel",
+            "timestamp",
+            "sequence"
+          ],
+          "isUnique": false
+        },
+        "idx_events_timestamp": {
+          "name": "idx_events_timestamp",
+          "columns": [
+            "timestamp"
+          ],
+          "isUnique": false
+        },
+        "idx_events_channel": {
+          "name": "idx_events_channel",
+          "columns": [
+            "channel"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "file_contents": {
+      "name": "file_contents",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "step_id": {
+          "name": "step_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ordering": {
+          "name": "ordering",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "relative_path": {
+          "name": "relative_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "media_type": {
+          "name": "media_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size": {
+          "name": "size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "is_text": {
+          "name": "is_text",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text_content": {
+          "name": "text_content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_file_contents_step_ordering": {
+          "name": "idx_file_contents_step_ordering",
+          "columns": [
+            "step_id",
+            "ordering"
+          ],
+          "isUnique": false
+        },
+        "idx_file_contents_type": {
+          "name": "idx_file_contents_type",
+          "columns": [
+            "media_type"
+          ],
+          "isUnique": false
+        },
+        "idx_file_contents_path": {
+          "name": "idx_file_contents_path",
+          "columns": [
+            "relative_path"
+          ],
+          "isUnique": false
+        },
+        "idx_file_contents_sha256": {
+          "name": "idx_file_contents_sha256",
+          "columns": [
+            "sha256"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "file_contents_step_id_message_steps_id_fk": {
+          "name": "file_contents_step_id_message_steps_id_fk",
+          "tableFrom": "file_contents",
+          "tableTo": "message_steps",
+          "columnsFrom": [
+            "step_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -259,8 +473,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "message_parts": {
-      "name": "message_parts",
+    "step_parts": {
+      "name": "step_parts",
       "columns": {
         "id": {
           "name": "id",
@@ -269,8 +483,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "message_id": {
-          "name": "message_id",
+        "step_id": {
+          "name": "step_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -299,23 +513,23 @@
         }
       },
       "indexes": {
-        "idx_message_parts_message": {
-          "name": "idx_message_parts_message",
+        "idx_step_parts_step": {
+          "name": "idx_step_parts_step",
           "columns": [
-            "message_id"
+            "step_id"
           ],
           "isUnique": false
         },
-        "idx_message_parts_ordering": {
-          "name": "idx_message_parts_ordering",
+        "idx_step_parts_ordering": {
+          "name": "idx_step_parts_ordering",
           "columns": [
-            "message_id",
+            "step_id",
             "ordering"
           ],
           "isUnique": false
         },
-        "idx_message_parts_type": {
-          "name": "idx_message_parts_type",
+        "idx_step_parts_type": {
+          "name": "idx_step_parts_type",
           "columns": [
             "type"
           ],
@@ -323,12 +537,12 @@
         }
       },
       "foreignKeys": {
-        "message_parts_message_id_messages_id_fk": {
-          "name": "message_parts_message_id_messages_id_fk",
-          "tableFrom": "message_parts",
-          "tableTo": "messages",
+        "step_parts_step_id_message_steps_id_fk": {
+          "name": "step_parts_step_id_message_steps_id_fk",
+          "tableFrom": "step_parts",
+          "tableTo": "message_steps",
           "columnsFrom": [
-            "message_id"
+            "step_id"
           ],
           "columnsTo": [
             "id"
@@ -341,8 +555,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "message_todo_snapshots": {
-      "name": "message_todo_snapshots",
+    "message_steps": {
+      "name": "message_steps",
       "columns": {
         "id": {
           "name": "id",
@@ -358,25 +572,39 @@
           "notNull": true,
           "autoincrement": false
         },
-        "todo_id": {
-          "name": "todo_id",
+        "step_index": {
+          "name": "step_index",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "content": {
-          "name": "content",
+        "provider": {
+          "name": "provider",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
-        "active_form": {
-          "name": "active_form",
+        "model": {
+          "name": "model",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "duration": {
+          "name": "duration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finish_reason": {
+          "name": "finish_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "status": {
@@ -384,81 +612,59 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false,
+          "default": "'completed'"
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
-        "ordering": {
-          "name": "ordering",
+        "start_time": {
+          "name": "start_time",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         }
       },
       "indexes": {
-        "idx_message_todo_snapshots_message": {
-          "name": "idx_message_todo_snapshots_message",
+        "idx_message_steps_message": {
+          "name": "idx_message_steps_message",
           "columns": [
             "message_id"
+          ],
+          "isUnique": false
+        },
+        "idx_message_steps_step_index": {
+          "name": "idx_message_steps_step_index",
+          "columns": [
+            "message_id",
+            "step_index"
+          ],
+          "isUnique": false
+        },
+        "idx_message_steps_status": {
+          "name": "idx_message_steps_status",
+          "columns": [
+            "status"
           ],
           "isUnique": false
         }
       },
       "foreignKeys": {
-        "message_todo_snapshots_message_id_messages_id_fk": {
-          "name": "message_todo_snapshots_message_id_messages_id_fk",
-          "tableFrom": "message_todo_snapshots",
-          "tableTo": "messages",
-          "columnsFrom": [
-            "message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "message_usage": {
-      "name": "message_usage",
-      "columns": {
-        "message_id": {
-          "name": "message_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "prompt_tokens": {
-          "name": "prompt_tokens",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "completion_tokens": {
-          "name": "completion_tokens",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "total_tokens": {
-          "name": "total_tokens",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "message_usage_message_id_messages_id_fk": {
-          "name": "message_usage_message_id_messages_id_fk",
-          "tableFrom": "message_usage",
+        "message_steps_message_id_messages_id_fk": {
+          "name": "message_steps_message_id_messages_id_fk",
+          "tableFrom": "message_steps",
           "tableTo": "messages",
           "columnsFrom": [
             "message_id"
@@ -526,13 +732,6 @@
           "notNull": true,
           "autoincrement": false,
           "default": "'completed'"
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {
@@ -602,18 +801,55 @@
           "notNull": false,
           "autoincrement": false
         },
+        "model_id": {
+          "name": "model_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "provider": {
           "name": "provider",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "model": {
           "name": "model",
           "type": "text",
           "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "agent_id": {
+          "name": "agent_id",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true,
+          "autoincrement": false,
+          "default": "'coder'"
+        },
+        "enabled_rule_ids": {
+          "name": "enabled_rule_ids",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
+        "enabled_tool_ids": {
+          "name": "enabled_tool_ids",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "enabled_mcp_server_ids": {
+          "name": "enabled_mcp_server_ids",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "next_todo_id": {
@@ -654,6 +890,13 @@
           ],
           "isUnique": false
         },
+        "idx_sessions_model_id": {
+          "name": "idx_sessions_model_id",
+          "columns": [
+            "model_id"
+          ],
+          "isUnique": false
+        },
         "idx_sessions_provider": {
           "name": "idx_sessions_provider",
           "columns": [
@@ -670,6 +913,58 @@
         }
       },
       "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "step_usage": {
+      "name": "step_usage",
+      "columns": {
+        "step_id": {
+          "name": "step_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "prompt_tokens": {
+          "name": "prompt_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "completion_tokens": {
+          "name": "completion_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total_tokens": {
+          "name": "total_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "step_usage_step_id_message_steps_id_fk": {
+          "name": "step_usage_step_id_message_steps_id_fk",
+          "tableFrom": "step_usage",
+          "tableTo": "message_steps",
+          "columnsFrom": [
+            "step_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -854,6 +1149,34 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "created_by_tool_id": {
+          "name": "created_by_tool_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_by_step_id": {
+          "name": "created_by_step_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "related_files": {
+          "name": "related_files",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {
@@ -876,6 +1199,13 @@
           "columns": [
             "session_id",
             "ordering"
+          ],
+          "isUnique": false
+        },
+        "idx_todos_created_by_step": {
+          "name": "idx_todos_created_by_step",
+          "columns": [
+            "created_by_step_id"
           ],
           "isUnique": false
         }
