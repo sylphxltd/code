@@ -367,16 +367,18 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         if (needsTitleGeneration(updatedSession, isNewSession, isFirstMessage)) {
           // Subscribe to title events from eventStream and forward to subscription observer
-          titleUnsubscribe = opts.appContext.eventStream.subscribe(`session:${sessionId}`, (event) => {
+          const titleObservable = opts.appContext.eventStream.subscribe(`session:${sessionId}`);
+          const titleSubscription = titleObservable.subscribe((event) => {
             // Forward title streaming events to subscription
             if (event.type === 'session-title-updated-start') {
-              observer.next({ type: 'session-title-updated-start', sessionId: event.sessionId });
+              observer.next({ type: 'session-title-updated-start', sessionId: event.payload.sessionId });
             } else if (event.type === 'session-title-updated-delta') {
-              observer.next({ type: 'session-title-updated-delta', sessionId: event.sessionId, text: event.text });
+              observer.next({ type: 'session-title-updated-delta', sessionId: event.payload.sessionId, text: event.payload.text });
             } else if (event.type === 'session-title-updated-end') {
-              observer.next({ type: 'session-title-updated-end', sessionId: event.sessionId, title: event.title });
+              observer.next({ type: 'session-title-updated-end', sessionId: event.payload.sessionId, title: event.payload.title });
             }
           });
+          titleUnsubscribe = () => titleSubscription.unsubscribe();
 
           titlePromise = generateSessionTitle(
             opts.appContext,
