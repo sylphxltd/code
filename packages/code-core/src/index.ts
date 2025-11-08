@@ -80,9 +80,48 @@ export type { Event, NewEvent } from './database/schema.js'
 // ============================================================================
 // Configuration
 // ============================================================================
-export { loadAIConfig, saveAIConfig, getAIConfigPaths, AI_PROVIDERS, getConfiguredProviders } from './config/ai-config.js'
+export {
+  loadAIConfig,
+  saveAIConfig,
+  getAIConfigPaths,
+  AI_PROVIDERS,
+  getConfiguredProviders,
+  getProviderApiKey,
+  getProviderConfigWithApiKey,
+} from './config/ai-config.js'
 export type { AIConfig, ProviderId } from './config/ai-config.js'
 export type { ProviderConfig } from './ai/providers/base-provider.js'
+
+// ============================================================================
+// Credential Management (Normalized Credential System)
+// ============================================================================
+export type * from './types/credential.types.js'
+export {
+  getAllCredentials,
+  getCredential,
+  getCredentialsByProvider,
+  getDefaultCredential,
+  getActiveCredentials,
+  getCredentialsByScope,
+  createCredential,
+  updateCredential,
+  deleteCredential,
+  maskApiKey,
+  getMaskedCredential,
+  getAllMaskedCredentials,
+  hasActiveCredential,
+  getCredentialStats,
+} from './registry/credential-registry.js'
+export {
+  loadCredentials,
+  saveCredentials,
+  addCredential,
+  removeCredential,
+  modifyCredential,
+  credentialsExist,
+  migrateProviderConfigToCredentials,
+  getCredentialPaths,
+} from './config/credential-manager.js'
 
 // ============================================================================
 // Types
@@ -91,6 +130,89 @@ export type * from './types/session.types.js'
 export type * from './types/common.types.js'
 export type * from './types/interaction.types.js'
 export type * from './types/todo.types.js'
+export type * from './types/model.types.js'
+export type * from './types/tool.types.js'
+export type * from './types/mcp-entity.types.js'
+
+// ============================================================================
+// Model Registry (Normalized Model System)
+// ============================================================================
+export {
+  PROVIDERS,
+  MODELS,
+  getAllProviders,
+  getProviderEntity,
+  getAllModels,
+  getModel,
+  getModelsByProvider,
+  getModelWithProvider,
+  modelSupportsInput,
+  modelSupportsOutput,
+} from './registry/model-registry.js'
+
+export {
+  migrateToModelId,
+  getDefaultModelIdForProvider,
+  getProviderIdFromModelId,
+  migrateSessionModel,
+} from './registry/model-migration.js'
+
+// ============================================================================
+// Entity Migration Utilities
+// ============================================================================
+export {
+  migrateSessionToModelId,
+  migrateSessionMetadata,
+  migrateSession,
+  migrateMessagePart,
+  migrateTodo,
+  migrateAIConfig,
+  batchMigrateSessions,
+  batchMigrateMessageParts,
+  batchMigrateTodos,
+  getSessionMigrationStats,
+} from './database/entity-migrations.js'
+
+// ============================================================================
+// Tool Registry (Normalized Tool System)
+// ============================================================================
+export {
+  TOOL_CATEGORIES,
+  TOOLS,
+  getAllTools,
+  getTool,
+  getToolsByCategory,
+  getAllCategories,
+  getCategory,
+  isToolSupportedByModel,
+  getToolsSupportedByModel,
+  getToolsBySecurityLevel,
+  getDangerousTools,
+  getSafeTools,
+} from './registry/tool-registry.js'
+
+// ============================================================================
+// MCP Server Registry (Model Context Protocol)
+// ============================================================================
+export {
+  getAllMCPServers,
+  getMCPServer,
+  registerMCPServer,
+  unregisterMCPServer,
+  updateMCPServerStatus,
+  getAllMCPTools,
+  getMCPServerTools,
+  getMCPTool,
+  getAllMCPResources,
+  getMCPServerResources,
+  getAllMCPPrompts,
+  getMCPServerPrompts,
+  getActiveMCPServers,
+  getEnabledMCPServers,
+  isMCPServerActive,
+  getMCPStats,
+  clearMCPRegistry,
+} from './registry/mcp-registry.js'
 
 // ============================================================================
 // Session Management

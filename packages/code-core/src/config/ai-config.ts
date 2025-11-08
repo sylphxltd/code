@@ -51,16 +51,26 @@ export type ProviderConfigValue = ProviderConfigValueType;
  * - defaultAgentId: Last selected agent (e.g., 'coder')
  * - Each session can override these independently
  * - Stored in global config, applied when creating new sessions
+ *
+ * DESIGN: Credential management
+ * - credentialId: Reference to ProviderCredential (new normalized approach)
+ * - apiKey: Direct API key (legacy, backward compatible)
+ * - Priority: credentialId > apiKey
  */
 const aiConfigSchema = z.object({
   defaultProvider: z.enum(['anthropic', 'openai', 'google', 'openrouter', 'claude-code', 'zai']).optional(),
   // ❌ Removed: defaultModel - use provider's defaultModel instead
   defaultEnabledRuleIds: z.array(z.string()).optional(), // Global default rules for new sessions
   defaultAgentId: z.string().optional(), // Remember last selected agent
+  defaultModelId: z.string().optional(), // NEW: Default model ID (normalized)
+  defaultToolIds: z.array(z.string()).optional(), // NEW: Default enabled tools
+  defaultMcpServerIds: z.array(z.string()).optional(), // NEW: Default enabled MCP servers
   providers: z.record(
     z.string(),
     z.object({
-      defaultModel: z.string().optional(),  // ✅ camelCase
+      defaultModel: z.string().optional(),  // ✅ camelCase (legacy)
+      credentialId: z.string().optional(),  // NEW: Reference to ProviderCredential.id
+      apiKey: z.string().optional(),        // LEGACY: Direct API key (backward compatible)
     }).passthrough() // Allow additional fields defined by provider
   ).optional(),
 });
@@ -132,6 +142,9 @@ const mergeConfigs = (a: AIConfig, b: AIConfig): AIConfig => {
     defaultProvider: b.defaultProvider ?? a.defaultProvider,
     defaultEnabledRuleIds: b.defaultEnabledRuleIds ?? a.defaultEnabledRuleIds,
     defaultAgentId: b.defaultAgentId ?? a.defaultAgentId,
+    defaultModelId: b.defaultModelId ?? a.defaultModelId,
+    defaultToolIds: b.defaultToolIds ?? a.defaultToolIds,
+    defaultMcpServerIds: b.defaultMcpServerIds ?? a.defaultMcpServerIds,
     // ❌ Removed: defaultModel merging
     providers: mergedProviders,
   };
@@ -146,6 +159,74 @@ const mergeConfigs = (a: AIConfig, b: AIConfig): AIConfig => {
 export const getDefaultModel = (config: AIConfig, providerId: string): string | undefined => {
   const providerConfig = config.providers?.[providerId];
   return providerConfig?.defaultModel as string | undefined;
+};
+
+/**
+ * Get API key for a provider
+ * Supports both new credential system and legacy direct API key
+ *
+ * Priority:
+ * 1. credentialId → look up in credential registry
+ * 2. apiKey → use directly (legacy)
+ *
+ * @returns API key or undefined if not found
+ */
+export const getProviderApiKey = async (
+  config: AIConfig,
+  providerId: string
+): Promise<string | undefined> => {
+  const providerConfig = config.providers?.[providerId];
+  if (!providerConfig) {
+    return undefined;
+  }
+
+  // NEW: Try credential ID first
+  if (providerConfig.credentialId) {
+    try {
+      const { getCredential } = await import('../registry/credential-registry.js');
+      const credential = getCredential(providerConfig.credentialId as string);
+      if (credential && credential.status === 'active') {
+        // Mark as used
+        const { markCredentialUsed } = await import('../registry/credential-registry.js');
+        markCredentialUsed(credential.id);
+        return credential.apiKey;
+      }
+    } catch (error) {
+      logger.error('Failed to get credential', {
+        providerId,
+        credentialId: providerConfig.credentialId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // LEGACY: Fall back to direct API key
+  return providerConfig.apiKey as string | undefined;
+};
+
+/**
+ * Get provider configuration with API key resolved
+ * Returns config with apiKey populated from credential if needed
+ */
+export const getProviderConfigWithApiKey = async (
+  config: AIConfig,
+  providerId: string
+): Promise<ProviderConfigValue | undefined> => {
+  const providerConfig = config.providers?.[providerId];
+  if (!providerConfig) {
+    return undefined;
+  }
+
+  // If credentialId exists, resolve it
+  if (providerConfig.credentialId && !providerConfig.apiKey) {
+    const apiKey = await getProviderApiKey(config, providerId);
+    return {
+      ...providerConfig,
+      apiKey,
+    };
+  }
+
+  return providerConfig;
 };
 
 /**

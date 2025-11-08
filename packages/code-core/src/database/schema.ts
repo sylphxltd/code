@@ -112,10 +112,25 @@ export const sessions = sqliteTable(
   {
     id: text('id').primaryKey(),
     title: text('title'),
-    provider: text('provider').notNull(), // 'anthropic' | 'openai' | 'google' | 'openrouter'
-    model: text('model').notNull(),
+
+    // NEW: Normalized model ID (references model registry)
+    // Examples: 'claude-sonnet-4', 'gpt-4o', 'openrouter/anthropic/claude-sonnet-3.5'
+    // Nullable to support migration from old provider+model format
+    modelId: text('model_id'),
+
+    // DEPRECATED: Legacy provider/model columns kept for migration
+    // Will be removed in next major version
+    // Made nullable for forward compatibility when creating new sessions with modelId
+    provider: text('provider'), // Legacy: 'anthropic' | 'openai' | 'google' | 'openrouter'
+    model: text('model'),       // Legacy: model name string
+
     agentId: text('agent_id').notNull().default('coder'), // Agent configuration per session
     enabledRuleIds: text('enabled_rule_ids', { mode: 'json' }).notNull().default('[]').$type<string[]>(), // Enabled rules for this session
+
+    // NEW: Normalized tool and MCP server IDs
+    enabledToolIds: text('enabled_tool_ids', { mode: 'json' }).$type<string[]>(), // References Tool.id[]
+    enabledMcpServerIds: text('enabled_mcp_server_ids', { mode: 'json' }).$type<string[]>(), // References MCPServer.id[]
+
     nextTodoId: integer('next_todo_id').notNull().default(1),
 
     // Note: Streaming state moved to messages table (message-level, not session-level)
@@ -127,6 +142,9 @@ export const sessions = sqliteTable(
   (table) => ({
     updatedIdx: index('idx_sessions_updated').on(table.updated),
     createdIdx: index('idx_sessions_created').on(table.created),
+    // NEW: Index on normalized modelId
+    modelIdIdx: index('idx_sessions_model_id').on(table.modelId),
+    // DEPRECATED: Legacy provider index (will be removed)
     providerIdx: index('idx_sessions_provider').on(table.provider),
     titleIdx: index('idx_sessions_title').on(table.title),
   })
@@ -323,12 +341,24 @@ export const todos = sqliteTable(
     activeForm: text('active_form').notNull(),
     status: text('status').notNull(), // 'pending' | 'in_progress' | 'completed'
     ordering: integer('ordering').notNull(),
+
+    // NEW: Entity relationships (normalized)
+    createdByToolId: text('created_by_tool_id'), // References Tool.id or MCP tool ID
+    createdByStepId: text('created_by_step_id'), // References MessageStep.id
+    relatedFiles: text('related_files', { mode: 'json' }).$type<string[]>(), // Related file paths
+    metadata: text('metadata', { mode: 'json' }).$type<{
+      tags?: string[];
+      priority?: 'low' | 'medium' | 'high';
+      estimatedMinutes?: number;
+      dependencies?: number[];
+    }>(), // Additional metadata
   },
   (table) => ({
     pk: primaryKey({ columns: [table.sessionId, table.id] }),
     sessionIdx: index('idx_todos_session').on(table.sessionId),
     statusIdx: index('idx_todos_status').on(table.status),
     orderingIdx: index('idx_todos_ordering').on(table.sessionId, table.ordering),
+    createdByStepIdx: index('idx_todos_created_by_step').on(table.createdByStepId),
   })
 );
 

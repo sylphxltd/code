@@ -5,6 +5,7 @@
 
 import type { ProviderId } from '../config/ai-config.js';
 import type { Todo } from './todo.types.js';
+import type { Model } from './model.types.js';
 
 /**
  * Message Part - unified type for all content parts
@@ -37,8 +38,9 @@ export type MessagePart =
     }
   | {
       type: 'tool';
-      toolId: string;
-      name: string;
+      toolId: string;       // Normalized: references Tool.id for builtin, or 'serverId:toolName' for MCP
+      name: string;          // Preserved for historical messages (even if tool is removed from registry)
+      mcpServerId?: string;  // NEW: If this is an MCP tool, references MCPServer.id
       status: 'active' | 'completed' | 'error' | 'abort';
       args?: unknown;
       result?: unknown;
@@ -251,13 +253,30 @@ export type ModelStatus = 'available' | 'unavailable' | 'unknown';
 export interface SessionMetadata {
   id: string;
   title?: string;
-  provider: ProviderId;
-  model: string;
-  modelStatus?: ModelStatus; // Optional: validated against provider's available models
+
+  /**
+   * Model ID (normalized)
+   * References Model.id in model registry
+   * @example 'claude-sonnet-4', 'gpt-4o', 'openrouter/anthropic/claude-sonnet-3.5'
+   */
+  modelId: string;
+
+  modelStatus?: ModelStatus; // Optional: validated against model registry
   agentId: string;
+  enabledRuleIds?: string[]; // Enabled rules for this session
+  enabledToolIds?: string[]; // NEW: Enabled tools (references Tool.id[])
+  enabledMcpServerIds?: string[]; // NEW: Enabled MCP servers (references MCPServer.id[])
+
   created: number;
   updated: number;
   messageCount: number;
+
+  // DEPRECATED: Legacy fields kept for backward compatibility during migration
+  // These will be removed in next major version
+  /** @deprecated Use modelId instead */
+  provider?: ProviderId;
+  /** @deprecated Use modelId instead */
+  model?: string;
 }
 
 /**
@@ -314,11 +333,32 @@ export interface SessionMetadata {
 export interface Session {
   id: string;
   title?: string; // Auto-generated from first user message
-  provider: ProviderId;
-  model: string;
-  modelStatus?: ModelStatus; // Optional: validated against provider's available models (server-side)
+
+  /**
+   * Model ID (normalized)
+   * References Model.id in model registry
+   * @example 'claude-sonnet-4', 'gpt-4o', 'openrouter/anthropic/claude-sonnet-3.5'
+   */
+  modelId: string;
+
+  modelStatus?: ModelStatus; // Optional: validated against model registry (server-side)
   agentId: string;         // Agent configuration for this session
   enabledRuleIds: string[]; // Enabled rules for this session (persisted to DB)
+
+  /**
+   * Enabled tools for this session (normalized)
+   * References Tool.id[] from tool registry
+   * If undefined/empty, all tools enabled by default
+   */
+  enabledToolIds?: string[];
+
+  /**
+   * Enabled MCP servers for this session (normalized)
+   * References MCPServer.id[] from MCP server registry
+   * If undefined/empty, all enabled MCP servers are used
+   */
+  enabledMcpServerIds?: string[];
+
   messages: SessionMessage[];
   todos: Todo[];           // Per-session todo list (not global!)
   nextTodoId: number;      // Next todo ID for this session (starts at 1)
@@ -328,4 +368,11 @@ export interface Session {
 
   created: number;
   updated: number;
+
+  // DEPRECATED: Legacy fields kept for backward compatibility during migration
+  // These will be removed in next major version
+  /** @deprecated Use modelId instead */
+  provider?: ProviderId;
+  /** @deprecated Use modelId instead */
+  model?: string;
 }
