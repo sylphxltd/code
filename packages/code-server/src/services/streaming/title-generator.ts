@@ -72,14 +72,19 @@ Now generate the title:`,
       enableTools: false, // Title generation doesn't need tools
     });
 
+    const startTime = Date.now();
     let fullTitle = '';
 
     // Emit start event
     if (callbacks) {
       callbacks.onStart();
     } else {
+      console.log(`[TitleGen] ${Date.now() - startTime}ms - Publishing START`);
       const startEvent = { type: 'session-title-updated-start' as const, sessionId: session.id };
-      await appContext.eventStream.publish(`session:${session.id}`, startEvent);
+      // Fire-and-forget publish (non-blocking, same as message streaming)
+      appContext.eventStream.publish(`session:${session.id}`, startEvent).catch(err => {
+        console.error('[TitleGen] Failed to publish START event:', err);
+      });
     }
 
     // Stream title chunks
@@ -92,15 +97,20 @@ Now generate the title:`,
           if (callbacks) {
             callbacks.onDelta(chunk.textDelta);
           } else {
+            console.log(`[TitleGen] ${Date.now() - startTime}ms - DELTA: "${chunk.textDelta}" (total: "${fullTitle}")`);
             const deltaEvent = {
               type: 'session-title-updated-delta' as const,
               sessionId: session.id,
               text: chunk.textDelta,
             };
-            await appContext.eventStream.publish(`session:${session.id}`, deltaEvent);
+            // Fire-and-forget publish (non-blocking, same as message streaming)
+            appContext.eventStream.publish(`session:${session.id}`, deltaEvent).catch(err => {
+              console.error('[TitleGen] Failed to publish DELTA event:', err);
+            });
           }
         }
       }
+      console.log(`[TitleGen] ${Date.now() - startTime}ms - Stream completed, fullTitle: "${fullTitle}"`);
     } catch (streamError) {
       // Catch NoOutputGeneratedError and other stream errors
       console.error('[Title Generation] Stream error:', streamError);
@@ -121,12 +131,16 @@ Now generate the title:`,
         if (callbacks) {
           callbacks.onEnd(cleaned);
         } else {
+          console.log(`[TitleGen] ${Date.now() - startTime}ms - Publishing END: "${cleaned}"`);
           const endEvent = {
             type: 'session-title-updated-end' as const,
             sessionId: session.id,
             title: cleaned,
           };
-          await appContext.eventStream.publish(`session:${session.id}`, endEvent);
+          // Fire-and-forget publish (non-blocking, same as message streaming)
+          appContext.eventStream.publish(`session:${session.id}`, endEvent).catch(err => {
+            console.error('[TitleGen] Failed to publish END event:', err);
+          });
         }
         return cleaned;
       } catch (dbError) {

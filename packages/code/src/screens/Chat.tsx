@@ -210,21 +210,47 @@ export default function Chat(_props: ChatProps) {
   // ENABLED: Title streaming callbacks (independent from AI response stream)
   const eventStreamCallbacks = useMemo(
     () => ({
+      // ENABLED: Session lifecycle events (for lazy session creation)
+      onSessionCreated: (sessionId: string, provider: string, model: string) => {
+        // When server creates real session, update from temp-session to real ID
+        const state = useSessionStore.getState();
+        if (state.currentSessionId === 'temp-session' || state.currentSessionId === null) {
+          useSessionStore.setState({
+            currentSessionId: sessionId,
+          });
+        }
+      },
+
       // ENABLED: Title streaming (independent channel, no loop issues)
       onSessionTitleStart: (sessionId: string) => {
+        const currentSessionId = useSessionStore.getState().currentSessionId;
+        console.log('[Chat] onSessionTitleStart check:', { sessionId, currentSessionId, match: sessionId === currentSessionId });
         if (sessionId === currentSessionId) {
+          console.log('[Chat] Calling setIsTitleStreaming(true)');
           setIsTitleStreaming(true);
+          console.log('[Chat] Calling setStreamingTitle("")');
           setStreamingTitle('');
         }
       },
       onSessionTitleDelta: (sessionId: string, text: string) => {
+        const currentSessionId = useSessionStore.getState().currentSessionId;
+        console.log('[Chat] onSessionTitleDelta check:', { sessionId, currentSessionId, text, match: sessionId === currentSessionId });
         if (sessionId === currentSessionId) {
-          setStreamingTitle((prev) => prev + text);
+          console.log('[Chat] Calling setStreamingTitle with:', text);
+          setStreamingTitle((prev) => {
+            const newTitle = prev + text;
+            console.log('[Chat] setStreamingTitle callback, prev:', prev, 'new:', newTitle);
+            return newTitle;
+          });
         }
       },
       onSessionTitleComplete: (sessionId: string, title: string) => {
+        const currentSessionId = useSessionStore.getState().currentSessionId;
+        console.log('[Chat] onSessionTitleComplete check:', { sessionId, currentSessionId, title, match: sessionId === currentSessionId });
         if (sessionId === currentSessionId) {
+          console.log('[Chat] Calling setIsTitleStreaming(false)');
           setIsTitleStreaming(false);
+          console.log('[Chat] Calling setStreamingTitle("")');
           setStreamingTitle('');
         }
       },
@@ -234,20 +260,6 @@ export default function Chat(_props: ChatProps) {
         // DISABLED: Causes infinite loop in single-client TUI
         // Event stream replay keeps triggering addMessage() creating duplicates
         return;
-
-        // Skip if this is our own streaming message
-        if (streamingMessageIdRef.current === messageId) {
-          return;
-        }
-        // Other client created assistant message - create placeholder
-        addLog(`[MultiClient] Assistant message created: ${messageId}`);
-        addMessage({
-          sessionId: currentSessionId,
-          role: 'assistant',
-          content: '',
-          attachments: [],
-          status: 'active',
-        });
       },
       onTextDelta: (text: string) => {
         // DISABLED: TUI is single-client, no multi-client sync needed
@@ -262,7 +274,7 @@ export default function Chat(_props: ChatProps) {
         return;
       },
     }),
-    [addLog, addMessage, currentSessionId, isStreaming, streamingMessageIdRef, setIsTitleStreaming, setStreamingTitle]
+    [setIsTitleStreaming, setStreamingTitle]
   );
 
   // Event stream for multi-client sync
