@@ -87,8 +87,13 @@ Now generate the title:`,
     }
 
     // Stream title chunks (wrap in try-catch to catch flush/finalize errors)
+    console.log('[Title] Starting to consume titleStream...');
     try {
+      let chunkCount = 0;
       for await (const chunk of titleStream) {
+        chunkCount++;
+        console.log('[Title] Received chunk #', chunkCount, ':', JSON.stringify(chunk));
+
         if (chunk.type === 'text-delta' && chunk.textDelta) {
           fullTitle += chunk.textDelta;
 
@@ -107,20 +112,30 @@ Now generate the title:`,
           }
         }
       }
+      console.log('[Title] titleStream completed, total chunks:', chunkCount, 'fullTitle:', fullTitle);
     } catch (streamError) {
       // Catch NoOutputGeneratedError and other stream errors
       console.error('[Title Generation] Stream error:', streamError);
+      console.error('[Title Generation] Error stack:', streamError instanceof Error ? streamError.stack : 'N/A');
       // If stream failed, use a default title based on first message
       if (fullTitle.length === 0) {
+        console.log('[Title] Using fallback title from user message');
         fullTitle = userMessage.slice(0, 50);
       }
     }
 
+    console.log('[Title] After stream loop, fullTitle length:', fullTitle.length);
+
     // Clean up and update database (only if we got some title)
     if (fullTitle.length > 0) {
+      console.log('[Title] Cleaning title:', fullTitle);
       const cleaned = cleanAITitle(fullTitle, 50);
+      console.log('[Title] Cleaned title:', cleaned);
+
       try {
+        console.log('[Title] Saving title to database...');
         await sessionRepository.updateSession(session.id, { title: cleaned });
+        console.log('[Title] Title saved to database');
 
         // Emit end event
         if (callbacks) {
@@ -135,6 +150,7 @@ Now generate the title:`,
           };
           await appContext.eventStream.publish(`session:${session.id}`, endEvent);
         }
+        console.log('[Title] Title generation complete:', cleaned);
         return cleaned;
       } catch (dbError) {
         console.error('[Title Generation] Failed to save title:', dbError);
@@ -142,6 +158,7 @@ Now generate the title:`,
       }
     }
 
+    console.log('[Title] No title generated (fullTitle was empty)');
     return null;
   } catch (error) {
     console.error('[Title Generation] Error:', error);
