@@ -262,13 +262,22 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
   const state = useSessionStore.getState();
 
   context.streamingMessageIdRef.current = event.messageId;
-  logMessage('Message created:', event.messageId, 'session:', state.currentSessionId);
+  console.log('[handleAssistantMessageCreated] Event received:', {
+    messageId: event.messageId,
+    currentSessionId: state.currentSessionId,
+    currentSession: state.currentSession?.id,
+    hasSession: !!state.currentSession
+  });
 
   // Start streaming UI
   context.setIsStreaming(true);
 
   if (!state.currentSession || state.currentSession.id !== state.currentSessionId) {
-    logMessage('Session mismatch! expected:', state.currentSessionId, 'got:', state.currentSession?.id);
+    console.error('[handleAssistantMessageCreated] SESSION MISMATCH! Cannot add assistant message', {
+      expected: state.currentSessionId,
+      got: state.currentSession?.id,
+      hasSession: !!state.currentSession
+    });
     return;
   }
 
@@ -376,6 +385,7 @@ function handleTextStart(event: Extract<StreamEvent, { type: 'text-start' }>, co
 
 function handleTextDelta(event: Extract<StreamEvent, { type: 'text-delta' }>, context: EventHandlerContext) {
   const currentSessionId = useSessionStore.getState().currentSessionId;
+  console.log('[handleTextDelta] Received text:', event.text.substring(0, 50));
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
     const newParts = [...prev];
