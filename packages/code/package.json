@@ -1,12 +1,15 @@
 {
   "name": "@sylphx/code",
   "version": "0.1.0",
-  "private": true,
   "description": "Sylphx Code - Unified CLI tool (TUI and headless modes)",
   "type": "module",
   "bin": {
     "sylphx-code": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "build": "bunup",
     "dev": "bun src/index.ts",
@@ -39,5 +42,21 @@
     "ink-testing-library": "^4.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.6"
+  },
+  "keywords": [
+    "ai",
+    "code-assistant",
+    "cli",
+    "tui",
+    "terminal",
+    "ink",
+    "typescript"
+  ],
+  "author": "sylphxltd",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sylphxltd/code.git",
+    "directory": "packages/code"
   }
 }

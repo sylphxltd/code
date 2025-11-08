@@ -1,9 +1,12 @@
 {
   "name": "@sylphx/code-web",
-  "private": true,
   "version": "0.1.0",
   "description": "Web GUI for Sylphx AI - Vite + React 19",
   "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -36,5 +39,21 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.45.0",
     "vite": "^7.1.7"
+  },
+  "keywords": [
+    "ai",
+    "code-assistant",
+    "web",
+    "gui",
+    "react",
+    "vite",
+    "typescript"
+  ],
+  "author": "sylphxltd",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sylphxltd/code.git",
+    "directory": "packages/code-web"
   }
 }

@@ -2,6 +2,8 @@
 "@sylphx/code-core": major
 "@sylphx/code-server": major
 "@sylphx/code-client": major
+"@sylphx/code": major
+"@sylphx/code-web": major
 ---
 
 # v0.1.0 - Pure UI Client Architecture

@@ -4,10 +4,10 @@
   "commit": false,
   "fixed": [],
   "linked": [
-    ["@sylphx/code-core", "@sylphx/code-server", "@sylphx/code-client"]
+    ["@sylphx/code-core", "@sylphx/code-server", "@sylphx/code-client", "@sylphx/code", "@sylphx/code-web"]
   ],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@sylphx/code", "@sylphx/code-web"]
+  "ignore": []
 }
