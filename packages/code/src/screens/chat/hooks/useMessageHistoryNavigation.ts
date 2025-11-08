@@ -107,10 +107,6 @@ export function useMessageHistoryNavigation(options: UseMessageHistoryNavigation
 
       // If autocomplete is active, don't handle ANY keys (let useKeyboardNavigation handle)
       if (hasAutocomplete && (key.upArrow || key.downArrow || key.tab || key.return)) {
-        console.log(
-          '[Chat.useInput] Early return: autocomplete active, key:',
-          Object.keys(key).filter((k) => key[k as keyof typeof key])
-        );
         return; // Let useKeyboardNavigation handle all navigation when autocomplete is active
       }
 

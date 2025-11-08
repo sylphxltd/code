@@ -58,11 +58,6 @@ export function useCommandNavigation(options: UseCommandNavigationOptions) {
         return false;
       }
 
-      console.log('[useCommandNavigation] Key pressed in command autocomplete mode:', {
-        key: Object.keys(key).filter(k => key[k as keyof typeof key]),
-        filteredCommandsLength: filteredCommands.length,
-      });
-
       // Arrow down - next command
       if (key.downArrow) {
         setSelectedCommandIndex((prev) =>
@@ -79,14 +74,12 @@ export function useCommandNavigation(options: UseCommandNavigationOptions) {
 
       // Tab - fill in autocomplete text only
       if (key.tab) {
-        console.log('[useCommandNavigation] Tab pressed in autocomplete mode');
         const selected = filteredCommands[selectedCommandIndex];
         if (selected) {
           const hasArgs = selected.args && selected.args.length > 0;
           const completedText = hasArgs ? `${selected.label} ` : selected.label;
 
           addLog(`[useInput] Tab autocomplete fill: ${completedText}`);
-          console.log('[useCommandNavigation] Tab filling:', completedText);
           setInput(completedText);
           setCursor(completedText.length); // Move cursor to end
           setSelectedCommandIndex(0);
@@ -96,7 +89,6 @@ export function useCommandNavigation(options: UseCommandNavigationOptions) {
 
       // Enter - execute autocomplete selection
       if (key.return) {
-        console.log('[useCommandNavigation] Enter pressed in autocomplete mode');
         const selected = filteredCommands[selectedCommandIndex];
         if (selected) {
           skipNextSubmit.current = true; // Prevent TextInput's onSubmit from also executing

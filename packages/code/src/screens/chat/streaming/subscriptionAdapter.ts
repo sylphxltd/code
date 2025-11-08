@@ -450,7 +450,6 @@ async function cleanupAfterStream(context: {
     try {
       const session = state.currentSession;
       if (!session || session.id !== currentSessionId) {
-        console.log('[cleanupAfterStream] Session mismatch, skipping status update');
         return;
       }
 
@@ -459,7 +458,6 @@ async function cleanupAfterStream(context: {
         .find((m) => m.role === 'assistant' && m.status === 'active');
 
       if (!activeMessage) {
-        console.log('[cleanupAfterStream] No active message, skipping status update');
         return;
       }
 

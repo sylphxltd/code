@@ -17,20 +17,13 @@ export function useAIConfig() {
   const loadConfig = useCallback(async (cwd: string = process.cwd()) => {
     setLoading?.(true);
     try {
-      console.log('[useAIConfig] Loading config from cwd:', cwd);
       const result = await client.config.load.query({ cwd });
-      console.log('[useAIConfig] Config loaded:', {
-        success: result.success,
-        hasConfig: !!result.config,
-        defaultProvider: result.config?.defaultProvider,
-      });
 
       if (result.success) {
         // Use setAIConfig to trigger logic for loading defaultEnabledRuleIds and defaultAgentId
         setAIConfig?.(result.config);
       } else {
         // No config yet, start with empty
-        console.log('[useAIConfig] No config, using empty');
         setAIConfig?.({ providers: {} });
       }
     } catch (err) {

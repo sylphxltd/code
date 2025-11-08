@@ -24,10 +24,6 @@ export const useAIConfigStore = create<AIConfigState>()(
     setAIConfig: (config) => {
       set((state) => {
         state.aiConfig = config;
-        console.log('[AIConfigStore] setAIConfig called:', {
-          hasConfig: !!config,
-          defaultProvider: config.defaultProvider,
-        });
       });
 
       // Coordinate with other stores for initialization
@@ -44,11 +40,6 @@ export const useAIConfigStore = create<AIConfigState>()(
           if (providerConfig?.defaultModel) {
             modelStore.setSelectedModel(providerConfig.defaultModel);
           }
-
-          console.log('[AIConfigStore] Initialized model selection store:', {
-            provider: config.defaultProvider,
-            model: providerConfig?.defaultModel,
-          });
         }
       });
 
