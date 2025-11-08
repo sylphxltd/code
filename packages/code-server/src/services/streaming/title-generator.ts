@@ -78,8 +78,10 @@ Now generate the title:`,
     // If callbacks provided (TUI), emit via callback (message router will publish to eventStream)
     // If no callbacks (direct eventStream consumer), publish to eventStream
     if (callbacks) {
+      console.log('[Title] Emitting START via callback');
       callbacks.onStart();
     } else {
+      console.log('[Title] Publishing START to eventStream');
       const startEvent = { type: 'session-title-updated-start' as const, sessionId: session.id };
       await appContext.eventStream.publish(`session:${session.id}`, startEvent);
     }
@@ -92,8 +94,10 @@ Now generate the title:`,
 
           // Emit delta
           if (callbacks) {
+            console.log('[Title] Emitting DELTA via callback:', chunk.textDelta);
             callbacks.onDelta(chunk.textDelta);
           } else {
+            console.log('[Title] Publishing DELTA to eventStream:', chunk.textDelta);
             const deltaEvent = {
               type: 'session-title-updated-delta' as const,
               sessionId: session.id,
@@ -120,8 +124,10 @@ Now generate the title:`,
 
         // Emit end event
         if (callbacks) {
+          console.log('[Title] Emitting END via callback:', cleaned);
           callbacks.onEnd(cleaned);
         } else {
+          console.log('[Title] Publishing END to eventStream:', cleaned);
           const endEvent = {
             type: 'session-title-updated-end' as const,
             sessionId: session.id,

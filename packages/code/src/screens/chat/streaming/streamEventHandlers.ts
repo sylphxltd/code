@@ -174,8 +174,10 @@ function handleSessionProviderUpdated(event: Extract<StreamEvent, { type: 'sessi
 
 function handleSessionTitleUpdatedStart(event: Extract<StreamEvent, { type: 'session-title-updated-start' }>, context: EventHandlerContext) {
   const currentSessionId = useSessionStore.getState().currentSessionId;
+  console.log('[Handler] Title START received, sessionId:', event.sessionId, 'current:', currentSessionId);
 
   if (event.sessionId === currentSessionId) {
+    console.log('[Handler] Setting isTitleStreaming = true');
     context.setIsTitleStreaming(true);
     context.setStreamingTitle('');
   }
@@ -183,16 +185,23 @@ function handleSessionTitleUpdatedStart(event: Extract<StreamEvent, { type: 'ses
 
 function handleSessionTitleUpdatedDelta(event: Extract<StreamEvent, { type: 'session-title-updated-delta' }>, context: EventHandlerContext) {
   const currentSessionId = useSessionStore.getState().currentSessionId;
+  console.log('[Handler] Title DELTA received:', event.text, 'sessionId:', event.sessionId, 'current:', currentSessionId);
 
   if (event.sessionId === currentSessionId) {
-    context.setStreamingTitle((prev) => prev + event.text);
+    context.setStreamingTitle((prev) => {
+      const newTitle = prev + event.text;
+      console.log('[Handler] Updated streamingTitle:', newTitle);
+      return newTitle;
+    });
   }
 }
 
 function handleSessionTitleUpdatedEnd(event: Extract<StreamEvent, { type: 'session-title-updated-end' }>, context: EventHandlerContext) {
   const currentSessionId = useSessionStore.getState().currentSessionId;
+  console.log('[Handler] Title END received:', event.title, 'sessionId:', event.sessionId, 'current:', currentSessionId);
 
   if (event.sessionId === currentSessionId) {
+    console.log('[Handler] Setting isTitleStreaming = false, updating title');
     context.setIsTitleStreaming(false);
     context.updateSessionTitle(event.sessionId, event.title);
   }

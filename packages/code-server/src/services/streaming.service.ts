@@ -365,6 +365,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         let titlePromise: Promise<string | null> = Promise.resolve(null);
 
         if (needsTitleGeneration(updatedSession, isNewSession, isFirstMessage)) {
+          console.log('[StreamAI] Starting title generation with callbacks for session:', sessionId);
           // Pass observer callback to title generator so it can emit events to subscription
           titlePromise = generateSessionTitle(
             opts.appContext,
@@ -373,12 +374,22 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             updatedSession,
             userMessageText,
             {
-              onStart: () => observer.next({ type: 'session-title-updated-start', sessionId }),
-              onDelta: (text: string) => observer.next({ type: 'session-title-updated-delta', sessionId, text }),
-              onEnd: (title: string) => observer.next({ type: 'session-title-updated-end', sessionId, title }),
+              onStart: () => {
+                console.log('[StreamAI] Title callback onStart called');
+                observer.next({ type: 'session-title-updated-start', sessionId });
+              },
+              onDelta: (text: string) => {
+                console.log('[StreamAI] Title callback onDelta called:', text);
+                observer.next({ type: 'session-title-updated-delta', sessionId, text });
+              },
+              onEnd: (title: string) => {
+                console.log('[StreamAI] Title callback onEnd called:', title);
+                observer.next({ type: 'session-title-updated-end', sessionId, title });
+              },
             }
           );
         } else {
+          console.log('[StreamAI] Skipping title generation (not needed)');
         }
 
         // 10. Process stream and emit events
