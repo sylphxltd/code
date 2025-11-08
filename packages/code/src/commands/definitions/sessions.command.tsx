@@ -11,11 +11,14 @@ export const sessionsCommand: Command = {
   label: '/sessions',
   description: 'View and switch between chat sessions',
   execute: async (context) => {
+    context.addLog('[sessions] Command execution started');
     const { formatSessionDisplay } = await import('@sylphx/code-core');
     const { getRecentSessions, useAppStore } = await import('@sylphx/code-client');
 
+    context.addLog('[sessions] Imports loaded, fetching sessions');
     // Get sessions
     const sessions = await getRecentSessions(100);
+    context.addLog(`[sessions] Got ${sessions.length} sessions`);
 
     if (sessions.length === 0) {
       return 'No sessions available. Start chatting to create a session.';
@@ -50,6 +53,7 @@ export const sessionsCommand: Command = {
     });
 
     // Use SessionSelection component
+    context.addLog(`[sessions] About to call setInputComponent with ${sessionData.length} sessions`);
     context.setInputComponent(
       <SessionSelection
         sessions={sessionData}
@@ -77,7 +81,7 @@ export const sessionsCommand: Command = {
       'Session Selection'
     );
 
-    context.addLog('[sessions] Session selection opened');
+    context.addLog('[sessions] setInputComponent called, session selection should be visible');
   },
 };
 
