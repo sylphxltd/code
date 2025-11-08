@@ -4,7 +4,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState } from 'react';
 import type { Command } from '../../../commands/types.js';
 
 export interface CommandState {
@@ -56,19 +56,9 @@ export function useCommandState(): CommandState {
   const [inputComponentTitle, setInputComponentTitle] = useState<string | null>(null);
 
   const handleSetInputComponent = (component: ReactNode | null, title?: string) => {
-    console.log('[useCommandState] handleSetInputComponent called with:', {
-      hasComponent: !!component,
-      title,
-    });
     setInputComponent(component);
     setInputComponentTitle(title || null);
-    console.log('[useCommandState] State setters called');
   };
-
-  // Monitor inputComponent changes
-  useEffect(() => {
-    console.log('[useCommandState] inputComponent changed to:', inputComponent ? 'Component' : 'null');
-  }, [inputComponent]);
 
   return {
     ctrlPressed,

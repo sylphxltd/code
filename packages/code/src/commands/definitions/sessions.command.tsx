@@ -54,21 +54,16 @@ export const sessionsCommand: Command = {
       <SessionSelection
         sessions={sessionData}
         onSelect={async (sessionId) => {
-          console.log('[sessions] onSelect called with sessionId:', sessionId);
-
           // IMPORTANT: Clear inputComponent FIRST, before setCurrentSession
           // setCurrentSession triggers Chat re-render, which can interfere with state updates
-          console.log('[sessions] Clearing inputComponent before session switch');
           context.setInputComponent(null);
 
           // Get fresh store reference
           const { useAppStore } = await import('@sylphx/code-client');
           const freshStore = useAppStore.getState();
 
-          console.log('[sessions] About to call setCurrentSession');
           // Switch to selected session
           await freshStore.setCurrentSession(sessionId);
-          console.log('[sessions] setCurrentSession completed');
 
           const selectedSession = sortedSessions.find((s) => s.id === sessionId);
           const displayName = selectedSession
@@ -78,7 +73,6 @@ export const sessionsCommand: Command = {
           context.addLog(`[sessions] Switched to session: ${displayName}`);
         }}
         onCancel={() => {
-          console.log('[sessions] onCancel called');
           context.setInputComponent(null);
           context.addLog('[sessions] Session selection cancelled');
         }}
