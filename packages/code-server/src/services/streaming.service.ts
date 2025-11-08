@@ -366,24 +366,34 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         console.log('[streamAIResponse] assistant-message-created event emitted');
 
         // 9.2. Capture metadata and todoSnapshot for step-0
+        console.log('[streamAIResponse] 9.2. Capturing metadata for step-0...');
         const currentSystemStatus = getSystemStatus();
         const currentTodos = updatedSession.todos || [];
         const stepMetadata = {
           cpu: currentSystemStatus.cpu,
           memory: currentSystemStatus.memory,
         };
+        console.log('[streamAIResponse] 9.2. Metadata captured, todos:', currentTodos.length);
 
         // 9.3. Create step-0 in database
+        console.log('[streamAIResponse] 9.3. Creating step-0 in database...');
         const stepId = `${assistantMessageId}-step-0`;
-        await createMessageStep(
-          sessionRepository.db,
-          assistantMessageId,
-          0, // stepIndex
-          stepMetadata,
-          currentTodos
-        );
+        try {
+          await createMessageStep(
+            sessionRepository.db,
+            assistantMessageId,
+            0, // stepIndex
+            stepMetadata,
+            currentTodos
+          );
+          console.log('[streamAIResponse] 9.3. Step-0 created successfully, ID:', stepId);
+        } catch (stepError) {
+          console.error('[streamAIResponse] 9.3. FAILED to create step:', stepError);
+          throw stepError;
+        }
 
         // 9.4. Emit step-start event
+        console.log('[streamAIResponse] 9.4. Emitting step-start event...');
         observer.next({
           type: 'step-start',
           stepId,
@@ -391,13 +401,16 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           metadata: stepMetadata,
           todoSnapshot: currentTodos,
         });
+        console.log('[streamAIResponse] 9.4. step-start event emitted');
 
         // 9.5. Start title generation in parallel with streaming (real-time updates)
+        console.log('[streamAIResponse] 9.5. Checking if title generation needed...');
         const isFirstMessage =
           updatedSession.messages.filter((m) => m.role === 'user').length === 1;
 
         let titlePromise: Promise<string | null> = Promise.resolve(null);
         if (needsTitleGeneration(updatedSession, isNewSession, isFirstMessage)) {
+          console.log('[streamAIResponse] 9.5. Starting title generation in parallel...');
           titlePromise = generateSessionTitle(
             opts.appContext,
             sessionRepository,
@@ -405,9 +418,12 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             updatedSession,
             userMessageText
           );
+        } else {
+          console.log('[streamAIResponse] 9.5. Title generation not needed');
         }
 
         // 10. Process stream and emit events
+        console.log('[streamAIResponse] 10. Setting up stream callbacks...');
         const callbacks: StreamCallbacks = {
           onTextStart: () => {
             observer.next({ type: 'text-start' });
@@ -444,8 +460,20 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             observer.next({ type: 'error', error });
           },
         };
+        console.log('[streamAIResponse] 10. Callbacks defined, starting processStream...');
 
-        const result = await processStream(stream, callbacks);
+        let result;
+        try {
+          result = await processStream(stream, callbacks);
+          console.log('[streamAIResponse] 10. processStream completed, result:', {
+            hasUsage: !!result.usage,
+            partsCount: result.messageParts.length,
+            finishReason: result.finishReason
+          });
+        } catch (processError) {
+          console.error('[streamAIResponse] 10. processStream FAILED:', processError);
+          throw processError;
+        }
 
         // Emit error event if no valid response (ensures error message reaches UI)
         if (!result.usage && !aborted) {
@@ -517,14 +545,18 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // The updateMessageUsage call is now a no-op for backward compatibility
 
         // 12. Emit complete event (message content done, title continues in background)
+        console.log('[streamAIResponse] 12. Emitting complete event...');
         observer.next({
           type: 'complete',
           usage: result.usage,
           finishReason: result.finishReason,
         });
+        console.log('[streamAIResponse] 12. Complete event emitted');
 
         // 13. Complete observable (clients receive title events via useEventStream)
+        console.log('[streamAIResponse] 13. Completing observable...');
         observer.complete();
+        console.log('[streamAIResponse] 13. Observable completed successfully');
 
         // 14. Let title generation finish in background
         // NOTE: This catch() should never fire because titlePromise has internal try-catch
