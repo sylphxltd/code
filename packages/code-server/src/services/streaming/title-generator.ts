@@ -51,22 +51,7 @@ export async function generateSessionTitle(
       messages: [
         {
           role: 'user',
-          content: `You need to generate a SHORT, DESCRIPTIVE title (maximum 50 characters) for a chat conversation.
-
-User's first message: "${userMessage}"
-
-Requirements:
-- Summarize the TOPIC or INTENT, don't just copy the message
-- Be concise and descriptive
-- Maximum 50 characters
-- Output ONLY the title, nothing else
-
-Examples:
-- Message: "How do I implement authentication?" → Title: "Authentication Implementation"
-- Message: "你好，请帮我修复这个 bug" → Title: "Bug 修复请求"
-- Message: "Can you help me with React hooks?" → Title: "React Hooks Help"
-
-Now generate the title:`,
+          content: `Create a short title (max 50 chars) for: "${userMessage}"`,
         },
       ],
       enableTools: false, // Title generation doesn't need tools
