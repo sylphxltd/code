@@ -79,25 +79,34 @@ export const useSettingsStore = create<SettingsState>()(
   }))
 );
 
-// Subscribe to session events
-eventBus.on('session:changed', ({ sessionId }) => {
-  // Clear enabled rules when no session
-  if (!sessionId) {
-    useSettingsStore.getState().setEnabledRuleIds([], null);
-  }
-});
+/**
+ * Setup event listeners
+ * Called on module load and can be called again in tests after eventBus.clear()
+ */
+export function setupSettingsStoreEventListeners() {
+  eventBus.on('session:changed', ({ sessionId }) => {
+    // Clear enabled rules when no session
+    // Use setState directly (not setEnabledRuleIds) to avoid triggering server call
+    if (!sessionId) {
+      useSettingsStore.setState({ enabledRuleIds: [] });
+    }
+  });
 
-eventBus.on('session:created', ({ enabledRuleIds }) => {
-  // Update settings with new session's rules
-  useSettingsStore.setState({ enabledRuleIds });
-});
+  eventBus.on('session:created', ({ enabledRuleIds }) => {
+    // Update settings with new session's rules
+    useSettingsStore.setState({ enabledRuleIds });
+  });
 
-eventBus.on('session:loaded', ({ enabledRuleIds }) => {
-  // Update settings when session loaded from server
-  useSettingsStore.setState({ enabledRuleIds });
-});
+  eventBus.on('session:loaded', ({ enabledRuleIds }) => {
+    // Update settings when session loaded from server
+    useSettingsStore.setState({ enabledRuleIds });
+  });
 
-eventBus.on('session:rulesUpdated', ({ enabledRuleIds }) => {
-  // Update settings when current session's rules change
-  useSettingsStore.setState({ enabledRuleIds });
-});
+  eventBus.on('session:rulesUpdated', ({ enabledRuleIds }) => {
+    // Update settings when current session's rules change
+    useSettingsStore.setState({ enabledRuleIds });
+  });
+}
+
+// Subscribe to session events on module load
+setupSettingsStoreEventListeners();

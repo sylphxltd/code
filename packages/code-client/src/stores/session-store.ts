@@ -156,11 +156,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   },
 }));
 
-// Subscribe to streaming events to track streaming state
-eventBus.on('streaming:started', () => {
-  useSessionStore.setState({ isStreaming: true });
-});
+/**
+ * Setup event listeners
+ * Called on module load and can be called again in tests after eventBus.clear()
+ */
+export function setupSessionStoreEventListeners() {
+  eventBus.on('streaming:started', () => {
+    useSessionStore.setState({ isStreaming: true });
+  });
 
-eventBus.on('streaming:completed', () => {
-  useSessionStore.setState({ isStreaming: false });
-});
+  eventBus.on('streaming:completed', () => {
+    useSessionStore.setState({ isStreaming: false });
+  });
+}
+
+// Subscribe to streaming events to track streaming state
+setupSessionStoreEventListeners();
