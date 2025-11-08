@@ -497,15 +497,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           // Continue - not critical for user experience
         }
 
-        // 11.5. Update message usage (aggregated from steps)
-        if (result.usage) {
-          try {
-            await messageRepository.updateMessageUsage(assistantMessageId, result.usage);
-          } catch (dbError) {
-            console.error('[streamAIResponse] Failed to update message usage:', dbError);
-            // Continue - not critical for user experience
-          }
-        }
+        // REMOVED: Message usage table - usage now computed from stepUsage on demand
+        // The updateMessageUsage call is now a no-op for backward compatibility
 
         // 12. Emit complete event (message content done, title continues in background)
         observer.next({

@@ -235,26 +235,24 @@ export const stepUsage = sqliteTable('step_usage', {
 });
 
 /**
- * Step todo snapshots table - Snapshot of todos at step start time
- * Each step captures the todo state at its creation time
+ * @deprecated Step todo snapshots table - REMOVED
+ *
+ * Todo snapshots are NO LONGER stored per-step.
+ * Only send todos on first user message after /compact command.
+ *
+ * Rationale:
+ * - User reported 100+ steps per message being common
+ * - Storing todos on every step is excessive and wasteful
+ * - Todos are only needed when starting new context after /compact
+ *
+ * New behavior:
+ * - /compact command sets flag on session
+ * - Next user message includes full todo snapshot
+ * - Subsequent steps in same session don't include todos
+ * - Reduces database size significantly for long conversations
+ *
+ * Migration: Table dropped, streaming service updated
  */
-export const stepTodoSnapshots = sqliteTable(
-  'step_todo_snapshots',
-  {
-    id: text('id').primaryKey(),
-    stepId: text('step_id')
-      .notNull()
-      .references(() => messageSteps.id, { onDelete: 'cascade' }),
-    todoId: integer('todo_id').notNull(), // ID from snapshot (not FK!)
-    content: text('content').notNull(),
-    activeForm: text('active_form').notNull(),
-    status: text('status').notNull(),
-    ordering: integer('ordering').notNull(),
-  },
-  (table) => ({
-    stepIdx: index('idx_step_todo_snapshots_step').on(table.stepId),
-  })
-);
 
 /**
  * Step parts table - Content parts within a step
@@ -315,17 +313,22 @@ export const messageAttachments = sqliteTable(
 );
 
 /**
- * Message usage table - Aggregated token usage for messages
- * Sum of all step usage for this message (for UI convenience)
+ * @deprecated Message usage table - REMOVED
+ *
+ * Token usage is now computed from stepUsage table on demand
+ * This eliminates redundant storage and update operations
+ *
+ * To get message usage:
+ * SELECT
+ *   SUM(prompt_tokens) as promptTokens,
+ *   SUM(completion_tokens) as completionTokens,
+ *   SUM(total_tokens) as totalTokens
+ * FROM step_usage su
+ * JOIN message_steps ms ON ms.id = su.step_id
+ * WHERE ms.message_id = ?
+ *
+ * Migration: Table dropped, queries updated to use computed property
  */
-export const messageUsage = sqliteTable('message_usage', {
-  messageId: text('message_id')
-    .primaryKey()
-    .references(() => messages.id, { onDelete: 'cascade' }),
-  promptTokens: integer('prompt_tokens').notNull(),
-  completionTokens: integer('completion_tokens').notNull(),
-  totalTokens: integer('total_tokens').notNull(),
-});
 
 /**
  * Todos table - Per-session todo lists
@@ -398,10 +401,46 @@ export const events = sqliteTable(
 );
 
 
+/**
+ * File contents table - Efficient file storage separate from message parts
+ * Stores actual file content as BLOB instead of base64 in JSON
+ *
+ * Design: Normalized file storage for efficiency and searchability
+ * - Binary BLOB storage (no base64 overhead = 33% smaller)
+ * - FTS5 index on text files for conversation search
+ * - Large files don't bloat step_parts JSON
+ * - Efficient queries (can load messages without file content)
+ *
+ * Relationship:
+ * - step_parts contains file-ref type with fileContentId
+ * - file_contents stores actual content with ordering for reconstruction
+ */
+export const fileContents = sqliteTable(
+  'file_contents',
+  {
+    id: text('id').primaryKey(),
+    stepId: text('step_id')
+      .notNull()
+      .references(() => messageSteps.id, { onDelete: 'cascade' }),
+    ordering: integer('ordering').notNull(), // Position within step (for order reconstruction)
+    relativePath: text('relative_path').notNull(),
+    mediaType: text('media_type').notNull(),
+    size: integer('size').notNull(),
+    content: text('content', { mode: 'blob' }).notNull(), // Binary storage (no base64!)
+    isText: integer('is_text').notNull(), // 1 for text files, 0 for binary
+    textContent: text('text_content'), // Decoded text for text files (FTS5 indexable)
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => ({
+    stepIdx: index('idx_file_contents_step').on(table.stepId, table.ordering),
+    typeIdx: index('idx_file_contents_type').on(table.mediaType),
+    pathIdx: index('idx_file_contents_path').on(table.relativePath),
+  })
+);
+
 // TEMPORARY ALIASES for backward compatibility during transition
 // These reference old table names but point to new step-based tables
 export const messageParts = stepParts;
-export const messageTodoSnapshots = stepTodoSnapshots;
 
 // Export types for TypeScript
 export type Session = typeof sessions.$inferSelect;
@@ -416,11 +455,11 @@ export type NewMessageStep = typeof messageSteps.$inferInsert;
 export type StepUsage = typeof stepUsage.$inferSelect;
 export type NewStepUsage = typeof stepUsage.$inferInsert;
 
-export type StepTodoSnapshot = typeof stepTodoSnapshots.$inferSelect;
-export type NewStepTodoSnapshot = typeof stepTodoSnapshots.$inferInsert;
-
 export type StepPart = typeof stepParts.$inferSelect;
 export type NewStepPart = typeof stepParts.$inferInsert;
+
+export type FileContent = typeof fileContents.$inferSelect;
+export type NewFileContent = typeof fileContents.$inferInsert;
 
 export type Event = typeof events.$inferSelect;
 export type NewEvent = typeof events.$inferInsert;
@@ -428,14 +467,9 @@ export type NewEvent = typeof events.$inferInsert;
 // Legacy aliases
 export type MessagePart = StepPart;
 export type NewMessagePart = NewStepPart;
-export type MessageTodoSnapshot = StepTodoSnapshot;
-export type NewMessageTodoSnapshot = NewStepTodoSnapshot;
 
 export type MessageAttachment = typeof messageAttachments.$inferSelect;
 export type NewMessageAttachment = typeof messageAttachments.$inferInsert;
-
-export type MessageUsage = typeof messageUsage.$inferSelect;
-export type NewMessageUsage = typeof messageUsage.$inferInsert;
 
 export type Todo = typeof todos.$inferSelect;
 export type NewTodo = typeof todos.$inferInsert;

@@ -13,7 +13,6 @@ import {
   messageSteps,
   stepParts,
   stepUsage,
-  stepTodoSnapshots,
   type NewMessageStep,
 } from './schema.js';
 import type {
@@ -26,13 +25,17 @@ import type { Todo as TodoType } from '../types/todo.types.js';
 
 /**
  * Create a new step in a message
+ *
+ * @param todoSnapshot DEPRECATED - No longer stored per-step
+ *   Todos are only sent on first user message after /compact
+ *   This parameter is kept for backward compatibility but ignored
  */
 export async function createMessageStep(
   db: LibSQLDatabase,
   messageId: string,
   stepIndex: number,
   metadata?: MessageMetadata,
-  todoSnapshot?: TodoType[]
+  _todoSnapshot?: TodoType[]
 ): Promise<string> {
   const stepId = `${messageId}-step-${stepIndex}`;
   const now = Date.now();
@@ -55,20 +58,8 @@ export async function createMessageStep(
 
     await tx.insert(messageSteps).values(newStep);
 
-    // Insert todo snapshot if provided
-    if (todoSnapshot && todoSnapshot.length > 0) {
-      for (const todo of todoSnapshot) {
-        await tx.insert(stepTodoSnapshots).values({
-          id: randomUUID(),
-          stepId,
-          todoId: todo.id,
-          content: todo.content,
-          activeForm: todo.activeForm,
-          status: todo.status,
-          ordering: todo.ordering,
-        });
-      }
-    }
+    // REMOVED: stepTodoSnapshots - no longer stored per-step
+    // Todos are only sent on first user message after /compact
   });
 
   return stepId;
@@ -170,7 +161,7 @@ export async function loadMessageSteps(
 
   // Batch fetch all related data
   const stepIds = stepRecords.map((s) => s.id);
-  const [allParts, allUsage, allSnapshots] = await Promise.all([
+  const [allParts, allUsage] = await Promise.all([
     db
       .select()
       .from(stepParts)
@@ -180,17 +171,11 @@ export async function loadMessageSteps(
       .select()
       .from(stepUsage)
       .where(inArray(stepUsage.stepId, stepIds)),
-    db
-      .select()
-      .from(stepTodoSnapshots)
-      .where(inArray(stepTodoSnapshots.stepId, stepIds))
-      .orderBy(stepTodoSnapshots.ordering),
   ]);
 
   // Group by step ID
   const partsByStep = new Map<string, typeof allParts>();
   const usageByStep = new Map<string, (typeof allUsage)[0]>();
-  const snapshotsByStep = new Map<string, typeof allSnapshots>();
 
   for (const part of allParts) {
     if (!partsByStep.has(part.stepId)) {
@@ -203,18 +188,10 @@ export async function loadMessageSteps(
     usageByStep.set(usage.stepId, usage);
   }
 
-  for (const snapshot of allSnapshots) {
-    if (!snapshotsByStep.has(snapshot.stepId)) {
-      snapshotsByStep.set(snapshot.stepId, []);
-    }
-    snapshotsByStep.get(snapshot.stepId)!.push(snapshot);
-  }
-
   // Assemble steps
   return stepRecords.map((step) => {
     const parts = partsByStep.get(step.id) || [];
     const usage = usageByStep.get(step.id);
-    const todoSnap = snapshotsByStep.get(step.id) || [];
 
     const messageStep: MessageStep = {
       id: step.id,
@@ -227,15 +204,8 @@ export async function loadMessageSteps(
       messageStep.metadata = JSON.parse(step.metadata) as MessageMetadata;
     }
 
-    if (todoSnap.length > 0) {
-      messageStep.todoSnapshot = todoSnap.map((t) => ({
-        id: t.todoId,
-        content: t.content,
-        activeForm: t.activeForm,
-        status: t.status as 'pending' | 'in_progress' | 'completed',
-        ordering: t.ordering,
-      }));
-    }
+    // REMOVED: todoSnapshot - no longer stored per-step
+    // Todos are only sent on first user message after /compact
 
     if (usage) {
       messageStep.usage = {

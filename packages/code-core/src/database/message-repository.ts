@@ -17,8 +17,6 @@ import {
   messageSteps,
   stepParts,
   stepUsage,
-  stepTodoSnapshots,
-  messageUsage,
 } from './schema.js';
 import type {
   MessagePart,
@@ -119,22 +117,7 @@ export class MessageRepository {
             });
           }
 
-          // 4. Insert step todo snapshot
-          if (todoSnapshot && todoSnapshot.length > 0) {
-            for (const todo of todoSnapshot) {
-              await tx.insert(stepTodoSnapshots).values({
-                id: randomUUID(),
-                stepId,
-                todoId: todo.id,
-                content: todo.content,
-                activeForm: todo.activeForm,
-                status: todo.status,
-                ordering: todo.ordering,
-              });
-            }
-          }
-
-          // 5. Insert step usage
+          // 4. Insert step usage
           if (usage) {
             await tx.insert(stepUsage).values({
               stepId,
@@ -149,18 +132,10 @@ export class MessageRepository {
         // File content is captured at creation time and stored as base64 in MessagePart
         // This ensures immutable history and preserves order with text content
 
-        // 7. Insert aggregated message usage (for UI convenience)
-        // Skip for streaming messages (usage will be added later)
-        if (usage && !isStreamingMessage) {
-          await tx.insert(messageUsage).values({
-            messageId,
-            promptTokens: usage.promptTokens,
-            completionTokens: usage.completionTokens,
-            totalTokens: usage.totalTokens,
-          });
-        }
+        // REMOVED: Message usage table - now computed from stepUsage on demand
+        // Eliminates redundant storage and update operations
 
-        // 8. Update session timestamp
+        // 5. Update session timestamp
         await tx
           .update(sessions)
           .set({ updated: now })
@@ -235,37 +210,39 @@ export class MessageRepository {
   }
 
   /**
-   * Update message usage (used when streaming completes)
-   * Inserts or replaces usage data for a message
+   * @deprecated Message usage table removed
+   * Usage is now computed from stepUsage table on demand
+   * This method is a no-op for backward compatibility
    */
-  async updateMessageUsage(messageId: string, usage: TokenUsage): Promise<void> {
-    await retryDatabase(async () => {
-      // Check if usage already exists
-      const [existing] = await this.db
-        .select()
-        .from(messageUsage)
-        .where(eq(messageUsage.messageId, messageId))
-        .limit(1);
+  async updateMessageUsage(_messageId: string, _usage: TokenUsage): Promise<void> {
+    // No-op: messageUsage table removed, usage computed from stepUsage
+    // Kept for backward compatibility during migration
+  }
 
-      if (existing) {
-        // Update existing usage
-        await this.db
-          .update(messageUsage)
-          .set({
-            promptTokens: usage.promptTokens,
-            completionTokens: usage.completionTokens,
-            totalTokens: usage.totalTokens,
-          })
-          .where(eq(messageUsage.messageId, messageId));
-      } else {
-        // Insert new usage
-        await this.db.insert(messageUsage).values({
-          messageId,
-          promptTokens: usage.promptTokens,
-          completionTokens: usage.completionTokens,
-          totalTokens: usage.totalTokens,
-        });
+  /**
+   * Compute message usage from step usage (replaces messageUsage table)
+   */
+  async computeMessageUsage(messageId: string): Promise<TokenUsage | null> {
+    return retryDatabase(async () => {
+      const [result] = await this.db
+        .select({
+          promptTokens: sql<number>`COALESCE(SUM(${stepUsage.promptTokens}), 0)`,
+          completionTokens: sql<number>`COALESCE(SUM(${stepUsage.completionTokens}), 0)`,
+          totalTokens: sql<number>`COALESCE(SUM(${stepUsage.totalTokens}), 0)`,
+        })
+        .from(stepUsage)
+        .innerJoin(messageSteps, eq(messageSteps.id, stepUsage.stepId))
+        .where(eq(messageSteps.messageId, messageId));
+
+      if (!result || result.totalTokens === 0) {
+        return null;
       }
+
+      return {
+        promptTokens: result.promptTokens,
+        completionTokens: result.completionTokens,
+        totalTokens: result.totalTokens,
+      };
     });
   }
 

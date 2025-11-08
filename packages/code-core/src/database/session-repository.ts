@@ -31,8 +31,6 @@ import {
   messageSteps,
   stepParts,
   stepUsage,
-  stepTodoSnapshots,
-  messageUsage,
   todos,
   type Session,
   type NewSession,
@@ -341,8 +339,8 @@ export class SessionRepository {
 
     const stepIds = allSteps.map((s) => s.id);
 
-    // Fetch all step-related data and message-level data in parallel
-    const [allParts, allStepUsage, allStepSnapshots, allMsgUsage] = await Promise.all([
+    // Fetch all step-related data in parallel
+    const [allParts, allStepUsage] = await Promise.all([
       // Step parts
       this.db
         .select()
@@ -355,25 +353,11 @@ export class SessionRepository {
         .select()
         .from(stepUsage)
         .where(inArray(stepUsage.stepId, stepIds)),
-
-      // Step todo snapshots
-      this.db
-        .select()
-        .from(stepTodoSnapshots)
-        .where(inArray(stepTodoSnapshots.stepId, stepIds))
-        .orderBy(stepTodoSnapshots.ordering),
-
-      // Message usage (aggregated)
-      this.db
-        .select()
-        .from(messageUsage)
-        .where(inArray(messageUsage.messageId, messageIds)),
     ]);
 
     // Group by step ID
     const partsByStep = new Map<string, typeof allParts>();
     const usageByStep = new Map<string, (typeof allStepUsage)[0]>();
-    const snapshotsByStep = new Map<string, typeof allStepSnapshots>();
 
     for (const part of allParts) {
       if (!partsByStep.has(part.stepId)) {
@@ -386,16 +370,8 @@ export class SessionRepository {
       usageByStep.set(usage.stepId, usage);
     }
 
-    for (const snapshot of allStepSnapshots) {
-      if (!snapshotsByStep.has(snapshot.stepId)) {
-        snapshotsByStep.set(snapshot.stepId, []);
-      }
-      snapshotsByStep.get(snapshot.stepId)!.push(snapshot);
-    }
-
     // Group by message ID
     const stepsByMessage = new Map<string, typeof allSteps>();
-    const usageByMessage = new Map<string, (typeof allMsgUsage)[0]>();
 
     for (const step of allSteps) {
       if (!stepsByMessage.has(step.messageId)) {
@@ -404,20 +380,28 @@ export class SessionRepository {
       stepsByMessage.get(step.messageId)!.push(step);
     }
 
-    for (const usage of allMsgUsage) {
-      usageByMessage.set(usage.messageId, usage);
-    }
-
     // Assemble messages using grouped data
     const fullMessages = messageRecords.map((msg) => {
       const steps = stepsByMessage.get(msg.id) || [];
-      const usage = usageByMessage.get(msg.id);
+
+      // Compute message usage from step usage
+      let messageUsage: TokenUsage | undefined;
+      const stepUsages = steps
+        .map((s) => usageByStep.get(s.id))
+        .filter((u): u is NonNullable<typeof u> => u !== undefined);
+
+      if (stepUsages.length > 0) {
+        messageUsage = {
+          promptTokens: stepUsages.reduce((sum, u) => sum + u.promptTokens, 0),
+          completionTokens: stepUsages.reduce((sum, u) => sum + u.completionTokens, 0),
+          totalTokens: stepUsages.reduce((sum, u) => sum + u.totalTokens, 0),
+        };
+      }
 
       // Build steps
       const messageSteps: MessageStep[] = steps.map((step) => {
         const parts = partsByStep.get(step.id) || [];
         const stepUsageData = usageByStep.get(step.id);
-        const todoSnap = snapshotsByStep.get(step.id) || [];
 
         const messageStep: MessageStep = {
           id: step.id,
@@ -430,15 +414,8 @@ export class SessionRepository {
           messageStep.metadata = JSON.parse(step.metadata) as MessageMetadata;
         }
 
-        if (todoSnap.length > 0) {
-          messageStep.todoSnapshot = todoSnap.map((t) => ({
-            id: t.todoId,
-            content: t.content,
-            activeForm: t.activeForm,
-            status: t.status as 'pending' | 'in_progress' | 'completed',
-            ordering: t.ordering,
-          }));
-        }
+        // REMOVED: todoSnapshot - no longer stored per-step
+        // Todos are only sent on first user message after /compact
 
         if (stepUsageData) {
           messageStep.usage = {
@@ -486,13 +463,9 @@ export class SessionRepository {
       // REMOVED: Attachments - files now stored as frozen content in step parts
       // File content is captured at creation time and stored as base64 in MessagePart
 
-      // Aggregated usage (for UI convenience)
-      if (usage) {
-        sessionMessage.usage = {
-          promptTokens: usage.promptTokens,
-          completionTokens: usage.completionTokens,
-          totalTokens: usage.totalTokens,
-        };
+      // Aggregated usage (computed from step usage)
+      if (messageUsage) {
+        sessionMessage.usage = messageUsage;
       }
 
       // Final finish reason (from last step or message-level)
