@@ -3,14 +3,12 @@
  * View debug logs for troubleshooting
  */
 
-import { useAppStore } from '@sylphx/code-client';
+import { useDebugLogs, clearDebugLogs, navigateTo } from '@sylphx/code-client';
 import { Box, Text, useInput } from 'ink';
 import React from 'react';
 
 export default function Logs() {
-  const debugLogs = useAppStore((state) => state.debugLogs);
-  const clearDebugLogs = useAppStore((state) => state.clearDebugLogs);
-  const navigateTo = useAppStore((state) => state.navigateTo);
+  const debugLogs = useDebugLogs();
 
   // Keyboard shortcuts
   useInput((input, key) => {

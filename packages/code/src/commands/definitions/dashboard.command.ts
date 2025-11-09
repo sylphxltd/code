@@ -10,8 +10,8 @@ export const dashboardCommand: Command = {
   label: '/dashboard',
   description: 'Open control panel - central hub for all features',
   execute: async (context) => {
-    const { useAppStore } = await import('@sylphx/code-client');
-    useAppStore.getState().navigateTo('dashboard');
+    const { navigateTo } = await import('@sylphx/code-client');
+    navigateTo('dashboard');
     return 'Opening control panel...';
   },
 };

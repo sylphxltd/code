@@ -13,10 +13,10 @@ export const contextCommand: Command = {
     const { countTokens, formatTokenCount } = await import('@sylphx/code-core');
     const { getSystemPrompt } = await import('@sylphx/code-core');
     const { getAISDKTools } = await import('@sylphx/code-core');
-    const { useAppStore } = await import('@sylphx/code-client');
+    const { get } = await import('@sylphx/code-client');
+    const { $currentSession } = await import('@sylphx/code-client');
 
-    const store = useAppStore.getState();
-    const { currentSession } = store;
+    const currentSession = get($currentSession);
     if (!currentSession) {
       return 'No active session. Start chatting first to see context usage.';
     }

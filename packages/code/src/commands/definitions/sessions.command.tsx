@@ -12,7 +12,9 @@ export const sessionsCommand: Command = {
   description: 'View and switch between chat sessions',
   execute: async (context) => {
     const { formatSessionDisplay } = await import('@sylphx/code-core');
-    const { getRecentSessions, useAppStore } = await import('@sylphx/code-client');
+    const { getRecentSessions } = await import('@sylphx/code-client');
+    const { get } = await import('@sylphx/code-client');
+    const { $currentSessionId, setCurrentSessionId } = await import('@sylphx/code-client');
 
     // Get sessions
     const sessions = await getRecentSessions(100);
@@ -21,8 +23,7 @@ export const sessionsCommand: Command = {
       return 'No sessions available. Start chatting to create a session.';
     }
 
-    const store = useAppStore.getState();
-    const currentSessionId = store.currentSessionId;
+    const currentSessionId = get($currentSessionId);
 
     // Sort sessions by updated time (most recent first), then by created time
     const sortedSessions = [...sessions].sort((a, b) => {
@@ -59,9 +60,7 @@ export const sessionsCommand: Command = {
             context.setInputComponent(null);
 
             // Switch to selected session (Pure UI: just set the ID)
-            const { useSessionStore } = await import('@sylphx/code-client');
-            const sessionStore = useSessionStore.getState();
-            sessionStore.setCurrentSessionId(sessionId);
+            setCurrentSessionId(sessionId);
 
             const selectedSession = sortedSessions.find((s) => s.id === sessionId);
             const displayName = selectedSession

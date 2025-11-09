@@ -20,7 +20,16 @@
  * - All state changes are event-driven in switch/case handlers
  */
 
-import { getTRPCClient, useSessionStore, parseUserInput, eventBus } from '@sylphx/code-client';
+import {
+  getTRPCClient,
+  parseUserInput,
+  eventBus,
+  getCurrentSessionId,
+  setCurrentSessionId,
+  $currentSession,
+  set as setSignal,
+  get as getSignal
+} from '@sylphx/code-client';
 import type { AIConfig, FileAttachment, MessagePart, TokenUsage } from '@sylphx/code-core';
 import { createLogger } from '@sylphx/code-core';
 import type { StreamEvent } from '@sylphx/code-server';
@@ -201,29 +210,27 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       logSession('Built message parts:', messageParts.length, 'parts');
 
       // Add optimistic message to store (works for both existing and new sessions)
-      // IMPORTANT: Use getState() to avoid triggering re-renders during subscription setup
-      const currentState = useSessionStore.getState();
-      const shouldCreateTempSession = !sessionId || !currentState.currentSession || currentState.currentSession.id !== sessionId;
+      // IMPORTANT: Use get() to avoid triggering re-renders during subscription setup
+      const currentSession = getSignal($currentSession);
+      const shouldCreateTempSession = !sessionId || !currentSession || currentSession.id !== sessionId;
 
-      // IMMUTABLE UPDATE: Zustand needs immutable updates to trigger re-renders
-      if (sessionId && currentState.currentSession?.id === sessionId) {
+      // IMMUTABLE UPDATE: zen signals need immutable updates to trigger re-renders
+      if (sessionId && currentSession?.id === sessionId) {
         // For existing sessions, add to current session
-        const beforeCount = currentState.currentSession.messages.length;
+        const beforeCount = currentSession.messages.length;
 
-        useSessionStore.setState({
-          currentSession: {
-            ...currentState.currentSession,
-            messages: [
-              ...currentState.currentSession.messages,
-              {
-                id: optimisticMessageId,
-                role: 'user',
-                content: messageParts,
-                timestamp: Date.now(),
-                status: 'completed',
-              }
-            ]
-          }
+        setSignal($currentSession, {
+          ...currentSession,
+          messages: [
+            ...currentSession.messages,
+            {
+              id: optimisticMessageId,
+              role: 'user',
+              content: messageParts,
+              timestamp: Date.now(),
+              status: 'completed',
+            }
+          ]
         });
 
         logSession('Added optimistic message to existing session:', {
@@ -235,25 +242,23 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
         // For new sessions or no current session, create temporary session for display
         logSession('Creating temporary session for optimistic display');
 
-        useSessionStore.setState({
-          currentSessionId: 'temp-session',
-          currentSession: {
-            id: 'temp-session',
-            title: 'New Chat',
-            agentId: 'coder',
-            provider: provider || '',
-            model: model || '',
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            messages: [{
-              id: optimisticMessageId,
-              role: 'user',
-              content: messageParts,
-              timestamp: Date.now(),
-              status: 'completed',
-            }],
-            todos: [],
-          }
+        setCurrentSessionId('temp-session');
+        setSignal($currentSession, {
+          id: 'temp-session',
+          title: 'New Chat',
+          agentId: 'coder',
+          provider: provider || '',
+          model: model || '',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messages: [{
+            id: optimisticMessageId,
+            role: 'user',
+            content: messageParts,
+            timestamp: Date.now(),
+            status: 'completed',
+          }],
+          todos: [],
         });
 
         logSession('Created temporary session with optimistic message');
@@ -436,19 +441,18 @@ async function cleanupAfterStream(context: {
   notificationSettings: { notifyOnCompletion: boolean; notifyOnError: boolean };
 }) {
   try {
-    // IMPORTANT: Get current session ID from store (not from context)
-    // For lazy sessions, the sessionId is updated in store after session-created event
-    const state = useSessionStore.getState();
-    const currentSessionId = state.currentSessionId;
+    // IMPORTANT: Get current session ID from signals (not from context)
+    // For lazy sessions, the sessionId is updated in signals after session-created event
+    const currentSessionId = getCurrentSessionId();
 
     const wasAborted = context.wasAbortedRef.current;
     const hasError = context.lastErrorRef.current;
 
-    // Update message status in Zustand store
+    // Update message status in zen signals
     const finalStatus = wasAborted ? 'abort' : hasError ? 'error' : 'completed';
 
     try {
-      const session = state.currentSession;
+      const session = getSignal($currentSession);
       if (!session || session.id !== currentSessionId) {
         return;
       }
@@ -473,11 +477,9 @@ async function cleanupAfterStream(context: {
           : msg
       );
 
-      useSessionStore.setState({
-        currentSession: {
-          ...session,
-          messages: updatedMessages,
-        }
+      setSignal($currentSession, {
+        ...session,
+        messages: updatedMessages,
       });
     } catch (stateError) {
       console.error('[cleanupAfterStream] Failed to update message status:', stateError);
@@ -493,12 +495,10 @@ async function cleanupAfterStream(context: {
         const session = await client.session.getById.query({ sessionId: currentSessionId });
 
         if (session) {
-          // Update SessionStore with fresh data from database
-          const currentState = useSessionStore.getState();
-          if (currentState.currentSessionId === currentSessionId) {
-            useSessionStore.setState({
-              currentSession: session,
-            });
+          // Update signals with fresh data from database
+          const currentSessionIdSignal = getCurrentSessionId();
+          if (currentSessionIdSignal === currentSessionId) {
+            setSignal($currentSession, session);
           }
         }
       } catch (error) {
@@ -532,10 +532,10 @@ async function cleanupAfterStream(context: {
       context.setIsStreaming(false);
 
       // Emit streaming:completed event for store coordination
-      const state = useSessionStore.getState();
-      if (state.currentSessionId && context.streamingMessageIdRef.current) {
+      const currentSessionIdSignal = getCurrentSessionId();
+      if (currentSessionIdSignal && context.streamingMessageIdRef.current) {
         eventBus.emit('streaming:completed', {
-          sessionId: state.currentSessionId,
+          sessionId: currentSessionIdSignal,
           messageId: context.streamingMessageIdRef.current,
         });
       }

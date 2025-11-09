@@ -96,9 +96,11 @@ export function createCommandContext(args: string[], params: CommandContextParam
     args,
 
     sendMessage: async (content: string) => {
-      // Get selected provider/model from store directly
-      const { useAppStore } = await import('@sylphx/code-client');
-      const { selectedProvider, selectedModel } = useAppStore.getState();
+      // Get selected provider/model from zen signals directly
+      const { get } = await import('@sylphx/code-client');
+      const { $selectedProvider, $selectedModel } = await import('@sylphx/code-client');
+      const selectedProvider = get($selectedProvider);
+      const selectedModel = get($selectedModel);
       const provider = (selectedProvider || 'openrouter') as ProviderId;
       const model = selectedModel || 'anthropic/claude-3.5-sonnet';
 

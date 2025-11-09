@@ -12,13 +12,14 @@
 import { useEffect, useState } from 'react';
 import type { Session } from '@sylphx/code-core';
 import { getTRPCClient } from '../trpc-provider.js';
-import { useSessionStore } from '../stores/session-store.js';
+import { useCurrentSessionId, useCurrentSession as useOptimisticSession, useIsStreaming, setCurrentSession, $isStreaming } from '../signals/domain/session/index.js';
 import { eventBus } from '../lib/event-bus.js';
+import { get } from '@sylphx/zen';
 
 export function useCurrentSession() {
-  const currentSessionId = useSessionStore((state) => state?.currentSessionId ?? null);
-  const optimisticSession = useSessionStore((state) => state?.currentSession ?? null);
-  const isStreaming = useSessionStore((state) => state?.isStreaming ?? false);
+  const currentSessionId = useCurrentSessionId();
+  const optimisticSession = useOptimisticSession();
+  const isStreaming = useIsStreaming();
 
   const [serverSession, setServerSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,10 +51,9 @@ export function useCurrentSession() {
 
         // Only update store and emit events if not streaming
         // During streaming, optimistic data is authoritative
-        const store = useSessionStore.getState();
-        if (!store.isStreaming && store.setCurrentSession) {
+        if (!get($isStreaming)) {
           // Safe to replace with server data
-          store.setCurrentSession(session);
+          setCurrentSession(session);
 
           // Emit event for other stores to react (e.g., settings store updates rules)
           eventBus.emit('session:loaded', {

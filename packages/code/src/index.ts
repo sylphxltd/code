@@ -209,6 +209,10 @@ async function main() {
       const { render } = await import('ink');
       const { default: App } = await import('./App.js');
 
+      // TODO: Initialize zen signals before React app (module resolution issue)
+      // const { initializeSignals } = await import('./signal-init.js');
+      // initializeSignals();
+
       // Wrap App with TRPCProvider
       render(
         React.createElement(

@@ -5,7 +5,7 @@
  * Single Responsibility: Message lifecycle management
  */
 
-import { createStore } from '../lib/create-store.js';
+// import { createStore } from '../lib/create-store.js';
 import type { MessagePart, FileAttachment, TokenUsage, MessageMetadata, Todo, ProviderId } from '@sylphx/code-core';
 import { getTRPCClient } from '../trpc-provider.js';
 
@@ -25,7 +25,7 @@ export interface MessageState {
   }) => Promise<string>; // Returns sessionId (either existing or newly created)
 }
 
-export const useMessageStore = createStore<MessageState>(() => ({
+// 0
     /**
      * Add message to session (creates session if needed)
      */

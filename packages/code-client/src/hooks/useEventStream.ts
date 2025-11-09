@@ -10,7 +10,9 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useAppStore } from '../stores/app-store.js';
+import { useCurrentSessionId } from '../signals/domain/session/index.js';
+import { setError } from '../signals/domain/ui/index.js';
+import { updateSessionTitle } from '../signals/domain/session/index.js';
 import { getTRPCClient } from '../trpc-provider.js';
 
 export interface EventStreamCallbacks {
@@ -78,9 +80,7 @@ export interface UseEventStreamOptions {
  */
 export function useEventStream(options: UseEventStreamOptions = {}) {
   const { replayLast = 0, callbacks = {} } = options;
-  const currentSessionId = useAppStore((state) => state?.currentSessionId);
-  const setError = useAppStore((state) => state?.setError);
-  const updateSessionTitle = useAppStore((state) => state?.updateSessionTitle);
+  const currentSessionId = useCurrentSessionId();
 
   // Ref to track subscription
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
@@ -213,5 +213,5 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
       subscription.unsubscribe();
       subscriptionRef.current = null;
     };
-  }, [currentSessionId, replayLast, callbacks, setError, updateSessionTitle]);
+  }, [currentSessionId, replayLast, callbacks]);
 }

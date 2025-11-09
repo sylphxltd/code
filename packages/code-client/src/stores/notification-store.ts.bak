@@ -5,7 +5,7 @@
  * Single Responsibility: Notification preferences
  */
 
-import { createStore } from '../lib/create-store.js';
+// import { createStore } from '../lib/create-store.js';
 
 export interface NotificationSettings {
   osNotifications: boolean;
@@ -19,7 +19,7 @@ export interface NotificationState {
   updateNotificationSettings: (settings: Partial<NotificationSettings>) => void;
 }
 
-export const useNotificationStore = createStore<NotificationState>(
+// 0
   (set) => ({
     notificationSettings: {
       osNotifications: true,

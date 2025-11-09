@@ -3,7 +3,7 @@
  * Display important session info at the bottom
  */
 
-import { useAppStore, useModelDetails } from '@sylphx/code-client';
+import { useModelDetails, useSelectedAgentId, useEnabledRuleIds } from '@sylphx/code-client';
 import { getAgentById } from '../embedded-context.js';
 import { Box, Text } from 'ink';
 import React from 'react';
@@ -30,12 +30,13 @@ interface StatusBarProps {
  */
 export default function StatusBar({ provider, model, modelStatus, usedTokens = 0 }: StatusBarProps) {
   // Subscribe to current agent from store (event-driven, no polling!)
-  const selectedAgentId = useAppStore((state) => state.selectedAgentId);
+  const selectedAgentId = useSelectedAgentId();
   const currentAgent = getAgentById(selectedAgentId);
   const agentName = currentAgent?.metadata.name || '';
 
   // Subscribe to enabled rules count
-  const enabledRulesCount = useAppStore((state) => state.enabledRuleIds.length);
+  const enabledRuleIds = useEnabledRuleIds();
+  const enabledRulesCount = enabledRuleIds.length;
 
   // Fetch model details from server
   const { details, loading } = useModelDetails(provider, model);

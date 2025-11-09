@@ -10,9 +10,8 @@ export const compactCommand: Command = {
   label: '/compact',
   description: 'Summarize current session and create a new session with the summary',
   execute: async (context) => {
-    const { useAppStore } = await import('@sylphx/code-client');
-    const store = useAppStore.getState();
-    const { currentSession } = store;
+    const { useCurrentSession, useAIConfig } = await import('@sylphx/code-client');
+    const { currentSession } = useCurrentSession();
 
     if (!currentSession) {
       return 'No active session to compact.';
@@ -22,7 +21,7 @@ export const compactCommand: Command = {
       return 'Current session has no messages to compact.';
     }
 
-    const aiConfig = store.aiConfig;
+    const aiConfig = useAIConfig();
     if (!aiConfig?.defaultProvider || !aiConfig?.defaultModel) {
       return 'No AI provider configured. Use /provider to configure a provider first.';
     }
@@ -113,12 +112,11 @@ Please provide a detailed, structured summary now:`;
       }
 
       // Create new session with same provider/model
-      const { useAppStore } = await import('@sylphx/code-client');
-      const freshStore = useAppStore.getState();
-      const newSessionId = await freshStore.createSession(currentSession.provider, currentSession.model);
+      const { createSession, setCurrentSessionId } = await import('@sylphx/code-client');
+      const newSessionId = await createSession(currentSession.provider, currentSession.model);
 
       // Switch to new session
-      await freshStore.setCurrentSession(newSessionId);
+      await setCurrentSessionId(newSessionId);
 
       const messageCount = currentSession.messages.length;
       const sessionTitle = currentSession.title || 'Untitled session';

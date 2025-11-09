@@ -448,7 +448,7 @@ function ControlledTextInput({
 
         if (!physicalLine.hasCursor) {
           return (
-            <Box key={actualIdx}>
+            <Box key={`line-${actualIdx}-no-cursor`}>
               {renderTextWithTags(physicalLine.text, undefined, false, validTags)}
             </Box>
           );
@@ -457,7 +457,7 @@ function ControlledTextInput({
         // Line with cursor - render with tags and cursor highlighting
         const cursorPos = physicalLine.cursorPos!;
         return (
-          <Box key={actualIdx}>
+          <Box key={`line-${actualIdx}-cursor`}>
             {renderTextWithTags(physicalLine.text, cursorPos, showCursor, validTags)}
           </Box>
         );

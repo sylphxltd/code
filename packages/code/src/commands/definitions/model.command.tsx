@@ -22,15 +22,15 @@ export const modelCommand: Command = {
     },
   ],
   execute: async (context) => {
-    // Get store
-    const { useAppStore } = await import('@sylphx/code-client');
-    const store = useAppStore.getState();
+    // Get zen signals
+    const { get } = await import('@sylphx/code-client');
+    const { $aiConfig, $currentSession, $selectedProvider, $currentSessionId, setAIConfig, updateSessionModel } = await import('@sylphx/code-client');
 
     // If arg provided, switch directly
     if (context.args.length > 0) {
       const modelId = context.args[0];
-      const { currentSession } = store;
-      const aiConfig = store.aiConfig;
+      const currentSession = get($currentSession);
+      const aiConfig = get($aiConfig);
       const provider = currentSession?.provider || aiConfig?.defaultProvider;
 
       if (!provider) {
@@ -49,28 +49,29 @@ export const modelCommand: Command = {
           },
         },
       };
-      store.setAIConfig(newConfig);
+      setAIConfig(newConfig);
 
       // Save config to file
       await context.saveConfig(newConfig);
 
       // Update current session's model (preserve history)
-      const currentSessionId = store.currentSessionId;
+      const currentSessionId = get($currentSessionId);
       if (currentSessionId) {
-        await store.updateSessionModel(currentSessionId, modelId);
+        await updateSessionModel(currentSessionId, modelId);
       }
 
       return `Switched to model: ${modelId}`;
     }
 
     // No args - show model selection UI
-    const aiConfig = store.aiConfig;
+    const aiConfig = get($aiConfig);
     if (!aiConfig?.providers) {
       return 'No providers configured. Please configure a provider first.';
     }
 
-    // Get current session's provider or selected provider from store
-    const { currentSession, selectedProvider } = store;
+    // Get current session's provider or selected provider from zen signals
+    const currentSession = get($currentSession);
+    const selectedProvider = get($selectedProvider);
     const currentProviderId = currentSession?.provider || selectedProvider;
 
     if (!currentProviderId) {
@@ -107,31 +108,32 @@ export const modelCommand: Command = {
         onSelect={async (modelId) => {
           const provider = currentProviderId;
 
-          // Get fresh store reference
-          const { useAppStore } = await import('@sylphx/code-client');
-          const freshStore = useAppStore.getState();
+          // Get fresh zen signal values
+          const { get } = await import('@sylphx/code-client');
+          const { $aiConfig, $currentSessionId, setAIConfig, updateSessionModel } = await import('@sylphx/code-client');
+          const freshAIConfig = get($aiConfig);
+          const freshCurrentSessionId = get($currentSessionId);
 
           // Update model and save to provider config
           const newConfig = {
-            ...freshStore.aiConfig!,
+            ...freshAIConfig!,
             defaultModel: modelId,
             providers: {
-              ...freshStore.aiConfig!.providers,
+              ...freshAIConfig!.providers,
               [provider]: {
-                ...freshStore.aiConfig!.providers?.[provider],
+                ...freshAIConfig!.providers?.[provider],
                 defaultModel: modelId,
               },
             },
           };
-          freshStore.setAIConfig(newConfig);
+          setAIConfig(newConfig);
 
           // Save config to file
           await context.saveConfig(newConfig);
 
           // Update current session's model (preserve history)
-          const currentSessionId = freshStore.currentSessionId;
-          if (currentSessionId) {
-            await freshStore.updateSessionModel(currentSessionId, modelId);
+          if (freshCurrentSessionId) {
+            await updateSessionModel(freshCurrentSessionId, modelId);
           }
 
           context.setInputComponent(null);

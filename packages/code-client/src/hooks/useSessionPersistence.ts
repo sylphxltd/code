@@ -9,7 +9,6 @@
  */
 
 import { useEffect } from 'react';
-import { useAppStore } from '../stores/app-store.js';
 import { getTRPCClient } from '../trpc-provider.js';
 
 export function useSessionPersistence() {

@@ -6,7 +6,7 @@
  * Powered by: zen (replaced zustand for better performance)
  */
 
-import { createStore } from '../lib/create-store.js';
+// import { createStore } from '../lib/create-store.js';
 
 export interface UIState {
   isLoading: boolean;
@@ -15,7 +15,7 @@ export interface UIState {
   setError: (error: string | null) => void;
 }
 
-export const useUIStore = createStore<UIState>((set) => ({
+// 0
   isLoading: false,
   error: null,
 

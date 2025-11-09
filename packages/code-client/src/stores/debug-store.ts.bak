@@ -5,7 +5,7 @@
  * Single Responsibility: Debug log collection and management
  */
 
-import { createStore } from '../lib/create-store.js';
+// import { createStore } from '../lib/create-store.js';
 
 export interface DebugState {
   debugLogs: string[];
@@ -13,7 +13,7 @@ export interface DebugState {
   clearDebugLogs: () => void;
 }
 
-export const useDebugStore = createStore<DebugState>(
+// 0
   (set) => ({
     debugLogs: [],
 

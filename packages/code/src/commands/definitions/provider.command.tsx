@@ -77,11 +77,11 @@ export const providerCommand: Command = {
       return;
     }
 
-    // Get store
-    const { useAppStore } = await import('@sylphx/code-client');
+    // Get zen signals
+    const { get } = await import('@sylphx/code-client');
     const { getTRPCClient } = await import('@sylphx/code-client');
-    const store = useAppStore.getState();
-    const aiConfig = store.aiConfig;
+    const { $aiConfig, updateProvider, setAIConfig } = await import('@sylphx/code-client');
+    const aiConfig = get($aiConfig);
 
     // Handle command-line configuration (set/get/show)
     if (action === 'configure' && providerId && subaction) {
@@ -171,8 +171,8 @@ export const providerCommand: Command = {
             [key]: value,
           };
 
-          // Update store (without secrets - they're already on disk)
-          store.updateProvider(providerId as any, updatedProviderConfig);
+          // Update provider config (without secrets - they're already on disk)
+          updateProvider(providerId as any, updatedProviderConfig);
           const updatedConfig = {
             ...aiConfig!,
             providers: {
@@ -180,7 +180,7 @@ export const providerCommand: Command = {
               [providerId]: updatedProviderConfig,
             },
           } as any;
-          store.setAIConfig(updatedConfig);
+          setAIConfig(updatedConfig);
 
           // Save to server (server will merge secrets from disk)
           await context.saveConfig(updatedConfig);
@@ -195,12 +195,12 @@ export const providerCommand: Command = {
     if (action && providerId && !subaction) {
       if (action === 'use') {
         // Direct provider switch
-        store.updateProvider(providerId as any, {});
+        updateProvider(providerId as any, {});
         const updatedConfig = {
           ...aiConfig,
           defaultProvider: providerId,
         } as any;
-        store.setAIConfig(updatedConfig);
+        setAIConfig(updatedConfig);
 
         // Save to server
         await context.saveConfig(updatedConfig);
@@ -226,20 +226,20 @@ export const providerCommand: Command = {
           context.addLog('[provider] Provider management closed');
         }}
         onSelectProvider={async (providerId) => {
-          // Get fresh store reference
-          const { useAppStore } = await import('@sylphx/code-client');
-          const freshStore = useAppStore.getState();
-          const freshAiConfig = freshStore.aiConfig;
+          // Get fresh zen signal values
+          const { get } = await import('@sylphx/code-client');
+          const { $aiConfig, updateProvider, setAIConfig } = await import('@sylphx/code-client');
+          const freshAiConfig = get($aiConfig);
 
-          // Update store state
-          freshStore.updateProvider(providerId as any, {});
+          // Update zen signal state
+          updateProvider(providerId as any, {});
           const updatedConfig = {
             ...freshAiConfig,
             defaultProvider: providerId,
             // ❌ Don't set top-level defaultModel
             // Model should come from provider's default-model
           } as any;
-          freshStore.setAIConfig(updatedConfig);
+          setAIConfig(updatedConfig);
 
           // CRITICAL: Save to server!
           await context.saveConfig(updatedConfig);
@@ -295,9 +295,9 @@ export const providerCommand: Command = {
           }
 
           // Save non-secrets using regular config save
-          const { useAppStore } = await import('@sylphx/code-client');
-          const freshStore = useAppStore.getState();
-          const currentConfig = freshStore.aiConfig;
+          const { get } = await import('@sylphx/code-client');
+          const { $aiConfig, setAIConfig } = await import('@sylphx/code-client');
+          const currentConfig = get($aiConfig);
 
           const updatedConfig = {
             ...currentConfig!,
@@ -307,7 +307,7 @@ export const providerCommand: Command = {
               [providerId]: nonSecrets,
             },
           } as any;
-          freshStore.setAIConfig(updatedConfig);
+          setAIConfig(updatedConfig);
 
           // Server will merge secrets from disk
           await context.saveConfig(updatedConfig);

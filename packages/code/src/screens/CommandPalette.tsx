@@ -3,7 +3,7 @@
  * VSCode-style command palette with search and autocomplete
  */
 
-import { useAppStore } from '@sylphx/code-client';
+import { useCurrentScreen, $currentScreen, navigateTo } from '@sylphx/code-client';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
@@ -49,7 +49,7 @@ interface CommandPaletteProps {
 
 export default function CommandPalette({ onCommand }: CommandPaletteProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const navigateTo = useAppStore((state) => state.navigateTo);
+  const currentScreen = useCurrentScreen();
 
   // Filter commands by search query
   const filteredCommands = COMMANDS.filter(

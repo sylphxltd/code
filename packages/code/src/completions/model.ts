@@ -3,9 +3,10 @@
  * Fetches models from provider API for current provider
  */
 
-import { useAppStore } from '@sylphx/code-client';
 import { getTRPCClient } from '@sylphx/code-client';
 import { fetchModels } from '@sylphx/code-core';
+import { get } from '@sylphx/zen';
+import { $aiConfig, $currentSession, setAIConfig } from '@sylphx/code-client';
 import type { AIConfig, ProviderId } from '@sylphx/code-core';
 
 export interface CompletionOption {
@@ -15,17 +16,16 @@ export interface CompletionOption {
 }
 
 /**
- * Lazy load AI config from Zustand store
- * First access: async load from server → cache in Zustand
- * Subsequent access: sync read from Zustand cache
+ * Get AI config from zen signals
+ * First access: async load from server → cache in zen signal
+ * Subsequent access: sync read from zen signal cache
  * Update: event-driven via setAIConfig()
  */
 async function getAIConfig(): Promise<AIConfig | null> {
-  const store = useAppStore.getState();
-
-  // Already in Zustand? Return cached (fast!)
-  if (store.aiConfig) {
-    return store.aiConfig;
+  // Already in zen signal? Return cached (fast!)
+  const currentConfig = get($aiConfig);
+  if (currentConfig) {
+    return currentConfig;
   }
 
   // First access - lazy load from server
@@ -33,8 +33,8 @@ async function getAIConfig(): Promise<AIConfig | null> {
     const trpc = getTRPCClient();
     const config = await trpc.config.load.query({ cwd: process.cwd() });
 
-    // Cache in Zustand (stays until explicitly updated)
-    store.setAIConfig(config);
+    // Cache in zen signal (stays until explicitly updated)
+    setAIConfig(config);
 
     return config;
   } catch (error) {
@@ -50,14 +50,13 @@ async function getAIConfig(): Promise<AIConfig | null> {
 export async function getModelCompletions(partial = ''): Promise<CompletionOption[]> {
   try {
     const config = await getAIConfig();
-    const store = useAppStore.getState();
 
     if (!config?.providers) {
       return [];
     }
 
     // Get current provider from session or config
-    const currentSession = store.currentSession;
+    const currentSession = get($currentSession);
     const currentProviderId = currentSession?.provider || config.defaultProvider;
 
     if (!currentProviderId) {

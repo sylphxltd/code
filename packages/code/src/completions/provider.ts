@@ -1,10 +1,11 @@
 /**
  * Provider Completions
- * Lazy loading from Zustand store, no extra cache needed
+ * Lazy loading from zen signals, no extra cache needed
  */
 
-import { useAppStore } from '@sylphx/code-client';
 import { getTRPCClient } from '@sylphx/code-client';
+import { get } from '@sylphx/zen';
+import { $aiConfig, setAIConfig } from '@sylphx/code-client';
 import type { AIConfig } from '@sylphx/code-core';
 
 export interface CompletionOption {
@@ -14,17 +15,16 @@ export interface CompletionOption {
 }
 
 /**
- * Lazy load AI config from Zustand store
- * First access: async load from server → cache in Zustand
- * Subsequent access: sync read from Zustand cache
+ * Get AI config from zen signals
+ * First access: async load from server → cache in zen signal
+ * Subsequent access: sync read from zen signal cache
  * Update: event-driven via setAIConfig()
  */
 async function getAIConfig(): Promise<AIConfig | null> {
-  const store = useAppStore.getState();
-
-  // Already in Zustand? Return cached (fast!)
-  if (store.aiConfig) {
-    return store.aiConfig;
+  // Already in zen signal? Return cached (fast!)
+  const currentConfig = get($aiConfig);
+  if (currentConfig) {
+    return currentConfig;
   }
 
   // First access - lazy load from server
@@ -32,8 +32,8 @@ async function getAIConfig(): Promise<AIConfig | null> {
     const trpc = getTRPCClient();
     const config = await trpc.config.load.query({ cwd: process.cwd() });
 
-    // Cache in Zustand (stays until explicitly updated)
-    store.setAIConfig(config);
+    // Cache in zen signal (stays until explicitly updated)
+    setAIConfig(config);
 
     return config;
   } catch (error) {

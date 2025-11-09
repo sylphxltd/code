@@ -6,7 +6,7 @@
  * Note: Coordinates with Model Selection Store for initialization
  */
 
-import { createStore } from '../lib/create-store.js';
+// import { createStore } from '../lib/create-store.js';
 import type { AIConfig, ProviderId } from '@sylphx/code-core';
 
 export interface AIConfigState {
@@ -16,7 +16,7 @@ export interface AIConfigState {
   removeProvider: (provider: ProviderId) => void;
 }
 
-export const useAIConfigStore = createStore<AIConfigState>(
+// 0
   (set) => ({
     aiConfig: null,
 

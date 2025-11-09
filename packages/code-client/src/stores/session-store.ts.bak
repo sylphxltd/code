@@ -9,7 +9,7 @@
  * - PLUS: Optimistic currentSession for instant UI updates during streaming
  */
 
-import { createStore } from '../lib/create-store.js';
+// import { createStore } from '../lib/create-store.js';
 import type { ProviderId, Session } from '@sylphx/code-core';
 import { getTRPCClient } from '../trpc-provider.js';
 import { eventBus } from '../lib/event-bus.js';
@@ -40,7 +40,7 @@ export interface SessionState {
   deleteSession: (sessionId: string) => Promise<void>;
 }
 
-export const useSessionStore = createStore<SessionState>((set, get) => ({
+// 0
   currentSessionId: null,
   currentSession: null,
   isStreaming: false,

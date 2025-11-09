@@ -3,7 +3,7 @@
  * Shared React code for Web and TUI clients
  *
  * This package provides:
- * - State management (Zustand stores)
+ * - State management (Zen signals)
  * - React hooks for common operations
  * - Utility functions
  * - Shared types
@@ -23,7 +23,7 @@ export {
   createHTTPClient,
   type TypedTRPCClient,
 
-  // Internal API for Zustand stores (DO NOT USE in React components)
+  // Internal API for Zen signals (DO NOT USE in React components)
   getTRPCClient,
   _initGlobalClient,
 } from './trpc-provider.js'
@@ -34,11 +34,15 @@ export {
 export { inProcessLink, type InProcessLinkOptions } from './trpc-links/index.js'
 
 // ============================================================================
-// State Management
+// State Management (Zen Signals)
 // ============================================================================
-export { useAppStore, type AppState, type Screen } from './stores/app-store.js'
-export { useSessionStore, type SessionState } from './stores/session-store.js'
-export { useMessageStore, type MessageState } from './stores/message-store.js'
+export * from './signals/index.js'
+
+// ============================================================================
+// Screen Type (for backwards compatibility in component imports)
+// ============================================================================
+export type { Screen } from './signals/domain/ui/index.js'
+
 
 // ============================================================================
 // Event Bus

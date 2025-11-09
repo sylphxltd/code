@@ -5,7 +5,7 @@
  * Single Responsibility: Screen navigation
  */
 
-import { createStore } from '../lib/create-store.js';
+// import { createStore } from '../lib/create-store.js';
 
 export type Screen =
   | 'main-menu'
@@ -21,7 +21,7 @@ export interface NavigationState {
   navigateTo: (screen: Screen) => void;
 }
 
-export const useNavigationStore = createStore<NavigationState>(
+// 0
   (set) => ({
     currentScreen: 'chat',
 

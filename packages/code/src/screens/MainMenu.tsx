@@ -3,7 +3,7 @@
  * Entry point with navigation options
  */
 
-import { useAppStore } from '@sylphx/code-client';
+import { navigateTo, useAIConfig } from '@sylphx/code-client';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
 import React, { useState } from 'react';
@@ -14,8 +14,7 @@ interface MenuItem {
 }
 
 export default function MainMenu() {
-  const navigateTo = useAppStore((state) => state.navigateTo);
-  const aiConfig = useAppStore((state) => state.aiConfig);
+  const aiConfig = useAIConfig();
 
   const configuredCount = Object.keys(aiConfig?.providers || {}).length;
   const hasDefaultModel = !!(aiConfig?.defaultProvider && aiConfig?.defaultModel);

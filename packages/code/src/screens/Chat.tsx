@@ -12,18 +12,37 @@
 
 import {
   useAIConfig,
-  useAppStore,
   useAskToolHandler,
   useChat,
   useCurrentSession,
   useEventStream,
   useFileAttachments,
   useKeyboardNavigation,
-  useMessageStore,
   useProjectFiles,
   useSessionInitialization,
-  useSessionStore,
   useTokenCalculation,
+  // Zen signals
+  useCurrentScreen,
+  useIsLoading,
+  useUIError,
+  useAIConfig as useAIConfigSignal,
+  useSelectedProvider,
+  useSelectedModel,
+  addDebugLog,
+  navigateTo,
+  updateProvider,
+  setAIConfig as setAIConfigSignal,
+  setSelectedProvider,
+  setSelectedModel,
+  // Session signals
+  createSession,
+  updateSessionModel,
+  updateSessionProvider,
+  updateSessionTitle,
+  setCurrentSessionId,
+  getCurrentSessionId,
+  // Message signals
+  addMessageAsync as addMessage,
 } from '@sylphx/code-client';
 import { Box, useInput } from 'ink';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -60,35 +79,30 @@ interface ChatProps {
   commandFromPalette?: string | null;
 }
 
+// Default notification settings (temporarily hardcoded until signals domain is created)
+const notificationSettings = {
+  osNotifications: true,
+  terminalNotifications: true,
+  sound: true,
+  autoGenerateTitle: true,
+};
+
 export default function Chat(_props: ChatProps) {
-  // Store selectors
-  const addDebugLog = useAppStore((state) => state?.addDebugLog);
-  const navigateTo = useAppStore((state) => state?.navigateTo);
-  const aiConfig = useAppStore((state) => state?.aiConfig);
+  // Zen signals
+  const aiConfig = useAIConfigSignal();
+  const selectedProvider = useSelectedProvider();
+  const selectedModel = useSelectedModel();
 
   // Pure UI Client: Use hook to fetch session data from server
-  const { currentSession, currentSessionId, isLoading: sessionLoading } = useCurrentSession();
-
-  // Server actions
-  const createSession = useSessionStore((state) => state?.createSession);
-  const updateSessionModel = useSessionStore((state) => state?.updateSessionModel);
-  const updateSessionProvider = useSessionStore((state) => state?.updateSessionProvider);
-  const updateSessionTitle = useSessionStore((state) => state?.updateSessionTitle);
-  const setCurrentSessionId = useSessionStore((state) => state?.setCurrentSessionId);
-  const addMessage = useMessageStore((state) => state?.addMessage);
-  const updateProvider = useAppStore((state) => state?.updateProvider);
-  const setAIConfig = useAppStore((state) => state?.setAIConfig);
-  const setSelectedProvider = useAppStore((state) => state?.setSelectedProvider);
-  const setSelectedModel = useAppStore((state) => state?.setSelectedModel);
-  const updateNotificationSettings = useAppStore((state) => state?.updateNotificationSettings);
-  const notificationSettings = useAppStore((state) => state?.notificationSettings);
-  const selectedProvider = useAppStore((state) => state?.selectedProvider);
-  const selectedModel = useAppStore((state) => state?.selectedModel);
+  const sessionData = useCurrentSession();
+  const currentSession = sessionData?.currentSession;
+  const currentSessionId = sessionData?.currentSessionId;
+  const sessionLoading = sessionData?.isLoading;
 
   // Helper function (memoized to prevent infinite re-renders)
   const addLog = useCallback((message: string) => {
     addDebugLog(message);
-  }, [addDebugLog]);
+  }, []);
 
   // Custom hooks
   const { sendMessage } = useChat();
@@ -178,7 +192,7 @@ export default function Chat(_props: ChatProps) {
   const [showEscHint, setShowEscHint] = useState(false);
 
   // Helper function to get AI config
-  const getAIConfig = () => useAppStore.getState().aiConfig;
+  const getAIConfig = () => aiConfig;
 
   // File attachment hook
   const {
@@ -213,30 +227,28 @@ export default function Chat(_props: ChatProps) {
       // ENABLED: Session lifecycle events (for lazy session creation)
       onSessionCreated: (sessionId: string, provider: string, model: string) => {
         // When server creates real session, update from temp-session to real ID
-        const state = useSessionStore.getState();
-        if (state.currentSessionId === 'temp-session' || state.currentSessionId === null) {
-          useSessionStore.setState({
-            currentSessionId: sessionId,
-          });
+        const currentSessionId = getCurrentSessionId();
+        if (currentSessionId === 'temp-session' || currentSessionId === null) {
+          setCurrentSessionId(sessionId);
         }
       },
 
       // ENABLED: Title streaming (independent channel, no loop issues)
       onSessionTitleStart: (sessionId: string) => {
-        const currentSessionId = useSessionStore.getState().currentSessionId;
+        const currentSessionId = getCurrentSessionId();
         if (sessionId === currentSessionId) {
           setIsTitleStreaming(true);
           setStreamingTitle('');
         }
       },
       onSessionTitleDelta: (sessionId: string, text: string) => {
-        const currentSessionId = useSessionStore.getState().currentSessionId;
+        const currentSessionId = getCurrentSessionId();
         if (sessionId === currentSessionId) {
           setStreamingTitle((prev) => prev + text);
         }
       },
       onSessionTitleComplete: (sessionId: string, title: string) => {
-        const currentSessionId = useSessionStore.getState().currentSessionId;
+        const currentSessionId = getCurrentSessionId();
         if (sessionId === currentSessionId) {
           setIsTitleStreaming(false);
           setStreamingTitle('');

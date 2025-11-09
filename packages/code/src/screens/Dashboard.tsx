@@ -4,7 +4,14 @@
  */
 
 import type { Session } from '@sylphx/code-client';
-import { getTRPCClient, useAppStore, useSessionListSync } from '@sylphx/code-client';
+import { getTRPCClient, useSessionListSync, useSelectedAgentId, useEnabledRuleIds, useAIConfig } from '@sylphx/code-client';
+import { useStore } from '@sylphx/zen-react';
+import {
+  setSelectedAgent,
+  setEnabledRuleIds,
+  navigateTo
+} from '@sylphx/code-client';
+import { zen, get, set } from '@sylphx/zen';
 import { getAllAgents, getAllRules, toggleRule } from '../embedded-context.js';
 import { Box, Text, useInput } from 'ink';
 import React, { useEffect, useState } from 'react';
@@ -26,13 +33,22 @@ export default function Dashboard() {
   const [selectedItemIndex, setSelectedItemIndex] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
 
-  const selectedAgentId = useAppStore((state) => state.selectedAgentId);
-  const setSelectedAgent = useAppStore((state) => state.setSelectedAgent);
-  const enabledRuleIds = useAppStore((state) => state.enabledRuleIds);
-  const aiConfig = useAppStore((state) => state.aiConfig);
-  const notificationSettings = useAppStore((state) => state.notificationSettings);
-  const updateNotificationSettings = useAppStore((state) => state.updateNotificationSettings);
-  const navigateTo = useAppStore((state) => state.navigateTo);
+  // Create notification settings signal if not already available
+  const $notificationSettings = zen({
+    osNotifications: false,
+    terminalNotifications: true,
+    sound: false,
+    autoGenerateTitle: true,
+  });
+  const updateNotificationSettings = (updates: any) => {
+    const current = get($notificationSettings);
+    set($notificationSettings, { ...current, ...updates });
+  };
+
+  const selectedAgentId = useSelectedAgentId();
+  const enabledRuleIds = useEnabledRuleIds();
+  const aiConfig = useAIConfig();
+  const notificationSettings = useStore($notificationSettings);
 
   const agents = getAllAgents();
   const rules = getAllRules();
@@ -210,7 +226,7 @@ export default function Dashboard() {
         const setting = settings[selectedItemIndex];
         if (setting) {
           // Read current state at action time, not closure time
-          const currentSettings = useAppStore.getState().notificationSettings;
+          const currentSettings = notificationSettings;
           updateNotificationSettings({ [setting]: !currentSettings[setting] });
         }
         break;

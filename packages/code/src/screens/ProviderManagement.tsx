@@ -3,7 +3,12 @@
  * Add, edit, remove AI providers
  */
 
-import { useAIConfig, useAppStore, useKeyboard } from '@sylphx/code-client';
+import { useAIConfig, useKeyboard, $aiConfig } from '@sylphx/code-client';
+import {
+  navigateTo,
+  updateProvider,
+  removeProvider
+} from '@sylphx/code-client';
 import { AI_PROVIDERS, getConfiguredProviders, type ProviderId } from '@sylphx/code-core';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
@@ -23,10 +28,7 @@ export default function ProviderManagement() {
   const [selectedProvider, setSelectedProvider] = useState<ProviderId | null>(null);
   const [apiKeyInput, setApiKeyInput] = useState('');
 
-  const navigateTo = useAppStore((state) => state.navigateTo);
-  const aiConfig = useAppStore((state) => state.aiConfig);
-  const updateProvider = useAppStore((state) => state.updateProvider);
-  const removeProvider = useAppStore((state) => state.removeProvider);
+  const aiConfig = useAIConfig();
   const { saveConfig } = useAIConfig();
 
   const configuredProviders = Object.keys(aiConfig?.providers || {}) as ProviderId[];

@@ -8,6 +8,7 @@
 
 import type { CodeServer } from '@sylphx/code-server';
 import type { Agent, Rule } from '@sylphx/code-core';
+import { $enabledRuleIds, get } from '@sylphx/code-client';
 
 let embeddedServerInstance: CodeServer | null = null;
 
@@ -63,25 +64,24 @@ export function getRuleById(id: string): Rule | null {
 }
 
 /**
- * Get enabled rule IDs from Zustand store
+ * Get enabled rule IDs from zen signals
  */
 export function getEnabledRuleIds(): string[] {
-  const { useAppStore } = require('@sylphx/code-client');
-  return useAppStore.getState().enabledRuleIds;
+  return get($enabledRuleIds);
 }
 
 /**
- * Set enabled rules in Zustand store and persist to session
+ * Set enabled rules in zen signals and persist to session
  */
 export async function setEnabledRules(ruleIds: string[]): Promise<boolean> {
-  const { useAppStore } = require('@sylphx/code-client');
-  await useAppStore.getState().setEnabledRuleIds(ruleIds);
+  const { setEnabledRuleIds } = require('@sylphx/code-client');
+  await setEnabledRuleIds(ruleIds);
   return true;
 }
 
 /**
  * Toggle a rule on/off
- * Updates Zustand store and persists to session
+ * Updates zen signals and persists to session
  */
 export async function toggleRule(ruleId: string): Promise<boolean> {
   const rule = getRuleById(ruleId);
@@ -89,15 +89,15 @@ export async function toggleRule(ruleId: string): Promise<boolean> {
     return false;
   }
 
-  const { useAppStore } = require('@sylphx/code-client');
-  const currentEnabled = useAppStore.getState().enabledRuleIds;
+  const { useEnabledRuleIds, setEnabledRuleIds } = require('@sylphx/code-client');
+  const currentEnabled = useEnabledRuleIds();
 
   if (currentEnabled.includes(ruleId)) {
     // Disable: remove from list
-    await useAppStore.getState().setEnabledRuleIds(currentEnabled.filter(id => id !== ruleId));
+    await setEnabledRuleIds(currentEnabled.filter(id => id !== ruleId));
   } else {
     // Enable: add to list
-    await useAppStore.getState().setEnabledRuleIds([...currentEnabled, ruleId]);
+    await setEnabledRuleIds([...currentEnabled, ruleId]);
   }
 
   return true;

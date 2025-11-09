@@ -8,7 +8,8 @@
  */
 
 import { useCallback } from 'react';
-import { useAppStore } from '../stores/app-store.js';
+import { useCurrentSessionId, useCurrentSession } from '../signals/domain/session/index.js';
+import { setError } from '../signals/domain/ui/index.js';
 import { getTRPCClient } from '../trpc-provider.js';
 import type { FileAttachment, TokenUsage } from '@sylphx/code-core';
 
@@ -62,9 +63,8 @@ export interface SendMessageOptions {
 }
 
 export function useChat() {
-  const currentSessionId = useAppStore((state) => state?.currentSessionId);
-  const currentSession = useAppStore((state) => state?.currentSession);
-  const setError = useAppStore((state) => state?.setError);
+  const currentSessionId = useCurrentSessionId();
+  const currentSession = useCurrentSession();
 
   const sendMessage = useCallback(async (
     message: string,

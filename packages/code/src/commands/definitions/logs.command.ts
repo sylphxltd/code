@@ -10,8 +10,8 @@ export const logsCommand: Command = {
   label: '/logs',
   description: 'View debug logs',
   execute: async (context) => {
-    const { useAppStore } = await import('@sylphx/code-client');
-    useAppStore.getState().navigateTo('logs');
+    const { navigateTo } = await import('@sylphx/code-client');
+    navigateTo('logs');
     return 'Opening debug logs...';
   },
 };

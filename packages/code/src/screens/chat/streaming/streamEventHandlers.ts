@@ -5,13 +5,20 @@
  * Each event type has its own dedicated handler function.
  * This replaces the large switch statement with a cleaner, more maintainable approach.
  *
- * ARCHITECTURE: Direct SessionStore updates (no AppStore wrapper)
- * - All session data managed by useSessionStore
+ * ARCHITECTURE: Direct zen signal updates (no AppStore wrapper)
+ * - All session data managed by zen signals
  * - Immutable updates only (no Immer middleware)
  * - Clean, direct state mutations
  */
 
-import { useSessionStore, eventBus } from '@sylphx/code-client';
+import {
+  eventBus,
+  getCurrentSessionId,
+  setCurrentSessionId,
+  $currentSession,
+  set as setSignal,
+  get as getSignal
+} from '@sylphx/code-client';
 import type { AIConfig, Message, MessagePart, TokenUsage } from '@sylphx/code-core';
 import { createLogger } from '@sylphx/code-core';
 import type { StreamEvent } from '@sylphx/code-server';
@@ -56,8 +63,7 @@ export function updateActiveMessageContent(
   messageId: string | null | undefined,
   updater: (prev: MessagePart[]) => MessagePart[]
 ) {
-  const state = useSessionStore.getState();
-  const session = state.currentSession;
+  const session = getSignal($currentSession);
 
   if (!session || session.id !== currentSessionId) {
     logContent('Session mismatch! expected:', currentSessionId, 'got:', session?.id);
@@ -81,12 +87,10 @@ export function updateActiveMessageContent(
       : msg
   );
 
-  // Update store with new session object
-  useSessionStore.setState({
-    currentSession: {
-      ...session,
-      messages: updatedMessages
-    }
+  // Update signal with new session object
+  setSignal($currentSession, {
+    ...session,
+    messages: updatedMessages
   });
 }
 
@@ -98,71 +102,65 @@ function handleSessionCreated(event: Extract<StreamEvent, { type: 'session-creat
   context.addLog(`[Session] Created: ${event.sessionId}`);
 
   // Get current session state to preserve optimistic messages
-  const state = useSessionStore.getState();
+  const currentSession = getSignal($currentSession);
 
   // Check if there's a temporary session with optimistic messages
-  const optimisticMessages = state.currentSession?.id === 'temp-session'
-    ? state.currentSession.messages
+  const optimisticMessages = currentSession?.id === 'temp-session'
+    ? currentSession.messages
     : [];
 
   logSession('Creating session, preserving optimistic messages:', optimisticMessages.length);
 
   // IMMUTABLE UPDATE: Create new session with optimistic messages preserved
-  useSessionStore.setState({
-    currentSessionId: event.sessionId,
-    currentSession: {
-      id: event.sessionId,
-      title: 'New Chat',
-      agentId: 'coder',
-      provider: event.provider,
-      model: event.model,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      messages: optimisticMessages, // Preserve optimistic user message
-      todos: [],
-      enabledRuleIds: [],
-    }
+  setCurrentSessionId(event.sessionId);
+  setSignal($currentSession, {
+    id: event.sessionId,
+    title: 'New Chat',
+    agentId: 'coder',
+    provider: event.provider,
+    model: event.model,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    messages: optimisticMessages, // Preserve optimistic user message
+    todos: [],
+    enabledRuleIds: [],
   });
 
   logSession('Created session with optimistic messages:', event.sessionId);
 }
 
 function handleSessionDeleted(event: Extract<StreamEvent, { type: 'session-deleted' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   if (event.sessionId === currentSessionId) {
-    useSessionStore.setState({
-      currentSessionId: null,
-      currentSession: null,
-    });
+    setCurrentSessionId(null);
+    setSignal($currentSession, null);
     context.addLog(`[Session] Deleted: ${event.sessionId}`);
   }
 }
 
 function handleSessionModelUpdated(event: Extract<StreamEvent, { type: 'session-model-updated' }>, context: EventHandlerContext) {
-  const state = useSessionStore.getState();
+  const currentSessionId = getCurrentSessionId();
+  const currentSession = getSignal($currentSession);
 
-  if (event.sessionId === state.currentSessionId && state.currentSession) {
-    useSessionStore.setState({
-      currentSession: {
-        ...state.currentSession,
-        model: event.model,
-      }
+  if (event.sessionId === currentSessionId && currentSession) {
+    setSignal($currentSession, {
+      ...currentSession,
+      model: event.model,
     });
     context.addLog(`[Session] Model updated: ${event.model}`);
   }
 }
 
 function handleSessionProviderUpdated(event: Extract<StreamEvent, { type: 'session-provider-updated' }>, context: EventHandlerContext) {
-  const state = useSessionStore.getState();
+  const currentSessionId = getCurrentSessionId();
+  const currentSession = getSignal($currentSession);
 
-  if (event.sessionId === state.currentSessionId && state.currentSession) {
-    useSessionStore.setState({
-      currentSession: {
-        ...state.currentSession,
-        provider: event.provider,
-        model: event.model,
-      }
+  if (event.sessionId === currentSessionId && currentSession) {
+    setSignal($currentSession, {
+      ...currentSession,
+      provider: event.provider,
+      model: event.model,
     });
     context.addLog(`[Session] Provider updated: ${event.provider}`);
   }
@@ -173,7 +171,7 @@ function handleSessionProviderUpdated(event: Extract<StreamEvent, { type: 'sessi
 // ============================================================================
 
 function handleSessionTitleUpdatedStart(event: Extract<StreamEvent, { type: 'session-title-updated-start' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   if (event.sessionId === currentSessionId) {
     context.setIsTitleStreaming(true);
@@ -182,7 +180,7 @@ function handleSessionTitleUpdatedStart(event: Extract<StreamEvent, { type: 'ses
 }
 
 function handleSessionTitleUpdatedDelta(event: Extract<StreamEvent, { type: 'session-title-updated-delta' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   if (event.sessionId === currentSessionId) {
     context.setStreamingTitle((prev) => prev + event.text);
@@ -190,7 +188,7 @@ function handleSessionTitleUpdatedDelta(event: Extract<StreamEvent, { type: 'ses
 }
 
 function handleSessionTitleUpdatedEnd(event: Extract<StreamEvent, { type: 'session-title-updated-end' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   if (event.sessionId === currentSessionId) {
     context.setIsTitleStreaming(false);
@@ -199,7 +197,7 @@ function handleSessionTitleUpdatedEnd(event: Extract<StreamEvent, { type: 'sessi
 }
 
 function handleSessionTitleUpdated(event: Extract<StreamEvent, { type: 'session-title-updated' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   if (event.sessionId === currentSessionId) {
     context.updateSessionTitle(event.sessionId, event.title);
@@ -211,17 +209,18 @@ function handleSessionTitleUpdated(event: Extract<StreamEvent, { type: 'session-
 // ============================================================================
 
 function handleUserMessageCreated(event: Extract<StreamEvent, { type: 'user-message-created' }>, context: EventHandlerContext) {
-  const state = useSessionStore.getState();
+  const currentSessionId = getCurrentSessionId();
+  const currentSession = getSignal($currentSession);
 
   logMessage('User message created:', event.messageId);
 
-  if (!state.currentSession || state.currentSession.id !== state.currentSessionId) {
-    logMessage('Session mismatch! expected:', state.currentSessionId, 'got:', state.currentSession?.id);
+  if (!currentSession || currentSession.id !== currentSessionId) {
+    logMessage('Session mismatch! expected:', currentSessionId, 'got:', currentSession?.id);
     return;
   }
 
   // Find and replace optimistic message (temp-user-*)
-  const optimisticIndex = state.currentSession.messages.findIndex(
+  const optimisticIndex = currentSession.messages.findIndex(
     m => m.role === 'user' && m.id.startsWith('temp-user-')
   );
 
@@ -229,7 +228,7 @@ function handleUserMessageCreated(event: Extract<StreamEvent, { type: 'user-mess
 
   if (optimisticIndex !== -1) {
     // Replace optimistic message ID with server's ID
-    updatedMessages = state.currentSession.messages.map((msg, idx) =>
+    updatedMessages = currentSession.messages.map((msg, idx) =>
       idx === optimisticIndex
         ? { ...msg, id: event.messageId }
         : msg
@@ -238,7 +237,7 @@ function handleUserMessageCreated(event: Extract<StreamEvent, { type: 'user-mess
   } else {
     // No optimistic message found (shouldn't happen), add new message
     updatedMessages = [
-      ...state.currentSession.messages,
+      ...currentSession.messages,
       {
         id: event.messageId,
         role: 'user',
@@ -250,33 +249,32 @@ function handleUserMessageCreated(event: Extract<StreamEvent, { type: 'user-mess
     logMessage('Added user message (no optimistic found), total:', updatedMessages.length);
   }
 
-  useSessionStore.setState({
-    currentSession: {
-      ...state.currentSession,
-      messages: updatedMessages,
-    }
+  setSignal($currentSession, {
+    ...currentSession,
+    messages: updatedMessages,
   });
 }
 
 function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assistant-message-created' }>, context: EventHandlerContext) {
-  const state = useSessionStore.getState();
+  const currentSessionId = getCurrentSessionId();
+  const currentSession = getSignal($currentSession);
 
   context.streamingMessageIdRef.current = event.messageId;
-  logMessage('Message created:', event.messageId, 'session:', state.currentSessionId);
+  logMessage('Message created:', event.messageId, 'session:', currentSessionId);
 
   // Start streaming UI
   context.setIsStreaming(true);
 
   // Emit streaming:started event for store coordination
-  if (state.currentSessionId) {
+  if (currentSessionId) {
     eventBus.emit('streaming:started', {
-      sessionId: state.currentSessionId,
+      sessionId: currentSessionId,
       messageId: event.messageId,
     });
   }
 
-  if (!state.currentSession || state.currentSession.id !== state.currentSessionId) {
-    logMessage('Session mismatch! expected:', state.currentSessionId, 'got:', state.currentSession?.id);
+  if (!currentSession || currentSession.id !== currentSessionId) {
+    logMessage('Session mismatch! expected:', currentSessionId, 'got:', currentSession?.id);
     return;
   }
 
@@ -289,17 +287,15 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
     status: 'active',
   };
 
-  useSessionStore.setState({
-    currentSession: {
-      ...state.currentSession,
-      messages: [
-        ...state.currentSession.messages,
-        newMessage
-      ]
-    }
+  setSignal($currentSession, {
+    ...currentSession,
+    messages: [
+      ...currentSession.messages,
+      newMessage
+    ]
   });
 
-  logMessage('Added assistant message, total:', state.currentSession.messages.length + 1);
+  logMessage('Added assistant message, total:', currentSession.messages.length + 1);
 }
 
 // ============================================================================
@@ -319,7 +315,7 @@ function handleStepComplete(event: Extract<StreamEvent, { type: 'step-complete' 
 // ============================================================================
 
 function handleReasoningStart(event: Extract<StreamEvent, { type: 'reasoning-start' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   logContent('Reasoning start, session:', currentSessionId);
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
@@ -332,7 +328,7 @@ function handleReasoningStart(event: Extract<StreamEvent, { type: 'reasoning-sta
 }
 
 function handleReasoningDelta(event: Extract<StreamEvent, { type: 'reasoning-delta' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
     const newParts = [...prev];
@@ -348,7 +344,7 @@ function handleReasoningDelta(event: Extract<StreamEvent, { type: 'reasoning-del
 }
 
 function handleReasoningEnd(event: Extract<StreamEvent, { type: 'reasoning-end' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
     const newParts = [...prev];
@@ -376,7 +372,7 @@ function handleReasoningEnd(event: Extract<StreamEvent, { type: 'reasoning-end' 
 // ============================================================================
 
 function handleTextStart(event: Extract<StreamEvent, { type: 'text-start' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => [
     ...prev,
@@ -385,7 +381,7 @@ function handleTextStart(event: Extract<StreamEvent, { type: 'text-start' }>, co
 }
 
 function handleTextDelta(event: Extract<StreamEvent, { type: 'text-delta' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
     const newParts = [...prev];
@@ -411,7 +407,7 @@ function handleTextDelta(event: Extract<StreamEvent, { type: 'text-delta' }>, co
 }
 
 function handleTextEnd(event: Extract<StreamEvent, { type: 'text-end' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
     const newParts = [...prev];
@@ -439,7 +435,7 @@ function handleTextEnd(event: Extract<StreamEvent, { type: 'text-end' }>, contex
 // ============================================================================
 
 function handleFile(event: Extract<StreamEvent, { type: 'file' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   logContent('File received, mediaType:', event.mediaType, 'size:', event.base64.length);
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => [
@@ -458,7 +454,7 @@ function handleFile(event: Extract<StreamEvent, { type: 'file' }>, context: Even
 // ============================================================================
 
 function handleToolCall(event: Extract<StreamEvent, { type: 'tool-call' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => [
     ...prev,
@@ -474,7 +470,7 @@ function handleToolCall(event: Extract<StreamEvent, { type: 'tool-call' }>, cont
 }
 
 function handleToolResult(event: Extract<StreamEvent, { type: 'tool-result' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) =>
     prev.map((part) =>
@@ -491,7 +487,7 @@ function handleToolResult(event: Extract<StreamEvent, { type: 'tool-result' }>, 
 }
 
 function handleToolError(event: Extract<StreamEvent, { type: 'tool-error' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) =>
     prev.map((part) =>
@@ -517,7 +513,7 @@ function handleComplete(event: Extract<StreamEvent, { type: 'complete' }>, conte
 }
 
 function handleError(event: Extract<StreamEvent, { type: 'error' }>, context: EventHandlerContext) {
-  const currentSessionId = useSessionStore.getState().currentSessionId;
+  const currentSessionId = getCurrentSessionId();
 
   logContent('Error event received:', event.error);
   context.lastErrorRef.current = event.error;

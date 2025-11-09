@@ -23,7 +23,8 @@ export const agentCommand: Command = {
   ],
   execute: async (context) => {
     const { getAllAgents, getAgentById } = await import('../../embedded-context.js');
-    const { useAppStore } = await import('@sylphx/code-client');
+    const { get } = await import('@sylphx/code-client');
+    const { $selectedAgentId, setSelectedAgent } = await import('@sylphx/code-client');
 
     // If arg provided, switch directly
     if (context.args.length > 0) {
@@ -34,13 +35,13 @@ export const agentCommand: Command = {
         return `Agent not found: ${agentId}. Use /agent to see available agents.`;
       }
 
-      await useAppStore.getState().setSelectedAgent(agentId);
+      await setSelectedAgent(agentId);
       return `Switched to agent: ${agent.metadata.name}\n${agent.metadata.description}`;
     }
 
     // No args - show agent selection UI
     const agents = getAllAgents();
-    const selectedAgentId = useAppStore.getState().selectedAgentId;
+    const selectedAgentId = get($selectedAgentId);
     const currentAgent = getAgentById(selectedAgentId);
 
     if (!currentAgent) {
@@ -63,7 +64,7 @@ export const agentCommand: Command = {
         agents={agentsList}
         currentAgentId={currentAgent.id}
         onSelect={async (agentId) => {
-          const { useAppStore } = await import('@sylphx/code-client');
+          const { setSelectedAgent } = await import('@sylphx/code-client');
           const selectedAgent = getAgentById(agentId);
 
           if (!selectedAgent) {
@@ -72,7 +73,7 @@ export const agentCommand: Command = {
             return;
           }
 
-          await useAppStore.getState().setSelectedAgent(agentId);
+          await setSelectedAgent(agentId);
           context.addLog(`[agent] Switched to agent: ${selectedAgent.metadata.name}`);
           context.setInputComponent(null);
         }}

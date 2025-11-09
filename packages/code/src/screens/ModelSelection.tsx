@@ -3,7 +3,20 @@
  * Select provider and model with dynamic loading
  */
 
-import { useAIConfig, useAppStore, useKeyboard, useModels, useProviders } from '@sylphx/code-client';
+import {
+  useAIConfig,
+  useKeyboard,
+  useModels,
+  useProviders,
+  useAIConfig as useAIConfigSignal,
+  useSelectedProvider,
+  useSelectedModel,
+  setSelectedProvider,
+  setSelectedModel,
+  updateProvider,
+  setError,
+  navigateTo
+} from '@sylphx/code-client';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
@@ -29,13 +42,9 @@ export default function ModelSelection() {
   const [mode, setMode] = useState<Mode>('provider');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const navigateTo = useAppStore((state) => state.navigateTo);
-  const aiConfig = useAppStore((state) => state.aiConfig);
-  const selectedProvider = useAppStore((state) => state.selectedProvider);
-  const setSelectedProvider = useAppStore((state) => state.setSelectedProvider);
-  const setSelectedModel = useAppStore((state) => state.setSelectedModel);
-  const updateProvider = useAppStore((state) => state.updateProvider);
-  const setError = useAppStore((state) => state.setError);
+  const aiConfig = useAIConfigSignal();
+  const selectedProvider = useSelectedProvider();
+  const selectedModel = useSelectedModel();
   const { saveConfig } = useAIConfig();
 
   const configuredProviders = Object.keys(aiConfig?.providers || {});
@@ -87,11 +96,11 @@ export default function ModelSelection() {
       };
 
       // Update store
-      updateProvider(selectedProvider, { defaultModel: modelToSelect });
+      await updateProvider(selectedProvider, { defaultModel: modelToSelect });
       await saveConfig(newConfig);
 
       // Reset and go back to chat
-      setSelectedProvider(null);
+      await setSelectedProvider(null);
       setSearchQuery('');
       setMode('provider');
       navigateTo('chat');
@@ -132,11 +141,11 @@ export default function ModelSelection() {
       { label: 'Back to Chat', value: 'back' },
     ];
 
-    const handleSelect = (item: MenuItem) => {
+    const handleSelect = async (item: MenuItem) => {
       if (item.value === 'back') {
         navigateTo('chat');
       } else {
-        setSelectedProvider(item.value);
+        await setSelectedProvider(item.value);
         setMode('model');
       }
     };
@@ -198,7 +207,7 @@ export default function ModelSelection() {
     const handleSelect = async (item: MenuItem) => {
       if (!selectedProvider) return;
 
-      setSelectedModel(item.value);
+      await setSelectedModel(item.value);
 
       // Update config: save selected model as provider's default-model
       const newConfig = {
@@ -215,11 +224,11 @@ export default function ModelSelection() {
       };
 
       // Update store
-      updateProvider(selectedProvider, { defaultModel: item.value });
+      await updateProvider(selectedProvider, { defaultModel: item.value });
       await saveConfig(newConfig);
 
       // Reset and go back
-      setSelectedProvider(null);
+      await setSelectedProvider(null);
       setSearchQuery('');
       setMode('provider');
       navigateTo('chat');

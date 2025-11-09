@@ -3,7 +3,9 @@
  * Root React + Ink component with screen routing
  */
 
-import { useAIConfig, useAppStore, useKeyboard, useSessionPersistence } from '@sylphx/code-client';
+import { useKeyboard, useSessionPersistence, useAIConfig,
+         useCurrentScreen, useIsLoading, useUIError, setError } from '@sylphx/code-client';
+import { initializePersistence } from '@sylphx/code-client/signals';
 import { Box, Text } from 'ink';
 import React, { useEffect, useState } from 'react';
 import Chat from './screens/Chat.js';
@@ -14,10 +16,9 @@ import ModelSelection from './screens/ModelSelection.js';
 import ProviderManagement from './screens/ProviderManagement.js';
 
 function AppContent() {
-  const currentScreen = useAppStore((state) => state.currentScreen);
-  const isLoading = useAppStore((state) => state.isLoading);
-  const error = useAppStore((state) => state.error);
-  const setError = useAppStore((state) => state.setError);
+  const currentScreen = useCurrentScreen();
+  const isLoading = useIsLoading();
+  const error = useUIError();
   const [commandPaletteCommand, setCommandPaletteCommand] = useState<string | null>(null);
 
   // Load AI config on mount
@@ -34,8 +35,8 @@ function AppContent() {
     setCommandPaletteCommand(command);
   };
 
+  // Load AI config (via tRPC)
   useEffect(() => {
-    // Load AI config (via tRPC)
     loadConfig().catch((err) => {
       console.error('Failed to load config:', err);
     });

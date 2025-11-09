@@ -88,9 +88,8 @@ export async function setProviderConfigValue(
   schema: Array<{ key: string; label: string; secret?: boolean }>
 ): Promise<string> {
   const { AI_PROVIDERS } = await import('@sylphx/code-core');
-  const { useAppStore } = await import('@sylphx/code-client');
-  const store = useAppStore.getState();
-  const aiConfig = store.aiConfig;
+  const { useAIConfig, setAIConfig } = await import('@sylphx/code-client');
+  const aiConfig = useAIConfig();
 
   const newConfig = {
     ...aiConfig!,
@@ -107,7 +106,7 @@ export async function setProviderConfigValue(
     newConfig.defaultProvider = providerId;
   }
 
-  store.setAIConfig(newConfig);
+  await setAIConfig(newConfig);
   await context.saveConfig(newConfig);
 
   // Mask secret values in response

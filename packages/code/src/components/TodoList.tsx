@@ -10,7 +10,7 @@ import {
   isTodoBold,
   isTodoDimmed,
   isTodoStrikethrough,
-  useAppStore,
+  useCurrentSession,
 } from '@sylphx/code-client';
 import type { Todo } from '@sylphx/code-core';
 import { Box, Text } from 'ink';
@@ -20,7 +20,7 @@ const MAX_VISIBLE_LINES = 5;
 
 export default function TodoList() {
   // Get current session's todos (tRPC: cached in store)
-  const currentSession = useAppStore((state) => state.currentSession);
+  const { currentSession } = useCurrentSession();
   const todos = currentSession?.todos || [];
 
   // Calculate progress
