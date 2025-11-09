@@ -81,10 +81,8 @@ interface ChatProps {
 
 // Default notification settings (temporarily hardcoded until signals domain is created)
 const notificationSettings = {
-  osNotifications: true,
-  terminalNotifications: true,
-  sound: true,
-  autoGenerateTitle: true,
+  notifyOnCompletion: true,
+  notifyOnError: true,
 };
 
 export default function Chat(_props: ChatProps) {

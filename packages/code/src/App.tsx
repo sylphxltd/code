@@ -5,7 +5,6 @@
 
 import { useKeyboard, useSessionPersistence, useAIConfig,
          useCurrentScreen, useIsLoading, useUIError, setError } from '@sylphx/code-client';
-// import { initializePersistence } from '@sylphx/code-client/signals';
 import { Box, Text } from 'ink';
 import React, { useEffect, useState } from 'react';
 import Chat from './screens/Chat.js';
@@ -35,14 +34,11 @@ function AppContent() {
     setCommandPaletteCommand(command);
   };
 
-  // Load AI config (via tRPC)
+  // Load AI config via tRPC (server handles all file operations)
   useEffect(() => {
-    // TODO: Initialize zen signal persistence when module resolution is fixed
-    // initializePersistence();
-
-    // Load AI config
+    // Load AI config from server only - no client persistence
     loadConfig().catch((err) => {
-      console.error('Failed to load config:', err);
+      // Error loading config is expected if server isn't ready
     });
   }, [loadConfig]);
 

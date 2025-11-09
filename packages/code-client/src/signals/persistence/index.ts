@@ -1,75 +1,60 @@
 /**
- * Signal Persistence Layer
- * Handles saving and loading signal state from local storage
+ * UI State Persistence Layer
+ * Handles saving UI state ONLY (no configuration or business logic)
+ *
+ * ARCHITECTURAL NOTE:
+ * - Client should NOT read configuration files
+ * - All AI config comes from server via tRPC
+ * - This only persists UI state like current screen, etc.
  */
 
 import { get, set, subscribe } from '@sylphx/zen';
-import * as ai from '../domain/ai';
 import * as ui from '../domain/ui';
-import * as session from '../domain/session';
 
-interface PersistenceConfig {
+interface UIPersistenceConfig {
   signal: any; // Zen signal
   key: string;
   serialize?: (value: any) => string;
   deserialize?: (value: string) => any;
 }
 
-const PERSISTENCE_CONFIGS: PersistenceConfig[] = [
-  {
-    signal: ai.$selectedProvider,
-    key: 'sylphx:selected-provider'
-  },
-  {
-    signal: ai.$selectedModel,
-    key: 'sylphx:selected-model'
-  },
+// ONLY UI state persistence - NO configuration
+const UI_PERSISTENCE_CONFIGS: UIPersistenceConfig[] = [
   {
     signal: ui.$currentScreen,
-    key: 'sylphx:last-screen'
+    key: 'sylphx:ui:last-screen'
   }
+  // NOTE: AI configuration is NOT persisted here - it comes from server via tRPC
 ];
 
-// More complex object persistence
-const OBJECT_PERSISTENCE_CONFIGS: PersistenceConfig[] = [
-  {
-    signal: ai.$aiConfig,
-    key: 'sylphx:ai-config',
-    serialize: (value) => JSON.stringify(value),
-    deserialize: (value) => {
-      try {
-        return JSON.parse(value);
-      } catch {
-        return null;
-      }
-    }
+export const initializeUIPersistence = () => {
+  // Use browser localStorage only
+  if (typeof localStorage === 'undefined') {
+    return;
   }
-];
 
-export const initializePersistence = () => {
-  // Load persisted values
-  [...PERSISTENCE_CONFIGS, ...OBJECT_PERSISTENCE_CONFIGS].forEach(config => {
+  // Load persisted UI values
+  UI_PERSISTENCE_CONFIGS.forEach(config => {
     try {
       const stored = localStorage.getItem(config.key);
       if (stored !== null && stored !== undefined) {
-        const value = config.deserialize ? config.deserialize(stored) :
-                      (typeof stored === 'string' ? stored : JSON.parse(stored));
+        const value = config.deserialize ? config.deserialize(stored) : stored;
 
         // Only set if current value is null/undefined (don't override initial state)
         const current = get(config.signal);
-        if (current === null || current === undefined || current === '') {
+        if (current === null || current === undefined) {
           set(config.signal, value);
         }
       }
     } catch (error) {
-      console.warn(`Failed to load persisted value for ${config.key}:`, error);
+      // Silent fail for UI persistence
     }
   });
 
-  // Save on changes (with debouncing)
+  // Save UI changes (with debouncing)
   const debouncedSave = new Map<string, NodeJS.Timeout>();
 
-  PERSISTENCE_CONFIGS.forEach(config => {
+  UI_PERSISTENCE_CONFIGS.forEach(config => {
     subscribe(config.signal, (value) => {
       // Clear existing timeout
       const existingTimeout = debouncedSave.get(config.key);
@@ -83,7 +68,7 @@ export const initializePersistence = () => {
           const serialized = config.serialize ? config.serialize(value) : String(value);
           localStorage.setItem(config.key, serialized);
         } catch (error) {
-          console.warn(`Failed to persist value for ${config.key}:`, error);
+          // Silent fail for UI persistence
         }
         debouncedSave.delete(config.key);
       }, 500); // 500ms debounce
@@ -91,27 +76,24 @@ export const initializePersistence = () => {
       debouncedSave.set(config.key, timeout);
     });
   });
+};
 
-  // Save object changes immediately (no debounce)
-  OBJECT_PERSISTENCE_CONFIGS.forEach(config => {
-    subscribe(config.signal, (value) => {
-      try {
-        const serialized = config.serialize ? config.serialize(value) : JSON.stringify(value);
-        localStorage.setItem(config.key, serialized);
-      } catch (error) {
-        console.warn(`Failed to persist object for ${config.key}:`, error);
-      }
-    });
+// Export functions to clear UI persistence
+export const clearUIPersistence = () => {
+  UI_PERSISTENCE_CONFIGS.forEach(config => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(config.key);
+    }
   });
 };
 
-// Export functions to clear persistence
-export const clearPersistence = () => {
-  [...PERSISTENCE_CONFIGS, ...OBJECT_PERSISTENCE_CONFIGS].forEach(config => {
-    localStorage.removeItem(config.key);
-  });
+export const clearUIStatePersistence = (key: string) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(key);
+  }
 };
 
-export const clearSignalPersistence = (key: string) => {
-  localStorage.removeItem(key);
-};
+// Backward compatibility - deprecated
+export const initializePersistence = initializeUIPersistence;
+export const clearPersistence = clearUIPersistence;
+export const clearSignalPersistence = clearUIStatePersistence;

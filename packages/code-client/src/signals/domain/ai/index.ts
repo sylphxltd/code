@@ -39,7 +39,24 @@ export const $selectedModelConfig = computed(
 );
 
 // Actions
-export const setAIConfig = (config: AIConfig | null) => set($aiConfig, config);
+export const setAIConfig = (config: AIConfig | null) => {
+  set($aiConfig, config);
+
+  // Update selected provider and model when config loads
+  if (config) {
+    if (config.defaultProvider) {
+      set($selectedProvider, config.defaultProvider);
+    }
+
+    // Set selected model from default provider
+    if (config.defaultProvider && config.providers?.[config.defaultProvider]) {
+      const providerConfig = config.providers[config.defaultProvider];
+      if (providerConfig.defaultModel) {
+        set($selectedModel, providerConfig.defaultModel);
+      }
+    }
+  }
+};
 
 export const updateProvider = (providerId: string, data: any) => {
   const config = get($aiConfig);
