@@ -8,7 +8,7 @@
 
 import { zen, get, set as zenSet, type Zen } from '@sylphx/zen';
 import { useStore as useZenStore } from '@sylphx/zen-react';
-import { produce } from '@sylphx/zen-craft';
+import { produce } from '@sylphx/craft';
 
 type SetStateAction<T> = T | Partial<T> | ((state: T) => void | Partial<T>);
 
