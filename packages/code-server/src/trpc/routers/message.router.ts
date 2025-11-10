@@ -439,6 +439,102 @@ export const messageRouter = router({
       return { success: true };
     }),
 
+  /**
+   * Trigger AI streaming (MUTATION - Single Event Stream Architecture)
+   *
+   * This mutation triggers server-side AI streaming and returns immediately.
+   * All events (user-message-created, assistant-message-created, text-delta,
+   * reasoning-delta, complete, error, etc.) are published to event bus.
+   *
+   * Client receives events via useEventStream subscription (unified path).
+   *
+   * Architecture:
+   * 1. Client calls mutation → Returns immediately with success
+   * 2. Server streams in background → Publishes all events to event bus
+   * 3. Client's useEventStream subscription → Receives and handles events
+   *
+   * Benefits:
+   * - Single event path (no dual subscription/event stream)
+   * - Clean separation: mutation triggers, event stream delivers
+   * - Supports replay, multi-client, late join
+   *
+   * SECURITY: Protected + streaming rate limiting (5 streams/min)
+   */
+  triggerStream: streamingProcedure
+    .input(
+      z.object({
+        sessionId: z.string().nullish(), // Optional - will create if null
+        agentId: z.string().optional(),   // Optional - override session agent
+        provider: z.string().optional(),  // Required if sessionId is null
+        model: z.string().optional(),     // Required if sessionId is null
+        content: z.array(ParsedContentPartSchema), // User message content
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Import streaming service
+      const { streamAIResponse } = await import('../../services/streaming.service.js');
+
+      // Get or create sessionId for event channel
+      let eventSessionId = input.sessionId || null;
+
+      // Start streaming in background (don't await)
+      const streamObservable = streamAIResponse({
+        appContext: ctx.appContext,
+        sessionRepository: ctx.sessionRepository,
+        messageRepository: ctx.messageRepository,
+        aiConfig: ctx.aiConfig,
+        sessionId: eventSessionId,
+        agentId: input.agentId,
+        provider: input.provider,
+        model: input.model,
+        userMessageContent: input.content.length > 0 ? input.content : null,
+      });
+
+      // Subscribe and publish all events to event bus
+      streamObservable.subscribe({
+        next: (event) => {
+          // Capture sessionId from session-created event
+          if (event.type === 'session-created') {
+            eventSessionId = event.sessionId;
+          }
+
+          // Publish all events to event stream
+          if (eventSessionId) {
+            ctx.appContext.eventStream.publish(`session:${eventSessionId}`, event).catch(err => {
+              console.error('[TriggerStream] Event publish error:', err);
+            });
+          }
+        },
+        error: (error) => {
+          // Publish error to event stream
+          if (eventSessionId) {
+            ctx.appContext.eventStream.publish(`session:${eventSessionId}`, {
+              type: 'error' as const,
+              error: error instanceof Error ? error.message : String(error),
+            }).catch(err => {
+              console.error('[TriggerStream] Error event publish error:', err);
+            });
+          }
+        },
+        complete: () => {
+          // Publish complete to event stream
+          if (eventSessionId) {
+            ctx.appContext.eventStream.publish(`session:${eventSessionId}`, {
+              type: 'complete' as const,
+            }).catch(err => {
+              console.error('[TriggerStream] Complete event publish error:', err);
+            });
+          }
+        },
+      });
+
+      // Return immediately (streaming happens in background)
+      return {
+        success: true,
+        sessionId: eventSessionId, // May be null if lazy session
+      };
+    }),
+
   // Note: Message events are now delivered via events.subscribeToSession
   // which subscribes to the 'session:{id}' channel and receives all streaming events
 });
