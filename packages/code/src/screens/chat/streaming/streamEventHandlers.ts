@@ -520,6 +520,11 @@ function handleToolError(event: Extract<StreamEvent, { type: 'tool-error' }>, co
 // ============================================================================
 
 function handleComplete(event: Extract<StreamEvent, { type: 'complete' }>, context: EventHandlerContext) {
+  const currentSessionId = getCurrentSessionId();
+  const currentSession = getSignal($currentSession);
+
+  console.log('🔍 [handleComplete] START - currentSessionId:', currentSessionId);
+
   // Store usage and finishReason
   if (event.usage) {
     context.usageRef.current = event.usage;
@@ -527,13 +532,45 @@ function handleComplete(event: Extract<StreamEvent, { type: 'complete' }>, conte
   if (event.finishReason) {
     context.finishReasonRef.current = event.finishReason;
   }
+
+  // Stop streaming UI indicator
+  context.setIsStreaming(false);
+  console.log('🔍 [handleComplete] Set isStreaming to false');
+
+  // Update active message status to completed
+  if (currentSession && context.streamingMessageIdRef.current) {
+    const updatedMessages = currentSession.messages.map(msg =>
+      msg.id === context.streamingMessageIdRef.current
+        ? {
+            ...msg,
+            status: 'completed' as const,
+            usage: event.usage || msg.usage,
+            finishReason: event.finishReason || msg.finishReason,
+          }
+        : msg
+    );
+
+    setSignal($currentSession, {
+      ...currentSession,
+      messages: updatedMessages,
+    });
+
+    console.log('🔍 [handleComplete] Updated message status to completed');
+  }
+
+  // Clear streaming message ID
+  context.streamingMessageIdRef.current = null;
+
+  logMessage('Stream completed successfully');
 }
 
 function handleError(event: Extract<StreamEvent, { type: 'error' }>, context: EventHandlerContext) {
   const currentSessionId = getCurrentSessionId();
 
+  console.log('🔍 [handleError] Error received:', event.error);
   logContent('Error event received:', event.error);
   context.lastErrorRef.current = event.error;
+
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
     const newContent = [
       ...prev,
@@ -542,10 +579,19 @@ function handleError(event: Extract<StreamEvent, { type: 'error' }>, context: Ev
     logContent('Updated content with error, total parts:', newContent.length);
     return newContent;
   });
+
+  // Stop streaming UI indicator on error
+  context.setIsStreaming(false);
+  console.log('🔍 [handleError] Set isStreaming to false');
 }
 
 function handleAbort(event: Extract<StreamEvent, { type: 'abort' }>, context: EventHandlerContext) {
+  console.log('🔍 [handleAbort] Stream aborted');
   context.addLog('[StreamEvent] Stream aborted');
+
+  // Stop streaming UI indicator on abort
+  context.setIsStreaming(false);
+  console.log('🔍 [handleAbort] Set isStreaming to false');
 }
 
 // ============================================================================
