@@ -66,6 +66,7 @@ import { useSelectionState } from './chat/hooks/useSelectionState.js';
 import { useStreamingState } from './chat/hooks/useStreamingState.js';
 // Streaming utilities
 import { createSubscriptionSendUserMessageToAI } from './chat/streaming/subscriptionAdapter.js';
+import { handleStreamEvent } from './chat/streaming/streamEventHandlers.js';
 
 // Note: useMessageHistory not needed - using useInputState which includes history management
 
@@ -357,7 +358,19 @@ export default function Chat(_props: ChatProps) {
         );
       },
     }),
-    [setIsTitleStreaming, setStreamingTitle]
+    [
+      setIsTitleStreaming,
+      setStreamingTitle,
+      setIsStreaming,
+      streamingMessageIdRef,
+      usageRef,
+      finishReasonRef,
+      lastErrorRef,
+      addLog,
+      aiConfig,
+      notificationSettings,
+      updateSessionTitle,
+    ]
   );
 
   // Event stream for multi-client sync
