@@ -169,7 +169,7 @@ describe('Streaming Integration', () => {
       success: boolean;
       events: string[];
       errors: string[];
-    }>((resolve) => {
+    }>(async (resolve) => {
       const timeout = setTimeout(() => {
         resolve({
           success: false,
@@ -178,39 +178,69 @@ describe('Streaming Integration', () => {
         });
       }, 10000);
 
-      client.message.streamResponse.subscribe(
-        {
+      try {
+        // Trigger with invalid provider
+        const triggerResult = await client.message.triggerStream.mutate({
           sessionId: null,
           provider: 'invalid-provider' as any,
           model: 'invalid-model',
-          userMessage: 'test',
-        },
-        {
-          onData: (event: any) => {
-            events.push(event.type);
-            if (event.type === 'error') {
-              errors.push(event.error);
-            }
-            if (event.type === 'complete' || event.type === 'error') {
+          content: [{ type: 'text', content: 'test' }],
+        });
+
+        const sessionId = triggerResult.sessionId;
+
+        if (!sessionId) {
+          clearTimeout(timeout);
+          errors.push('No session ID returned');
+          resolve({
+            success: false,
+            events,
+            errors,
+          });
+          return;
+        }
+
+        // Subscribe to events
+        client.message.subscribe.subscribe(
+          {
+            sessionId,
+            replayLast: 50,
+          },
+          {
+            onData: (event: any) => {
+              events.push(event.type);
+              if (event.type === 'error') {
+                errors.push(event.error);
+              }
+              if (event.type === 'complete' || event.type === 'error') {
+                clearTimeout(timeout);
+                resolve({
+                  success: false,
+                  events,
+                  errors,
+                });
+              }
+            },
+            onError: (error: any) => {
               clearTimeout(timeout);
+              errors.push(error.message || String(error));
               resolve({
                 success: false,
                 events,
                 errors,
               });
-            }
-          },
-          onError: (error: any) => {
-            clearTimeout(timeout);
-            errors.push(error.message || String(error));
-            resolve({
-              success: false,
-              events,
-              errors,
-            });
-          },
-        }
-      );
+            },
+          }
+        );
+      } catch (error) {
+        clearTimeout(timeout);
+        errors.push(error instanceof Error ? error.message : String(error));
+        resolve({
+          success: false,
+          events,
+          errors,
+        });
+      }
     });
 
     // Should have error
@@ -224,32 +254,49 @@ describe('Streaming Integration', () => {
     // First message - creates session
     let firstSessionId: string | null = null;
 
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>(async (resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Timeout')), 30000);
 
-      client.message.streamResponse.subscribe(
-        {
+      try {
+        // Trigger first message
+        const triggerResult = await client.message.triggerStream.mutate({
           sessionId: null,
           provider: 'openrouter',
           model: 'x-ai/grok-code-fast-1',
-          userMessage: 'first message',
-        },
-        {
-          onData: (event: any) => {
-            if (event.type === 'session-created') {
-              firstSessionId = event.sessionId;
-            }
-            if (event.type === 'complete') {
-              clearTimeout(timeout);
-              resolve();
-            }
-          },
-          onError: (error) => {
-            clearTimeout(timeout);
-            reject(error);
-          },
+          content: [{ type: 'text', content: 'first message' }],
+        });
+
+        firstSessionId = triggerResult.sessionId;
+
+        if (!firstSessionId) {
+          clearTimeout(timeout);
+          reject(new Error('No session ID returned'));
+          return;
         }
-      );
+
+        // Subscribe to events
+        client.message.subscribe.subscribe(
+          {
+            sessionId: firstSessionId,
+            replayLast: 50,
+          },
+          {
+            onData: (event: any) => {
+              if (event.type === 'complete') {
+                clearTimeout(timeout);
+                resolve();
+              }
+            },
+            onError: (error) => {
+              clearTimeout(timeout);
+              reject(error);
+            },
+          }
+        );
+      } catch (error) {
+        clearTimeout(timeout);
+        reject(error);
+      }
     });
 
     expect(firstSessionId).toBeTruthy();
@@ -258,31 +305,45 @@ describe('Streaming Integration', () => {
     let secondSessionId: string | null = null;
     const events: string[] = [];
 
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>(async (resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error('Timeout')), 30000);
 
-      client.message.streamResponse.subscribe(
-        {
+      try {
+        // Trigger second message with existing session
+        const triggerResult = await client.message.triggerStream.mutate({
           sessionId: firstSessionId,
-          userMessage: 'second message',
-        },
-        {
-          onData: (event: any) => {
-            events.push(event.type);
-            if (event.type === 'session-created') {
-              secondSessionId = event.sessionId;
-            }
-            if (event.type === 'complete') {
+          content: [{ type: 'text', content: 'second message' }],
+        });
+
+        secondSessionId = triggerResult.sessionId;
+
+        // Subscribe to events
+        client.message.subscribe.subscribe(
+          {
+            sessionId: firstSessionId!,
+            replayLast: 0, // No replay needed, session already exists
+          },
+          {
+            onData: (event: any) => {
+              events.push(event.type);
+              if (event.type === 'session-created') {
+                secondSessionId = event.sessionId;
+              }
+              if (event.type === 'complete') {
+                clearTimeout(timeout);
+                resolve();
+              }
+            },
+            onError: (error) => {
               clearTimeout(timeout);
-              resolve();
-            }
-          },
-          onError: (error) => {
-            clearTimeout(timeout);
-            reject(error);
-          },
-        }
-      );
+              reject(error);
+            },
+          }
+        );
+      } catch (error) {
+        clearTimeout(timeout);
+        reject(error);
+      }
     });
 
     // Should NOT create new session
