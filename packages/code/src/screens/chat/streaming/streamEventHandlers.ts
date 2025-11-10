@@ -260,6 +260,7 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
   const currentSession = getSignal($currentSession);
 
   console.log('🔍 [handleAssistantMessageCreated] START - messageId:', event.messageId, 'currentSessionId:', currentSessionId);
+  console.log('🔍 [handleAssistantMessageCreated] Current session messages:', currentSession?.messages.map(m => ({ id: m.id, role: m.role, status: m.status })));
 
   context.streamingMessageIdRef.current = event.messageId;
   logMessage('Message created:', event.messageId, 'session:', currentSessionId);
