@@ -279,6 +279,9 @@ export default function Chat(_props: ChatProps) {
       onAssistantMessageCreated: (messageId: string) => {
         handleStreamEvent({ type: 'assistant-message-created', messageId }, eventContextParams);
       },
+      onSystemMessageCreated: (messageId: string, content: string) => {
+        handleStreamEvent({ type: 'system-message-created', messageId, content }, eventContextParams);
+      },
 
       // Text streaming
       onTextStart: () => {

@@ -302,6 +302,44 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
   logMessage('Added assistant message, total:', currentSession.messages.length + 1);
 }
 
+function handleSystemMessageCreated(event: Extract<StreamEvent, { type: 'system-message-created' }>, context: EventHandlerContext) {
+  const currentSessionId = getCurrentSessionId();
+  const currentSession = getSignal($currentSession);
+
+  logMessage('System message created:', event.messageId, 'session:', currentSessionId);
+
+  if (!currentSession || currentSession.id !== currentSessionId) {
+    logMessage('Session mismatch! expected:', currentSessionId, 'got:', currentSession?.id);
+    return;
+  }
+
+  // Check if message already exists (prevent duplicates)
+  const messageExists = currentSession.messages.some(m => m.id === event.messageId);
+  if (messageExists) {
+    logMessage('System message already exists, skipping:', event.messageId);
+    return;
+  }
+
+  // Add new system message to session (completed, not streaming)
+  const newMessage = {
+    id: event.messageId,
+    role: 'system',
+    content: [{ type: 'text', content: event.content }],
+    timestamp: Date.now(),
+    status: 'completed',
+  };
+
+  setSignal($currentSession, {
+    ...currentSession,
+    messages: [
+      ...currentSession.messages,
+      newMessage
+    ]
+  });
+
+  logMessage('Added system message, total:', currentSession.messages.length + 1);
+}
+
 // ============================================================================
 // Step Events
 // ============================================================================
@@ -587,6 +625,7 @@ const eventHandlers: Record<StreamEvent['type'], EventHandler> = {
   // Message events
   'user-message-created': handleUserMessageCreated,
   'assistant-message-created': handleAssistantMessageCreated,
+  'system-message-created': handleSystemMessageCreated,
 
   // Step events
   'step-start': handleStepStart,

@@ -31,6 +31,7 @@ export interface EventStreamCallbacks {
 
   // Message events
   onAssistantMessageCreated?: (messageId: string) => void;
+  onSystemMessageCreated?: (messageId: string, content: string) => void;
 
   // Text streaming
   onTextStart?: () => void;
@@ -142,29 +143,6 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
               callbacksRef.current.onSessionUpdated?.(event.sessionId);
               break;
 
-            case 'system-message-inserted':
-              // Add system message directly to UI (no need to reload entire session)
-              // ASSUMPTION: System messages use steps format (not legacy content array)
-              if (event.sessionId === currentSessionId) {
-                const { addMessage } = await import('../signals/domain/session/index.js');
-                addMessage({
-                  id: event.messageId,
-                  sessionId: event.sessionId,
-                  role: 'system',
-                  content: [{ type: 'text', content: event.content }],
-                  steps: [{
-                    id: `${event.messageId}-step-0`,
-                    messageId: event.messageId,
-                    index: 0,
-                    parts: [{ type: 'text', content: event.content }],
-                  }],
-                  status: 'completed',
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                });
-              }
-              break;
-
             case 'session-title-updated-start':
               callbacksRef.current.onSessionTitleStart?.(event.sessionId);
               break;
@@ -191,6 +169,10 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
 
             case 'assistant-message-created':
               callbacksRef.current.onAssistantMessageCreated?.(event.messageId);
+              break;
+
+            case 'system-message-created':
+              callbacksRef.current.onSystemMessageCreated?.(event.messageId, event.content);
               break;
 
             case 'text-start':

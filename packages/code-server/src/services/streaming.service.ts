@@ -50,7 +50,7 @@ export type StreamEvent =
   // Message-level events
   | { type: 'user-message-created'; messageId: string; content: string }
   | { type: 'assistant-message-created'; messageId: string }
-  | { type: 'system-message-inserted'; sessionId: string; messageId: string; content: string }
+  | { type: 'system-message-created'; messageId: string; content: string }
 
   // Step-level events (NEW)
   | { type: 'step-start'; stepId: string; stepIndex: number; metadata: { cpu: string; memory: string }; todoSnapshot: any[] }
@@ -319,10 +319,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             console.log('[streamAIResponse] Trigger fired, inserting system message');
             const systemMessageId = await insertSystemMessage(messageRepository, sessionId, triggerResult.message);
 
-            // Emit system-message-inserted event with full message data for UI
+            // Emit system-message-created event (same pattern as assistant-message-created)
             observer.next({
-              type: 'system-message-inserted',
-              sessionId,
+              type: 'system-message-created',
               messageId: systemMessageId,
               content: triggerResult.message,
             });
