@@ -80,10 +80,6 @@ export interface SubscriptionAdapterParams {
 
   // Refs for streaming state
   abortControllerRef: React.MutableRefObject<AbortController | null>;
-  wasAbortedRef: React.MutableRefObject<boolean>;
-  lastErrorRef: React.MutableRefObject<string | null>;
-  usageRef: React.MutableRefObject<TokenUsage | null>;
-  finishReasonRef: React.MutableRefObject<string | null>;
   streamingMessageIdRef: React.MutableRefObject<string | null>;
 
   // State setters
@@ -116,10 +112,6 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     updateSessionTitle,
     notificationSettings,
     abortControllerRef,
-    wasAbortedRef,
-    lastErrorRef,
-    usageRef,
-    finishReasonRef,
     streamingMessageIdRef,
     setIsStreaming,
     setIsTitleStreaming,
@@ -169,11 +161,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     // Client just passes null, server handles creation
     const sessionId = currentSessionId;
 
-    // Reset flags for new stream
-    wasAbortedRef.current = false;
-    lastErrorRef.current = null;
-    usageRef.current = null;
-    finishReasonRef.current = null;
+    // Reset streaming state for new stream
     streamingMessageIdRef.current = null;
 
     // Create abort controller for this stream
@@ -321,7 +309,6 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
         try {
           logSession('Stream aborted by user');
           addLog('[Mutation] Aborted by user');
-          wasAbortedRef.current = true;
 
           // Mark active parts as aborted
           updateActiveMessageContent(sessionId, streamingMessageIdRef.current, (prev) =>
@@ -348,7 +335,6 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
         addLog(
           `[subscriptionAdapter] Error: ${error instanceof Error ? error.message : String(error)}`
         );
-        lastErrorRef.current = error instanceof Error ? error.message : String(error);
       } catch (logError) {
         console.error('[subscriptionAdapter] Error logging failed:', logError);
       } finally {

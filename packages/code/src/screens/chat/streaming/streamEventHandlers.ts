@@ -39,9 +39,6 @@ export interface EventHandlerContext {
   setIsTitleStreaming: (value: boolean) => void;
   setStreamingTitle: React.Dispatch<React.SetStateAction<string>>;
   streamingMessageIdRef: React.MutableRefObject<string | null>;
-  usageRef: React.MutableRefObject<TokenUsage | null>;
-  finishReasonRef: React.MutableRefObject<string | null>;
-  lastErrorRef: React.MutableRefObject<string | null>;
   addLog: (message: string) => void;
   aiConfig: AIConfig | null;
   userMessage: string;
@@ -513,14 +510,6 @@ function handleComplete(event: Extract<StreamEvent, { type: 'complete' }>, conte
   const currentSessionId = getCurrentSessionId();
   const currentSession = getSignal($currentSession);
 
-  // Store usage and finishReason
-  if (event.usage) {
-    context.usageRef.current = event.usage;
-  }
-  if (event.finishReason) {
-    context.finishReasonRef.current = event.finishReason;
-  }
-
   // Stop streaming UI indicator
   context.setIsStreaming(false);
 
@@ -553,7 +542,6 @@ function handleError(event: Extract<StreamEvent, { type: 'error' }>, context: Ev
   const currentSessionId = getCurrentSessionId();
 
   logContent('Error event received:', event.error);
-  context.lastErrorRef.current = event.error;
 
   updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
     const newContent = [
