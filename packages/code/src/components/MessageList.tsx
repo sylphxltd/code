@@ -25,14 +25,16 @@ export function MessageList({ messages, attachmentTokens }: MessageListProps) {
           <Box paddingTop={1} paddingX={1}>
             {msg.role === 'user' ? (
               <Text color="#00D9FF">▌ YOU</Text>
+            ) : msg.role === 'system' ? (
+              <Text color="#FFD700">▌ SYSTEM</Text>
             ) : (
               <Text color="#00FF88">▌ SYLPHX</Text>
             )}
           </Box>
 
           {/* Message Content (Step-based or fallback to content array) */}
-          {msg.role === 'user' ? (
-            // User message: reconstruct original text with inline @file highlighting
+          {msg.role === 'user' || msg.role === 'system' ? (
+            // User/System message: reconstruct original text with inline @file highlighting
             msg.steps && msg.steps.length > 0 ? (
               <Box marginLeft={2} paddingY={1} flexDirection="column">
                 {(() => {
@@ -188,8 +190,8 @@ export function MessageList({ messages, attachmentTokens }: MessageListProps) {
             ) : null
           )}
 
-          {/* Attachments (for user messages) - extracted from steps.parts or content */}
-          {msg.role === 'user' && (() => {
+          {/* Attachments (for user/system messages) - extracted from steps.parts or content */}
+          {(msg.role === 'user' || msg.role === 'system') && (() => {
             // Extract file parts from steps or content
             const fileParts = msg.steps && msg.steps.length > 0
               ? msg.steps.flatMap(step => step.parts).filter(part => part.type === 'file')

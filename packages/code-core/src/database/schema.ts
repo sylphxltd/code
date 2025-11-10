@@ -166,7 +166,7 @@ export const messages = sqliteTable(
     sessionId: text('session_id')
       .notNull()
       .references(() => sessions.id, { onDelete: 'cascade' }),
-    role: text('role').notNull(), // 'user' | 'assistant'
+    role: text('role').notNull(), // 'system' | 'user' | 'assistant'
     timestamp: integer('timestamp').notNull(), // Unix timestamp (ms)
     ordering: integer('ordering').notNull(), // For display order
     // Aggregated from steps (for UI convenience)

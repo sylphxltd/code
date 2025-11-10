@@ -28,7 +28,8 @@ export async function buildModelMessages(
   const results: ModelMessage[] = [];
 
   for (const msg of messages) {
-    if (msg.role === 'user') {
+    // Role mapping: session 'system' → model 'user' (for attention decay)
+    if (msg.role === 'user' || msg.role === 'system') {
       results.push(await buildUserMessage(msg, modelCapabilities, fileRepo));
     } else {
       results.push(await buildAssistantMessage(msg, modelCapabilities, fileRepo));

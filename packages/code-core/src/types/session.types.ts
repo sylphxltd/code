@@ -216,7 +216,7 @@ export interface MessageMetadata {
  */
 export interface SessionMessage {
   id: string;              // Unique message ID from database
-  role: 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant';  // Session-level roles
   steps: MessageStep[];    // Steps representing AI call(s) for this message
 
   // Message-level metadata
@@ -231,6 +231,18 @@ export interface SessionMessage {
   usage?: TokenUsage;      // Total usage (sum of all steps)
   finishReason?: string;   // Final finish reason (from last step)
 }
+
+/**
+ * Role conversion rules when building ModelMessage for LLM:
+ * - 'system' → 'user'  (system messages become user context for attention decay)
+ * - 'user' → 'user'    (direct mapping)
+ * - 'assistant' → 'assistant' (direct mapping)
+ *
+ * UI behavior:
+ * - 'system' messages: Skip in history navigation (up/down arrows), show with special styling
+ * - 'user' messages: Normal user input, included in history navigation
+ * - 'assistant' messages: AI responses, not in history navigation
+ */
 
 /**
  * Convenience type alias for SessionMessage

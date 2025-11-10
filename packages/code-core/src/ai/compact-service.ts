@@ -212,11 +212,14 @@ export async function compactSession(
       },
     });
 
-    // 4.5. Add summary as first assistant message in new session
-    // ARCHITECTURE: Summary is added as assistant message (not user message)
-    // This makes semantic sense - it's the AI's understanding of the conversation
-    // User can then naturally continue by sending their next message
-    const summaryMessage = `This session is being continued from a previous conversation. Here's what we've discussed so far:
+    // 4.5. Add summary as system message in new session
+    // ARCHITECTURE: Summary uses 'system' role (session-level)
+    // - Session layer: role='system' (semantic clarity, UI can filter)
+    // - Model layer: converts to role='user' for attention decay
+    // - UI behavior: Skip in history navigation, show with special styling
+    const summaryMessage = `[Previous Conversation Summary]
+
+This session continues from a previous conversation. Here's what we discussed:
 
 ${summary}
 
@@ -230,7 +233,7 @@ You can continue working where we left off, or start a new task.`;
 
     await messageRepo.addMessage({
       sessionId: newSession.id,
-      role: 'assistant',
+      role: 'system',
       content: [{ type: 'text', content: summaryMessage }],
       attachments: [],
     });
