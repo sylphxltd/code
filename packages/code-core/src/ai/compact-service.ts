@@ -68,61 +68,51 @@ function buildConversationHistory(messages: Message[]): string {
  * Emphasizes completeness and current work state
  */
 function createSummaryPrompt(conversationHistory: string): string {
-  return `You are a conversation summarizer for a coding assistant. Create a summary that allows seamless continuation of work in a new session.
+  return `You are a conversation summarizer for a coding assistant. Create a concise summary that allows seamless continuation of work.
 
-SUMMARY STRUCTURE (use these sections as applicable):
+FORMATTING RULES:
 
-## Overview
-Brief 1-2 sentence description of what this conversation was about.
+1. **For simple conversations** (greetings, brief chats, no coding work):
+   Format:
+   """
+   Previous conversation:
+   [Last 2-3 exchanges verbatim]
 
-## Recent Conversation
-**CRITICAL**: Include the last 3-5 exchanges verbatim or near-verbatim. The assistant needs to remember exactly what was just discussed to continue naturally.
+   No active coding tasks.
+   """
 
-## Work Completed
-List concrete accomplishments:
-- Files created/modified (with paths)
-- Features implemented
-- Bugs fixed
-- Commands run
-- Decisions made
+2. **For active coding work**:
+   Use markdown sections (only include non-empty sections):
 
-## Current Work
-**CRITICAL**: What is actively being worked on RIGHT NOW:
-- Current task/feature being implemented
-- What stage it's at (debugging, implementing, testing, etc.)
-- What works and what doesn't
-- Any errors or blockers encountered
+   ## Recent Conversation
+   [Last 3-5 exchanges - ALWAYS include this]
 
-## Pending Tasks
-Explicit list of what needs to be done next:
-- [ ] Immediate next steps
-- [ ] Known issues to fix
-- [ ] Planned features/improvements
-- [ ] User's explicit requests that haven't been completed
+   ## Work Summary
+   - What was accomplished
+   - Current status of implementation
+   - What's working and what's not
 
-## Technical Context
-Key technical details needed to continue:
-- Important file paths, function names, variable names
-- Architecture decisions and patterns used
-- Dependencies, libraries, frameworks
-- Configuration details
-- Command syntax used
+   ## Next Steps
+   - [ ] Immediate tasks
+   - [ ] User's pending requests
 
-## User's Last Request
-**CRITICAL**: What did the user ask for most recently? This is what the assistant should focus on when the conversation resumes.
+   ## Key Technical Details
+   - File paths: ...
+   - Functions/variables: ...
+   - Commands used: ...
 
-REQUIREMENTS:
-- If conversation is simple (greetings, brief exchanges), keep summary concise but accurate
-- DO NOT invent work that wasn't done
-- DO NOT omit the user's last request
-- Preserve exact technical details (paths, function names, commands)
-- If there's ongoing work, make it crystal clear what the next step is
-- If conversation was just starting, say so clearly
+CRITICAL REQUIREMENTS:
+- ALWAYS preserve the last few exchanges (user needs context)
+- Be concise - no filler text, no empty sections
+- Capture user's ACTUAL last message/request accurately
+- For greetings/simple chat, don't create fake "work" sections
+- If there's real coding work, include concrete details (file paths, function names, error messages)
+- DO NOT add explanatory text like "Here is the summary..." - just provide the summary directly
 
 CONVERSATION TO SUMMARIZE:
 ${conversationHistory}
 
-Provide the structured summary now:`;
+Summary:`;
 }
 
 /**
@@ -252,11 +242,10 @@ export async function compactSession(
     // - UI behavior: Skip in history navigation, show with special styling
     const summaryMessage = `[Previous Conversation Summary]
 
-This session continues from a previous conversation. Here's what we discussed:
-
 ${summary}
 
-Please acknowledge that you've reviewed the summary and confirm you're ready to continue.`;
+---
+*You are now in a new session. Continue the conversation naturally based on the context above.*`;
 
     // Import message repository to add message
     const { MessageRepository } = await import('../database/message-repository.js');
