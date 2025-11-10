@@ -8,7 +8,7 @@
 import { useInput } from 'ink';
 import type React from 'react';
 import { get } from '@sylphx/zen';
-import { $isCompacting, abortCompact } from '../../../signals/domain/ui/index.js';
+import { $isCompacting, abortCompact } from '../../signals/domain/ui/index.js';
 
 export interface UseAbortHandlerOptions {
   isStreaming: boolean;
