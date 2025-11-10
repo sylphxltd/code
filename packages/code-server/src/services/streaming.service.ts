@@ -302,7 +302,10 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         console.log('[streamAIResponse] Built model messages:', JSON.stringify(messages.map(m => ({
           role: m.role,
-          contentLength: Array.isArray(m.content) ? m.content.length : 'string'
+          contentLength: Array.isArray(m.content) ? m.content.length : 'string',
+          contentPreview: Array.isArray(m.content) ? m.content.map(c =>
+            c.type === 'text' ? c.text.substring(0, 100) : c.type
+          ) : 'N/A'
         })), null, 2));
 
         // 7. Determine agentId and build system prompt

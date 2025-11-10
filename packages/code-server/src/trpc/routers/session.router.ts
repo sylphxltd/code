@@ -324,8 +324,8 @@ export const sessionRouter = router({
       });
 
       // Auto-trigger AI streaming in new session (server-side business logic)
-      // The new session has a system message (summary) that provides context
-      // We add a simple continuation prompt to trigger the AI response
+      // The new session has a system message (summary) that will be converted to model user message
+      // We trigger streaming with skipUserMessage=true to use the existing system message
       const { streamAIResponse } = await import('../../services/streaming.service.js');
 
       // Start streaming in background (don't await - return immediately)
@@ -336,8 +336,8 @@ export const sessionRouter = router({
         messageRepository: ctx.messageRepository,
         aiConfig: ctx.aiConfig,
         sessionId: result.newSessionId!,
-        content: [{ type: 'text' as const, content: 'Please continue based on the conversation summary above.' }],
-        skipUserMessage: false, // Add the continuation prompt as a user message
+        content: [], // Empty content - use existing system message
+        skipUserMessage: true, // Don't add new user message
       }).subscribe({
         next: (event) => {
           // Publish streaming events to event stream for all clients
