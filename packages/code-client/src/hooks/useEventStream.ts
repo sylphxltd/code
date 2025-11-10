@@ -221,5 +221,8 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
       subscription.unsubscribe();
       subscriptionRef.current = null;
     };
-  }, [currentSessionId, replayLast, callbacks]);
+  }, [currentSessionId, replayLast]);
+  // NOTE: callbacks NOT in dependency array to avoid infinite loop
+  // callbacks object is recreated on every render, would trigger constant resubscription
+  // Only resubscribe when sessionId or replayLast changes
 }
