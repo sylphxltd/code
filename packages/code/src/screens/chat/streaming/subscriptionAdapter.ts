@@ -169,99 +169,106 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       logSession('Parsed content:', JSON.stringify(content, null, 2));
 
       // Optimistic update: Add user message immediately for better UX
-      // IMPORTANT: Always add optimistic message, even for new sessions!
-      // Convert ParsedContentPart to MessagePart with proper structure
-      const optimisticMessageId = `temp-user-${Date.now()}`;
+      // SKIP if userMessage is empty (used for triggering AI with existing messages)
+      // This allows /compact to trigger AI without adding a new user message
+      const skipOptimisticUpdate = userMessage.length === 0;
 
-      logSession('Creating optimistic update:', { sessionId, hasSession: !!sessionId });
+      if (!skipOptimisticUpdate) {
+        // Convert ParsedContentPart to MessagePart with proper structure
+        const optimisticMessageId = `temp-user-${Date.now()}`;
 
-      // Build MessagePart[] from content and attachments
-      const messageParts: MessagePart[] = content.map((part) => {
-        if (part.type === 'text') {
+        logSession('Creating optimistic update:', { sessionId, hasSession: !!sessionId });
+
+        // Build MessagePart[] from content and attachments
+        const messageParts: MessagePart[] = content.map((part) => {
+          if (part.type === 'text') {
+            return {
+              type: 'text',
+              content: part.content,
+              status: 'completed' as const,
+            };
+          } else if (part.type === 'file') {
+            // For optimistic update, create file part WITHOUT base64
+            // Server will handle actual file reading and freezing
+            // We just need to display it correctly in UI
+            const attachment = attachments?.find(a => a.relativePath === part.relativePath);
+
+            return {
+              type: 'file',
+              relativePath: part.relativePath,
+              mediaType: attachment?.mimeType || 'application/octet-stream',
+              // Use empty base64 for optimistic display - server will provide real data
+              base64: '',
+              size: part.size || attachment?.size || 0,
+              status: 'completed' as const,
+            };
+          }
+          // Shouldn't reach here, but return text fallback
           return {
             type: 'text',
-            content: part.content,
+            content: '',
             status: 'completed' as const,
           };
-        } else if (part.type === 'file') {
-          // For optimistic update, create file part WITHOUT base64
-          // Server will handle actual file reading and freezing
-          // We just need to display it correctly in UI
-          const attachment = attachments?.find(a => a.relativePath === part.relativePath);
+        });
 
-          return {
-            type: 'file',
-            relativePath: part.relativePath,
-            mediaType: attachment?.mimeType || 'application/octet-stream',
-            // Use empty base64 for optimistic display - server will provide real data
-            base64: '',
-            size: part.size || attachment?.size || 0,
-            status: 'completed' as const,
-          };
-        }
-        // Shouldn't reach here, but return text fallback
-        return {
-          type: 'text',
-          content: '',
-          status: 'completed' as const,
-        };
-      });
+        logSession('Built message parts:', messageParts.length, 'parts');
 
-      logSession('Built message parts:', messageParts.length, 'parts');
+        // Add optimistic message to store (works for both existing and new sessions)
+        // IMPORTANT: Use get() to avoid triggering re-renders during subscription setup
+        const currentSession = getSignal($currentSession);
+        const shouldCreateTempSession = !sessionId || !currentSession || currentSession.id !== sessionId;
 
-      // Add optimistic message to store (works for both existing and new sessions)
-      // IMPORTANT: Use get() to avoid triggering re-renders during subscription setup
-      const currentSession = getSignal($currentSession);
-      const shouldCreateTempSession = !sessionId || !currentSession || currentSession.id !== sessionId;
+        // IMMUTABLE UPDATE: zen signals need immutable updates to trigger re-renders
+        if (sessionId && currentSession?.id === sessionId) {
+          // For existing sessions, add to current session
+          const beforeCount = currentSession.messages.length;
 
-      // IMMUTABLE UPDATE: zen signals need immutable updates to trigger re-renders
-      if (sessionId && currentSession?.id === sessionId) {
-        // For existing sessions, add to current session
-        const beforeCount = currentSession.messages.length;
+          setSignal($currentSession, {
+            ...currentSession,
+            messages: [
+              ...currentSession.messages,
+              {
+                id: optimisticMessageId,
+                role: 'user',
+                content: messageParts,
+                timestamp: Date.now(),
+                status: 'completed',
+              }
+            ]
+          });
 
-        setSignal($currentSession, {
-          ...currentSession,
-          messages: [
-            ...currentSession.messages,
-            {
+          logSession('Added optimistic message to existing session:', {
+            id: optimisticMessageId,
+            beforeCount,
+            afterCount: beforeCount + 1,
+          });
+        } else {
+          // For new sessions or no current session, create temporary session for display
+          logSession('Creating temporary session for optimistic display');
+
+          setCurrentSessionId('temp-session');
+          setSignal($currentSession, {
+            id: 'temp-session',
+            title: 'New Chat',
+            agentId: 'coder',
+            provider: provider || '',
+            model: model || '',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            messages: [{
               id: optimisticMessageId,
               role: 'user',
               content: messageParts,
               timestamp: Date.now(),
               status: 'completed',
-            }
-          ]
-        });
+            }],
+            todos: [],
+          });
 
-        logSession('Added optimistic message to existing session:', {
-          id: optimisticMessageId,
-          beforeCount,
-          afterCount: beforeCount + 1,
-        });
+          logSession('Created temporary session with optimistic message');
+        }
       } else {
-        // For new sessions or no current session, create temporary session for display
-        logSession('Creating temporary session for optimistic display');
-
-        setCurrentSessionId('temp-session');
-        setSignal($currentSession, {
-          id: 'temp-session',
-          title: 'New Chat',
-          agentId: 'coder',
-          provider: provider || '',
-          model: model || '',
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-          messages: [{
-            id: optimisticMessageId,
-            role: 'user',
-            content: messageParts,
-            timestamp: Date.now(),
-            status: 'completed',
-          }],
-          todos: [],
-        });
-
-        logSession('Created temporary session with optimistic message');
+        logSession('Skipping optimistic update (empty userMessage - triggering with existing messages)');
       }
 
       logSession('Calling streamResponse subscription', {

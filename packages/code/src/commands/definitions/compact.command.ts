@@ -71,17 +71,21 @@ export const compactCommand: Command = {
           addMessages(newSession.messages);
         }
 
-        // Send success message as assistant message BEFORE triggering AI
-        context.sendMessage(`✓ Compacted session "${sessionTitle}" (${messageCount} messages)\n✓ Created new session with AI-generated summary\n✓ Switched to new session`);
+        // Don't send success message yet - let AI respond first
 
-        // Auto-trigger AI response to acknowledge the compacted session
-        // The triggerAIResponse will send a 'Hi' user message and start streaming
-        context.addLog('[Compact] Triggering AI response in new session...');
+        // Auto-trigger AI response based on the summary
+        // The new session already has the system message (summary)
+        // We just need to trigger the LLM to process it and respond
+        context.addLog('[Compact] Triggering AI to process summary...');
 
         try {
-          await context.triggerAIResponse('Hi');
+          // Trigger AI by sending an empty user message
+          // This will cause the LLM to see the system message and respond
+          await context.triggerAIResponse('');
         } catch (err) {
           context.addLog(`[Compact] Failed to trigger AI response: ${err instanceof Error ? err.message : String(err)}`);
+          // If triggering AI fails, at least show success message
+          context.sendMessage(`✓ Compacted session "${sessionTitle}" (${messageCount} messages)\n✓ Created new session with AI-generated summary\n✓ Switched to new session`);
         }
       }
 
