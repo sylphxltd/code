@@ -218,6 +218,7 @@ export {
 // Session Management
 // ============================================================================
 export { getOrCreateSession, showModelToolSupportError } from './ai/session-service.js'
+export { compactSession, shouldCompactSession, type CompactResult } from './ai/compact-service.js'
 export { createHeadlessDisplay } from './ai/headless-display.js'
 export { addMessage } from './utils/session-manager.js'
 
