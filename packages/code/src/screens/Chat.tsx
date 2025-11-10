@@ -12,6 +12,7 @@
 
 import {
   useAIConfig,
+  useAIConfigActions,
   useAskToolHandler,
   useChat,
   useCurrentSession,
@@ -25,7 +26,6 @@ import {
   useCurrentScreen,
   useIsLoading,
   useUIError,
-  useAIConfig as useAIConfigSignal,
   useSelectedProvider,
   useSelectedModel,
   addDebugLog,
@@ -87,7 +87,7 @@ const notificationSettings = {
 
 export default function Chat(_props: ChatProps) {
   // Zen signals
-  const aiConfig = useAIConfigSignal();
+  const aiConfig = useAIConfig();
   const selectedProvider = useSelectedProvider();
   const selectedModel = useSelectedModel();
 
@@ -104,7 +104,7 @@ export default function Chat(_props: ChatProps) {
 
   // Custom hooks
   const { sendMessage } = useChat();
-  const { saveConfig } = useAIConfig();
+  const { saveConfig } = useAIConfigActions();
   const usedTokens = useTokenCalculation(currentSession || null);
 
   // LAZY SESSIONS: No auto-session creation on startup

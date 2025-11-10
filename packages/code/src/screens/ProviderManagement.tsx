@@ -3,7 +3,7 @@
  * Add, edit, remove AI providers
  */
 
-import { useAIConfig, useKeyboard, $aiConfig } from '@sylphx/code-client';
+import { useAIConfig, useAIConfigActions, useKeyboard, $aiConfig } from '@sylphx/code-client';
 import {
   navigateTo,
   updateProvider,
@@ -29,7 +29,7 @@ export default function ProviderManagement() {
   const [apiKeyInput, setApiKeyInput] = useState('');
 
   const aiConfig = useAIConfig();
-  const { saveConfig } = useAIConfig();
+  const { saveConfig } = useAIConfigActions();
 
   const configuredProviders = Object.keys(aiConfig?.providers || {}) as ProviderId[];
 

@@ -70,7 +70,7 @@ export type {
 // ============================================================================
 // React Hooks
 // ============================================================================
-export { useAIConfig } from './hooks/useAIConfig.js'
+export { useAIConfig as useAIConfigActions } from './hooks/useAIConfig.js'
 export { useAskToolHandler } from './hooks/useAskToolHandler.js'
 export { useChat } from './hooks/useChat.js'
 export { useCurrentSession } from './hooks/useCurrentSession.js'

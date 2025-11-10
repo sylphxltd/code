@@ -3,7 +3,7 @@
  * Root React + Ink component with screen routing
  */
 
-import { useKeyboard, useSessionPersistence, useAIConfig,
+import { useKeyboard, useSessionPersistence, useAIConfigActions,
          useCurrentScreen, useIsLoading, useUIError, setError } from '@sylphx/code-client';
 import { Box, Text } from 'ink';
 import React, { useEffect, useState } from 'react';
@@ -21,7 +21,7 @@ function AppContent() {
   const [commandPaletteCommand, setCommandPaletteCommand] = useState<string | null>(null);
 
   // Load AI config on mount
-  const { loadConfig } = useAIConfig();
+  const { loadConfig } = useAIConfigActions();
 
   // Load sessions from database (auto-migrates from files if needed)
   useSessionPersistence();

@@ -5,10 +5,10 @@
 
 import {
   useAIConfig,
+  useAIConfigActions,
   useKeyboard,
   useModels,
   useProviders,
-  useAIConfig as useAIConfigSignal,
   useSelectedProvider,
   useSelectedModel,
   setSelectedProvider,
@@ -42,10 +42,10 @@ export default function ModelSelection() {
   const [mode, setMode] = useState<Mode>('provider');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const aiConfig = useAIConfigSignal();
+  const aiConfig = useAIConfig();
   const selectedProvider = useSelectedProvider();
   const selectedModel = useSelectedModel();
-  const { saveConfig } = useAIConfig();
+  const { saveConfig } = useAIConfigActions();
 
   const configuredProviders = Object.keys(aiConfig?.providers || {});
 
