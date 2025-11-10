@@ -5,6 +5,7 @@
 
 import type { SessionRepository, AIConfig, Session } from '@sylphx/code-core';
 import type { AppContext } from '../../context.js';
+import { publishTitleUpdate } from '../event-publisher.js';
 
 /**
  * Title streaming callbacks for real-time updates
@@ -130,14 +131,9 @@ Output only the title, nothing else.`,
         if (callbacks) {
           callbacks.onEnd(cleaned);
         } else {
-          const endEvent = {
-            type: 'session-title-updated-end' as const,
-            sessionId: session.id,
-            title: cleaned,
-          };
-          // Fire-and-forget publish (non-blocking, same as message streaming)
-          appContext.eventStream.publish(`session:${session.id}`, endEvent).catch(err => {
-            console.error('[TitleGen] Failed to publish END event:', err);
+          // Publish to both channels for UC5: Selective Event Delivery
+          publishTitleUpdate(appContext.eventStream, session.id, cleaned).catch(err => {
+            console.error('[TitleGen] Failed to publish title update:', err);
           });
         }
         return cleaned;

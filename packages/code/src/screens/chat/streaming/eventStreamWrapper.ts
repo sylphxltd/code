@@ -10,7 +10,7 @@ import { shouldSkipEventStreamEvent } from './streamingSource.js';
 import type { EventContextParams } from './eventContextBuilder.js';
 import { buildEventContext } from './eventContextBuilder.js';
 
-const DEBUG_EVENT_STREAM = false; // Toggle for debugging
+const DEBUG_EVENT_STREAM = true; // Toggle for debugging
 
 /**
  * Wrap event stream callback with deduplication

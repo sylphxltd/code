@@ -88,14 +88,18 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
   useEffect(() => {
     // Cleanup previous subscription
     if (subscriptionRef.current) {
+      console.log('[useEventStream] Unsubscribing from previous session');
       subscriptionRef.current.unsubscribe();
       subscriptionRef.current = null;
     }
 
     // Skip if no session
     if (!currentSessionId) {
+      console.log('[useEventStream] No currentSessionId, skipping subscription');
       return;
     }
+
+    console.log('[useEventStream] Subscribing to session:', currentSessionId, 'replayLast:', replayLast);
 
     // Subscribe to event stream
     const client = getTRPCClient();
@@ -108,6 +112,7 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
       {
         onData: (storedEvent: any) => {
           const event = storedEvent.payload;
+          console.log('[useEventStream] Received event:', event.type, 'for session:', currentSessionId);
 
           // Handle all event types
           switch (event.type) {
@@ -197,19 +202,22 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
         },
         onError: (error: any) => {
           const errorMessage = error instanceof Error ? error.message : 'Event stream error';
+          console.error('[useEventStream] Error:', errorMessage);
           callbacks.onError?.(errorMessage);
           setError(errorMessage);
         },
         onComplete: () => {
-          // Stream completed
+          console.log('[useEventStream] Stream completed for session:', currentSessionId);
         },
       }
     );
 
     subscriptionRef.current = subscription;
+    console.log('[useEventStream] Subscription created successfully for session:', currentSessionId);
 
     // Cleanup on unmount or session change
     return () => {
+      console.log('[useEventStream] Cleaning up subscription for session:', currentSessionId);
       subscription.unsubscribe();
       subscriptionRef.current = null;
     };

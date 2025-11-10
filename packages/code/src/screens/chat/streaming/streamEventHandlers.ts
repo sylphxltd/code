@@ -278,6 +278,13 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
     return;
   }
 
+  // Check if message already exists (prevent duplicates)
+  const messageExists = currentSession.messages.some(m => m.id === event.messageId);
+  if (messageExists) {
+    logMessage('Message already exists, skipping:', event.messageId);
+    return;
+  }
+
   // Add new assistant message to session
   const newMessage = {
     id: event.messageId,

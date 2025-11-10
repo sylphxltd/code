@@ -13,6 +13,7 @@ import {
   moderateProcedure,
 } from '../trpc.js';
 import type { ProviderId } from '@sylphx/code-core';
+import { publishTitleUpdate } from '../../services/event-publisher.js';
 
 export const sessionRouter = router({
   /**
@@ -155,12 +156,8 @@ export const sessionRouter = router({
     .mutation(async ({ ctx, input }) => {
       await ctx.sessionRepository.updateSessionTitle(input.sessionId, input.title);
 
-      // Publish to event stream for multi-client sync
-      await ctx.appContext.eventStream.publish('session-events', {
-        type: 'session-title-updated' as const,
-        sessionId: input.sessionId,
-        title: input.title,
-      });
+      // Publish to both channels for UC5: Selective Event Delivery
+      await publishTitleUpdate(ctx.appContext.eventStream, input.sessionId, input.title);
     }),
 
   /**
