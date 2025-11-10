@@ -1,23 +1,25 @@
 /**
- * Subscription Adapter for tRPC Streaming
- * Converts tRPC subscription events to UI updates
+ * Streaming Trigger Adapter for tRPC
+ * Triggers AI streaming via mutation and handles optimistic updates
  *
- * This adapter bridges the new tRPC subscription architecture with the existing UI.
- * It maintains the same interface as the old sendUserMessageToAI function but uses
- * the new unified subscription backend.
+ * MUTATION + EVENT STREAM ARCHITECTURE:
+ * - Client calls triggerStream mutation to start streaming
+ * - Server streams in background and publishes all events to event bus
+ * - Client receives events via useEventStream (Chat.tsx)
+ * - All event handling in streamEventHandlers.ts
  *
  * Architecture:
- * - TUI: Uses in-process subscription link (zero overhead)
- * - Web: Will use httpSubscriptionLink (SSE over network)
+ * - TUI: Uses in-process tRPC (zero overhead)
+ * - Web: Will use HTTP tRPC (over network)
  * - Same interface for both!
  *
- * PASSIVE SUBSCRIBER MODEL:
- * - Client NEVER proactively sets state or adds messages
- * - Client ONLY reacts to server events via handleStreamEvent()
- * - Server pushes all updates via observable (session-created, title-delta, text-delta, etc.)
- * - Multi-client sync works automatically (TUI + GUI receive same events)
- * - No optimistic updates, no predictions, no assumptions
- * - All state changes are event-driven in switch/case handlers
+ * OPTIMISTIC UPDATE + PASSIVE EVENT MODEL:
+ * - Client adds optimistic user message before mutation call
+ * - Client calls mutation to trigger streaming
+ * - Server streams and publishes events to event bus
+ * - Client receives events via useEventStream and reacts in handleStreamEvent()
+ * - Multi-client sync works automatically (all clients subscribe to session's event stream)
+ * - All streaming state changes are event-driven
  */
 
 import {
@@ -91,13 +93,17 @@ export interface SubscriptionAdapterParams {
 }
 
 /**
- * Creates sendUserMessageToAI function using tRPC subscription
+ * Creates sendUserMessageToAI function using tRPC mutation + event stream
  *
- * Maintains same interface as old implementation but uses new subscription backend.
+ * Flow:
+ * 1. Adds optimistic user message to UI (for instant feedback)
+ * 2. Calls triggerStream mutation to start server streaming
+ * 3. Server publishes events to event bus
+ * 4. useEventStream receives events and calls handleStreamEvent
+ * 5. Event handlers update UI state
  *
- * OPTIONS:
- * - skipUserMessage: When true, triggers AI with existing messages only (no new user message)
- *   Use case: /compact command where session already has system message that converts to user message
+ * Note: Empty content array = trigger with existing messages only (no new user message)
+ * Use case: /compact command where session already has messages
  */
 export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapterParams) {
   const {
@@ -284,7 +290,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
         logSession('Skipping optimistic update (skipUserMessage=true - triggering with existing messages)');
       }
 
-      logSession('Calling streamResponse subscription', {
+      logSession('Calling triggerStream mutation', {
         sessionId,
         hasProvider: !!provider,
         hasModel: !!model,
@@ -292,102 +298,30 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
         contentParts: content.length,
       });
 
-      // Call subscription procedure (returns Observable)
-      // If sessionId is null, pass provider/model for lazy session creation
-      // NOTE: Don't await subscriptions - they return observables synchronously
+      // MUTATION ARCHITECTURE: Trigger streaming via mutation, receive via event stream
+      // - Mutation triggers server to start streaming in background
+      // - Server publishes all events to event bus
+      // - Client receives events via useEventStream (Chat.tsx)
+      // - No subscription callbacks needed - all handled in event handlers
+      const result = await caller.message.triggerStream.mutate({
+        sessionId: sessionId,
+        provider: sessionId ? undefined : provider,
+        model: sessionId ? undefined : model,
+        content, // Empty array = use existing messages, non-empty = add new user message
+      });
 
-      // tRPC v11 subscription API: client.procedure.subscribe(input, callbacks)
-      const subscription = caller.message.streamResponse.subscribe(
-        {
-          sessionId: sessionId,
-          provider: sessionId ? undefined : provider,
-          model: sessionId ? undefined : model,
-          content, // Empty array = use existing messages, non-empty = add new user message
-        },
-        {
-          onStarted: () => {
-            logSession('Subscription started successfully');
-            // Set streaming flag immediately when subscription starts
-            setIsStreaming(true);
-          },
-          onData: (event: StreamEvent) => {
-            // ARCHITECTURE: Single event stream path
-            // This subscription ONLY triggers server streaming
-            // All event handling happens in useEventStream (Chat.tsx)
-            //
-            // We don't process events here to avoid duplicates:
-            // - This subscription publishes to event bus
-            // - useEventStream receives from event bus
-            // - Processing here = double handling = duplicate UI
+      logSession('Mutation completed:', result);
 
-            logMessage('Direct subscription received event (not processing):', event.type);
-          },
-          onError: (error: any) => {
-            try {
-              logSession('Subscription error:', error.message || String(error));
-              addLog(`[Subscription] Error: ${error.message || String(error)}`);
-              lastErrorRef.current = error.message || String(error);
+      // Set streaming flag immediately after mutation triggers
+      setIsStreaming(true);
 
-              // Add error message part to UI
-              updateActiveMessageContent(sessionId, streamingMessageIdRef.current, (prev) => [
-                ...prev,
-                {
-                  type: 'error',
-                  error: error.message || String(error),
-                  status: 'completed',
-                } as MessagePart,
-              ]);
-
-              // Cleanup
-              cleanupAfterStream({
-                currentSessionId: sessionId,
-                wasAbortedRef,
-                lastErrorRef,
-                usageRef,
-                finishReasonRef,
-                streamingMessageIdRef,
-                setIsStreaming,
-                notificationSettings,
-              });
-            } catch (handlerError) {
-              console.error('[subscriptionAdapter] Error in onError handler:', handlerError);
-              // Ensure streaming state is reset even if error handling fails
-              setIsStreaming(false);
-            }
-          },
-          onComplete: () => {
-            try {
-              logSession('Subscription completed successfully');
-              addLog('[Subscription] Complete');
-
-              // Cleanup
-              cleanupAfterStream({
-                currentSessionId: sessionId,
-                wasAbortedRef,
-                lastErrorRef,
-                usageRef,
-                finishReasonRef,
-                streamingMessageIdRef,
-                setIsStreaming,
-                notificationSettings,
-              });
-            } catch (handlerError) {
-              console.error('[subscriptionAdapter] Error in onComplete handler:', handlerError);
-              // Ensure streaming state is reset even if cleanup fails
-              setIsStreaming(false);
-            }
-          },
-        }
-      );
-
-      logSession('Subscription created, listening for events');
-
-      // Handle abort
+      // Handle abort (client-side state management only)
+      // TODO: Add abort mutation to notify server to stop generation
       abortControllerRef.current.signal.addEventListener('abort', () => {
         try {
-          addLog('[Subscription] Aborted by user');
+          logSession('Stream aborted by user');
+          addLog('[Mutation] Aborted by user');
           wasAbortedRef.current = true;
-          subscription.unsubscribe();
 
           // Mark active parts as aborted
           updateActiveMessageContent(sessionId, streamingMessageIdRef.current, (prev) =>
@@ -396,25 +330,16 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
             )
           );
 
-          // Cleanup
-          cleanupAfterStream({
-            currentSessionId: sessionId,
-            wasAbortedRef,
-            lastErrorRef,
-            usageRef,
-            finishReasonRef,
-            streamingMessageIdRef,
-            setIsStreaming,
-            notificationSettings,
-          });
+          // Reset streaming state (client-side only)
+          setIsStreaming(false);
+          streamingMessageIdRef.current = null;
         } catch (handlerError) {
           console.error('[subscriptionAdapter] Error in abort handler:', handlerError);
-          // Ensure streaming state is reset even if abort handling fails
           setIsStreaming(false);
         }
       });
     } catch (error) {
-      logSession('Subscription setup error:', {
+      logSession('Mutation call error:', {
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
       });
@@ -438,125 +363,14 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
  * DEPRECATED: Title generation is now handled by backend streaming service
  *
  * Backend emits session-title-start/delta/complete events during streaming.
- * The subscription adapter handles these events (lines 405-419) and updates the UI.
+ * The subscription adapter handles these events and updates the UI.
  * This function is no longer needed but kept for reference.
  */
 
 /**
- * Cleanup after stream completes or errors
- * NOTE: All operations wrapped in try-catch to prevent cleanup errors from crashing
+ * DEPRECATED: Cleanup after stream completes or errors
+ *
+ * With mutation-based architecture, all cleanup is handled by event handlers
+ * (handleComplete, handleError in streamEventHandlers.ts).
+ * This function is no longer needed but kept for reference.
  */
-async function cleanupAfterStream(context: {
-  currentSessionId: string | null;
-  wasAbortedRef: React.MutableRefObject<boolean>;
-  lastErrorRef: React.MutableRefObject<string | null>;
-  usageRef: React.MutableRefObject<TokenUsage | null>;
-  finishReasonRef: React.MutableRefObject<string | null>;
-  streamingMessageIdRef: React.MutableRefObject<string | null>;
-  setIsStreaming: (value: boolean) => void;
-  notificationSettings: { notifyOnCompletion: boolean; notifyOnError: boolean };
-}) {
-  try {
-    // IMPORTANT: Get current session ID from signals (not from context)
-    // For lazy sessions, the sessionId is updated in signals after session-created event
-    const currentSessionId = getCurrentSessionId();
-
-    const wasAborted = context.wasAbortedRef.current;
-    const hasError = context.lastErrorRef.current;
-
-    // Update message status in zen signals
-    const finalStatus = wasAborted ? 'abort' : hasError ? 'error' : 'completed';
-
-    try {
-      const session = getSignal($currentSession);
-      if (!session || session.id !== currentSessionId) {
-        return;
-      }
-
-      const activeMessage = [...session.messages]
-        .reverse()
-        .find((m) => m.role === 'assistant' && m.status === 'active');
-
-      if (!activeMessage) {
-        return;
-      }
-
-      // IMMUTABLE UPDATE: Update message status and metadata
-      const updatedMessages = session.messages.map(msg =>
-        msg.id === activeMessage.id
-          ? {
-              ...msg,
-              status: finalStatus,
-              usage: context.usageRef.current || msg.usage,
-              finishReason: context.finishReasonRef.current || msg.finishReason,
-            }
-          : msg
-      );
-
-      setSignal($currentSession, {
-        ...session,
-        messages: updatedMessages,
-      });
-    } catch (stateError) {
-      console.error('[cleanupAfterStream] Failed to update message status:', stateError);
-    }
-
-    // Reload message from database to get steps structure
-    // IMPORTANT: Only reload if stream completed successfully
-    // If there were errors (no usage), database save likely failed (SQLITE_BUSY)
-    // and we want to preserve in-memory error parts in message.content
-    if (currentSessionId && context.streamingMessageIdRef.current && !hasError && context.usageRef.current) {
-      try {
-        const client = getTRPCClient();
-        const session = await client.session.getById.query({ sessionId: currentSessionId });
-
-        if (session) {
-          // Update signals with fresh data from database
-          const currentSessionIdSignal = getCurrentSessionId();
-          if (currentSessionIdSignal === currentSessionId) {
-            setSignal($currentSession, session);
-          }
-        }
-      } catch (error) {
-        console.error('[cleanupAfterStream] Failed to reload session:', error);
-      }
-    }
-
-    // Send notifications
-    try {
-      if (context.notificationSettings.notifyOnCompletion && !wasAborted && !hasError) {
-        // TODO: Send notification (platform-specific)
-      }
-      if (context.notificationSettings.notifyOnError && hasError) {
-        // TODO: Send error notification (platform-specific)
-      }
-    } catch (notificationError) {
-      console.error('[cleanupAfterStream] Failed to send notification:', notificationError);
-    }
-
-    // Reset flags
-    context.wasAbortedRef.current = false;
-    context.lastErrorRef.current = null;
-    context.streamingMessageIdRef.current = null;
-    context.usageRef.current = null;
-    context.finishReasonRef.current = null;
-  } catch (cleanupError) {
-    console.error('[cleanupAfterStream] Critical error during cleanup:', cleanupError);
-  } finally {
-    // ALWAYS reset streaming state, even if cleanup fails
-    try {
-      context.setIsStreaming(false);
-
-      // Emit streaming:completed event for store coordination
-      const currentSessionIdSignal = getCurrentSessionId();
-      if (currentSessionIdSignal && context.streamingMessageIdRef.current) {
-        eventBus.emit('streaming:completed', {
-          sessionId: currentSessionIdSignal,
-          messageId: context.streamingMessageIdRef.current,
-        });
-      }
-    } catch (setStateError) {
-      console.error('[cleanupAfterStream] Failed to set isStreaming to false:', setStateError);
-    }
-  }
-}
