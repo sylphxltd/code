@@ -259,6 +259,8 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
   const currentSessionId = getCurrentSessionId();
   const currentSession = getSignal($currentSession);
 
+  console.log('🔍 [handleAssistantMessageCreated] START - messageId:', event.messageId, 'currentSessionId:', currentSessionId);
+
   context.streamingMessageIdRef.current = event.messageId;
   logMessage('Message created:', event.messageId, 'session:', currentSessionId);
 
@@ -274,6 +276,7 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
   }
 
   if (!currentSession || currentSession.id !== currentSessionId) {
+    console.log('🔍 [handleAssistantMessageCreated] ABORTED - Session mismatch! expected:', currentSessionId, 'got:', currentSession?.id);
     logMessage('Session mismatch! expected:', currentSessionId, 'got:', currentSession?.id);
     return;
   }
@@ -281,9 +284,12 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
   // Check if message already exists (prevent duplicates)
   const messageExists = currentSession.messages.some(m => m.id === event.messageId);
   if (messageExists) {
+    console.log('🔍 [handleAssistantMessageCreated] ABORTED - Message already exists:', event.messageId);
     logMessage('Message already exists, skipping:', event.messageId);
     return;
   }
+
+  console.log('🔍 [handleAssistantMessageCreated] Creating new message, current message count:', currentSession.messages.length);
 
   // Add new assistant message to session
   const newMessage = {
@@ -293,6 +299,8 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
     timestamp: Date.now(),
     status: 'active',
   };
+
+  console.log('🔍 [handleAssistantMessageCreated] About to update $currentSession signal');
 
   setSignal($currentSession, {
     ...currentSession,
