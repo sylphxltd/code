@@ -15,6 +15,10 @@ export const $isLoading = zen(false);
 export const $error = zen<string | null>(null);
 export const $debugLogs = zen<string[]>([]);
 
+// Compacting state (for /compact command)
+export const $isCompacting = zen(false);
+export const $compactAbortController = zen<AbortController | null>(null);
+
 // Computed signals
 export const $canGoBack = computed(
   [$currentScreen, $previousScreen],
@@ -43,6 +47,26 @@ export const goBack = () => {
 export const setLoading = (loading: boolean) => set($isLoading, loading);
 export const setError = (error: string | null) => set($error, error);
 
+export const setCompacting = (compacting: boolean) => {
+  set($isCompacting, compacting);
+  if (!compacting) {
+    // Clear abort controller when done
+    set($compactAbortController, null);
+  }
+};
+
+export const setCompactAbortController = (controller: AbortController | null) => {
+  set($compactAbortController, controller);
+};
+
+export const abortCompact = () => {
+  const controller = get($compactAbortController);
+  if (controller) {
+    controller.abort();
+    setCompacting(false);
+  }
+};
+
 export const addDebugLog = (message: string) => {
   if (!process.env.DEBUG) {
     return;
@@ -70,3 +94,4 @@ export const useIsLoading = () => useStore($isLoading);
 export const useUIError = () => useStore($error);
 export const useShowNavigation = () => useStore($showNavigation);
 export const useDebugLogs = () => useStore($debugLogs);
+export const useIsCompacting = () => useStore($isCompacting);

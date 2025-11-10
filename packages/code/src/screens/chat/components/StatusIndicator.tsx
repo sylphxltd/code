@@ -1,10 +1,11 @@
 /**
  * StatusIndicator Component
- * Displays streaming status with spinner and contextual text
+ * Displays streaming and compacting status with spinner and contextual text
  */
 
 import { Box, Text } from 'ink';
 import type { MessagePart } from '@sylphx/code-core';
+import { useIsCompacting } from '@sylphx/code-client';
 import Spinner from '../../../components/Spinner.js';
 
 interface StatusIndicatorProps {
@@ -13,6 +14,19 @@ interface StatusIndicatorProps {
 }
 
 export function StatusIndicator({ isStreaming, streamParts }: StatusIndicatorProps) {
+  const isCompacting = useIsCompacting();
+
+  // Compacting takes priority over streaming
+  if (isCompacting) {
+    return (
+      <Box paddingY={1}>
+        <Spinner color="#FFD700" />
+        <Text color="#FFD700"> Compacting session...</Text>
+        <Text dimColor> (ESC to cancel)</Text>
+      </Box>
+    );
+  }
+
   if (!isStreaming) {
     return (
       <Box paddingY={1}>

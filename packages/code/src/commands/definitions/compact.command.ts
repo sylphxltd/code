@@ -2,6 +2,7 @@
  * Compact Command
  * Server-side session compaction with AI summarization
  * ARCHITECTURE: All logic on server, multi-client sync via tRPC events
+ * UI FLOW: Uses normal message flow with status indicator (doesn't block input)
  */
 
 import type { Command } from '../types.js';
@@ -11,7 +12,7 @@ export const compactCommand: Command = {
   label: '/compact',
   description: 'Summarize current session and create a new session with the summary',
   execute: async (context) => {
-    const { getTRPCClient, setCurrentSessionId } = await import('@sylphx/code-client');
+    const { getTRPCClient, setCompacting, setCompactAbortController } = await import('@sylphx/code-client');
     const { $currentSession } = await import('@sylphx/code-client');
     const { get } = await import('@sylphx/zen');
 
@@ -25,17 +26,32 @@ export const compactCommand: Command = {
       return 'Current session has no messages to compact.';
     }
 
-    const statusMessage = await context.sendMessage('🔄 Compacting session...\n⏳ This may take a moment while AI generates a comprehensive summary.');
+    // Set compacting status (shows indicator in UI)
+    setCompacting(true);
+
+    // Create abort controller for ESC cancellation
+    const abortController = new AbortController();
+    setCompactAbortController(abortController);
 
     try {
       // Call server-side compact mutation
       const client = getTRPCClient();
+
+      // Check if already aborted before starting
+      if (abortController.signal.aborted) {
+        setCompacting(false);
+        return '⚠️ Compaction cancelled.';
+      }
+
       const result = await client.session.compact.mutate({
         sessionId: currentSession.id,
       });
 
+      // Clear compacting status
+      setCompacting(false);
+
       if (!result.success) {
-        return `Failed to compact session: ${result.error}`;
+        return `❌ Failed to compact session: ${result.error}`;
       }
 
       const messageCount = result.messageCount || currentSession.messages.length;
@@ -57,9 +73,17 @@ export const compactCommand: Command = {
 
       return `✓ Compacted session "${sessionTitle}" (${messageCount} messages)\n✓ Created new session with AI-generated summary\n✓ Switched to new session\n\nYou can now continue the conversation where you left off.`;
     } catch (error) {
+      // Clear compacting status on error
+      setCompacting(false);
+
+      // Check if it was aborted
+      if (error instanceof Error && error.name === 'AbortError') {
+        return '⚠️ Compaction cancelled.';
+      }
+
       const errorMsg = error instanceof Error ? error.message : String(error);
       context.addLog(`[Compact] Error: ${errorMsg}`);
-      return `Failed to compact session: ${errorMsg}`;
+      return `❌ Failed to compact session: ${errorMsg}`;
     }
   },
 };
