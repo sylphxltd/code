@@ -234,6 +234,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // 4. Add user message to session (with frozen content)
         // SKIP if skipUserMessage is true (used for triggering AI with existing messages, e.g., /compact)
         let userMessageId: string | null = null;
+        let userMessageText = ''; // Default empty for skipUserMessage case
+
         if (!skipUserMessage) {
           userMessageId = await messageRepository.addMessage({
             sessionId,
@@ -248,7 +250,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
           // 4.1. Emit user-message-created event
           // Extract text content for display (omit file details)
-          const userMessageText = content
+          userMessageText = content
             .map((part) =>
               part.type === 'text' ? part.content : `@${part.relativePath}`
             )
