@@ -8,6 +8,13 @@
       "when": 1762579266437,
       "tag": "0000_bent_wild_child",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1762816875257,
+      "tag": "0001_material_betty_ross",
+      "breakpoints": true
     }
   ]
 }

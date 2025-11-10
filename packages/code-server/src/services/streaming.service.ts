@@ -305,23 +305,28 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           // Continue without context warnings if calculation fails
         }
 
-        const triggerResult = await checkAllTriggers(
-          updatedSession,
-          messageRepository,
-          sessionRepository,
-          contextTokens
-        );
+        try {
+          const triggerResult = await checkAllTriggers(
+            updatedSession,
+            messageRepository,
+            sessionRepository,
+            contextTokens
+          );
 
-        if (triggerResult) {
-          console.log('[streamAIResponse] Trigger fired, inserting system message');
-          await insertSystemMessage(messageRepository, sessionId, triggerResult.message);
+          if (triggerResult) {
+            console.log('[streamAIResponse] Trigger fired, inserting system message');
+            await insertSystemMessage(messageRepository, sessionId, triggerResult.message);
 
-          // Reload session again to include system message and updated flags
-          updatedSession = await sessionRepository.getSessionById(sessionId);
-          if (!updatedSession) {
-            observer.error(new Error('Session not found after adding system message'));
-            return;
+            // Reload session again to include system message and updated flags
+            updatedSession = await sessionRepository.getSessionById(sessionId);
+            if (!updatedSession) {
+              observer.error(new Error('Session not found after adding system message'));
+              return;
+            }
           }
+        } catch (error) {
+          console.error('[streamAIResponse] Trigger system failed:', error);
+          // Continue without system messages if trigger check fails
         }
 
         // 5. Lazy load model capabilities (server-side autonomous)
