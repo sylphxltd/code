@@ -184,12 +184,16 @@ export async function compactSession(
 
     // 4. Create new session (atomic operation)
     const newSessionTitle = `${session.title || 'Untitled'} (continued)`;
-    const newSession = await sessionRepository.createSession({
+    const newSession = await sessionRepository.createSession(
+      session.provider,
+      session.model,
+      session.agentId || 'coder',
+      session.enabledRuleIds || []
+    );
+
+    // Update session with title and metadata
+    await sessionRepository.updateSession(newSession.id, {
       title: newSessionTitle,
-      provider: session.provider,
-      model: session.model,
-      enabledRuleIds: session.enabledRuleIds || [],
-      agentId: session.agentId,
       metadata: {
         compactedFrom: sessionId,
         originalTitle: session.title,
@@ -204,9 +208,9 @@ ${summary}`;
 
     // Import message repository to add message
     const { MessageRepository } = await import('../database/message-repository.js');
-    const { getDatabase } = await import('../database/index.js');
-    const db = getDatabase();
-    const messageRepo = new MessageRepository(db);
+    // Access the db property from sessionRepository (private, but we need it)
+    // @ts-ignore - accessing private property
+    const messageRepo = new MessageRepository(sessionRepository.db);
 
     await messageRepo.addMessage({
       sessionId: newSession.id,
