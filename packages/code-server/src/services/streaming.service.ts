@@ -96,8 +96,12 @@ export interface StreamAIResponseOptions {
   agentId?: string;   // Optional - override session agent
   provider?: string;  // Required if sessionId is null
   model?: string;     // Required if sessionId is null
-  content: ParsedContentPart[]; // Ordered content parts (text + files)
-  skipUserMessage?: boolean; // Skip adding user message (use existing messages)
+
+  // User message content to add before streaming
+  // - If provided: adds new user message with this content, then streams AI response
+  // - If undefined/null: uses existing session messages only (e.g., after compact)
+  userMessageContent?: ParsedContentPart[] | null;
+
   abortSignal?: AbortSignal;
 }
 
@@ -127,8 +131,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           agentId: inputAgentId,
           provider: inputProvider,
           model: inputModel,
-          content,
-          skipUserMessage = false,
+          userMessageContent,
           abortSignal,
         } = opts;
 
@@ -191,52 +194,57 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         const providerInstance = getProvider(provider);
 
         // 3. Read and freeze file content (immutable history)
+        // Only if userMessageContent is provided
         const systemStatus = getSystemStatus();
-        const fs = await import('node:fs/promises');
-        const { lookup } = await import('mime-types');
+        let frozenContent: MessagePart[] = [];
 
-        const frozenContent: MessagePart[] = [];
-        for (const part of content) {
-          if (part.type === 'text') {
-            frozenContent.push({
-              type: 'text',
-              content: part.content,
-              status: 'completed',
-            });
-          } else if (part.type === 'file') {
-            try {
-              // READ NOW and freeze - never re-read from disk
-              const buffer = await fs.readFile(part.path);
-              const mimeType = part.mimeType || lookup(part.path) || 'application/octet-stream';
+        if (userMessageContent) {
+          const fs = await import('node:fs/promises');
+          const { lookup } = await import('mime-types');
 
-              // LEGACY format for backward compatibility
-              // New messages will migrate to file-ref after step creation
+          for (const part of userMessageContent) {
+            if (part.type === 'text') {
               frozenContent.push({
-                type: 'file',
-                relativePath: part.relativePath,
-                size: buffer.length,
-                mediaType: mimeType,
-                base64: buffer.toString('base64'), // Temporary - will be moved to file_contents
+                type: 'text',
+                content: part.content,
                 status: 'completed',
               });
-            } catch (error) {
-              // File read failed - save error
-              console.error('[streamAIResponse] File read failed:', error);
-              frozenContent.push({
-                type: 'error',
-                error: `Failed to read file: ${part.relativePath}`,
-                status: 'completed',
-              });
+            } else if (part.type === 'file') {
+              try {
+                // READ NOW and freeze - never re-read from disk
+                const buffer = await fs.readFile(part.path);
+                const mimeType = part.mimeType || lookup(part.path) || 'application/octet-stream';
+
+                // LEGACY format for backward compatibility
+                // New messages will migrate to file-ref after step creation
+                frozenContent.push({
+                  type: 'file',
+                  relativePath: part.relativePath,
+                  size: buffer.length,
+                  mediaType: mimeType,
+                  base64: buffer.toString('base64'), // Temporary - will be moved to file_contents
+                  status: 'completed',
+                });
+              } catch (error) {
+                // File read failed - save error
+                console.error('[streamAIResponse] File read failed:', error);
+                frozenContent.push({
+                  type: 'error',
+                  error: `Failed to read file: ${part.relativePath}`,
+                  status: 'completed',
+                });
+              }
             }
           }
         }
 
         // 4. Add user message to session (with frozen content)
-        // SKIP if skipUserMessage is true (used for triggering AI with existing messages, e.g., /compact)
+        // Only if userMessageContent is provided (not null/undefined)
+        // If not provided, use existing session messages (e.g., after compact with summary)
         let userMessageId: string | null = null;
-        let userMessageText = ''; // Default empty for skipUserMessage case
+        let userMessageText = '';
 
-        if (!skipUserMessage) {
+        if (userMessageContent) {
           userMessageId = await messageRepository.addMessage({
             sessionId,
             role: 'user',
@@ -250,7 +258,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
           // 4.1. Emit user-message-created event
           // Extract text content for display (omit file details)
-          userMessageText = content
+          userMessageText = userMessageContent
             .map((part) =>
               part.type === 'text' ? part.content : `@${part.relativePath}`
             )

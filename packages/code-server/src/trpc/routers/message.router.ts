@@ -341,8 +341,7 @@ export const messageRouter = router({
         agentId: z.string().optional(),   // Optional - override session agent
         provider: z.string().optional(),  // Required if sessionId is null
         model: z.string().optional(),     // Required if sessionId is null
-        content: z.array(ParsedContentPartSchema), // Ordered content parts (text + files)
-        skipUserMessage: z.boolean().optional(), // Skip adding user message (use existing messages)
+        content: z.array(ParsedContentPartSchema), // User message content (if adding new message)
       })
     )
     .subscription(async ({ ctx, input }) => {
@@ -363,8 +362,7 @@ export const messageRouter = router({
           agentId: input.agentId,
           provider: input.provider,
           model: input.model,
-          content: input.content,
-          skipUserMessage: input.skipUserMessage,
+          userMessageContent: input.content.length > 0 ? input.content : null,
         });
 
         const subscription = streamObservable.subscribe({

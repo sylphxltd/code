@@ -130,15 +130,12 @@ export function createCommandContext(args: string[], params: CommandContextParam
       // Clear input
       setInput('');
 
-      // Determine if we should skip adding user message
-      // If message is empty, trigger AI with existing messages only (e.g., /compact)
-      const skipUserMessage = message.length === 0;
+      addLog(`[triggerAIResponse] Triggering AI with message: "${message}"`);
 
-      addLog(`[triggerAIResponse] Triggering AI (skipUserMessage=${skipUserMessage})`);
-
-      // Call sendUserMessageToAI with skipUserMessage option
-      // This ensures /compact can trigger AI without adding new message
-      await sendUserMessageToAI(message, attachments, { skipUserMessage });
+      // Pass message and attachments to sendUserMessageToAI
+      // Empty message = use existing messages only (content array will be empty)
+      // Non-empty message = add new user message then stream
+      await sendUserMessageToAI(message, attachments);
     },
 
     waitForInput: (options) => {

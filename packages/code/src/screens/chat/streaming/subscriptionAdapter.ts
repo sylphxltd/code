@@ -42,13 +42,10 @@ const logMessage = createLogger('subscription:message');
 
 /**
  * Options for triggering AI streaming
+ * Currently no options needed - kept for future extensibility
  */
 export interface TriggerAIOptions {
-  /**
-   * Skip adding a new user message (use existing messages only)
-   * Used for scenarios like /compact where the session already has the necessary context
-   */
-  skipUserMessage?: boolean;
+  // Reserved for future options
 }
 
 /**
@@ -128,9 +125,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     attachments?: FileAttachment[],
     options?: TriggerAIOptions
   ) => {
-    const skipUserMessage = options?.skipUserMessage ?? false;
-
-    logSession('Send user message called', { skipUserMessage });
+    logSession('Send user message called');
     logSession('User message length:', userMessage.length);
     logSession('Provider:', selectedProvider, 'Model:', selectedModel);
 
@@ -190,9 +185,8 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       logSession('Parsed content:', JSON.stringify(content, null, 2));
 
       // Optimistic update: Add user message immediately for better UX
-      // SKIP if skipUserMessage option is set (used for triggering AI with existing messages)
-      // Use case: /compact command where session already has system message
-      if (!skipUserMessage) {
+      // Only add if there is actual content (empty message = using existing messages only)
+      if (content.length > 0) {
         // Convert ParsedContentPart to MessagePart with proper structure
         const optimisticMessageId = `temp-user-${Date.now()}`;
 
@@ -308,8 +302,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
           sessionId: sessionId,
           provider: sessionId ? undefined : provider,
           model: sessionId ? undefined : model,
-          content,
-          skipUserMessage,
+          content, // Empty array = use existing messages, non-empty = add new user message
         },
         {
           onStarted: () => {
