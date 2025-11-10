@@ -380,7 +380,7 @@ export const messageRouter = router({
       // Get or create sessionId for event channel
       let eventSessionId = input.sessionId || null;
 
-      // Start streaming in background (don't await)
+      // Start streaming
       const streamObservable = streamAIResponse({
         appContext: ctx.appContext,
         sessionRepository: ctx.sessionRepository,
@@ -393,48 +393,64 @@ export const messageRouter = router({
         userMessageContent: input.content.length > 0 ? input.content : null,
       });
 
-      // Subscribe and publish all events to event bus
-      streamObservable.subscribe({
-        next: (event) => {
-          // Capture sessionId from session-created event
-          if (event.type === 'session-created') {
-            eventSessionId = event.sessionId;
-          }
+      // For lazy sessions, wait for session-created before returning
+      // Otherwise client can't subscribe to correct sessionId
+      const sessionIdPromise = new Promise<string>((resolve, reject) => {
+        if (eventSessionId) {
+          // Session already exists, resolve immediately
+          resolve(eventSessionId);
+        }
 
-          // Publish all events to event stream
-          if (eventSessionId) {
-            ctx.appContext.eventStream.publish(`session:${eventSessionId}`, event).catch(err => {
-              console.error('[TriggerStream] Event publish error:', err);
-            });
-          }
-        },
-        error: (error) => {
-          // Publish error to event stream
-          if (eventSessionId) {
-            ctx.appContext.eventStream.publish(`session:${eventSessionId}`, {
-              type: 'error' as const,
-              error: error instanceof Error ? error.message : String(error),
-            }).catch(err => {
-              console.error('[TriggerStream] Error event publish error:', err);
-            });
-          }
-        },
-        complete: () => {
-          // Publish complete to event stream
-          if (eventSessionId) {
-            ctx.appContext.eventStream.publish(`session:${eventSessionId}`, {
-              type: 'complete' as const,
-            }).catch(err => {
-              console.error('[TriggerStream] Complete event publish error:', err);
-            });
-          }
-        },
+        const subscription = streamObservable.subscribe({
+          next: (event) => {
+            // Capture sessionId from session-created event
+            if (event.type === 'session-created') {
+              eventSessionId = event.sessionId;
+              if (!input.sessionId) {
+                // Lazy session created, resolve the promise
+                resolve(eventSessionId);
+              }
+            }
+
+            // Publish all events to event stream
+            if (eventSessionId) {
+              ctx.appContext.eventStream.publish(`session:${eventSessionId}`, event).catch(err => {
+                console.error('[TriggerStream] Event publish error:', err);
+              });
+            }
+          },
+          error: (error) => {
+            // Publish error to event stream
+            if (eventSessionId) {
+              ctx.appContext.eventStream.publish(`session:${eventSessionId}`, {
+                type: 'error' as const,
+                error: error instanceof Error ? error.message : String(error),
+              }).catch(err => {
+                console.error('[TriggerStream] Error event publish error:', err);
+              });
+            }
+            reject(error);
+          },
+          complete: () => {
+            // Publish complete to event stream
+            if (eventSessionId) {
+              ctx.appContext.eventStream.publish(`session:${eventSessionId}`, {
+                type: 'complete' as const,
+              }).catch(err => {
+                console.error('[TriggerStream] Complete event publish error:', err);
+              });
+            }
+          },
+        });
       });
 
-      // Return immediately (streaming happens in background)
+      // Wait for sessionId (either immediate or from session-created event)
+      const finalSessionId = await sessionIdPromise;
+
+      // Return sessionId so client can subscribe
       return {
         success: true,
-        sessionId: eventSessionId, // May be null if lazy session
+        sessionId: finalSessionId,
       };
     }),
 

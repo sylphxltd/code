@@ -300,6 +300,13 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 
       logSession('Mutation completed:', result);
 
+      // CRITICAL: Update sessionId if lazy session was created
+      // This ensures useEventStream subscribes to the correct session
+      if (result.sessionId && result.sessionId !== sessionId) {
+        logSession('Lazy session created, updating currentSessionId:', result.sessionId);
+        setCurrentSessionId(result.sessionId);
+      }
+
       // Set streaming flag immediately after mutation triggers
       setIsStreaming(true);
 
