@@ -14,8 +14,6 @@ import { useCurrentSessionId, $currentSession } from '../signals/domain/session/
 import { setError } from '../signals/domain/ui/index.js';
 import { getTRPCClient } from '../trpc-provider.js';
 import { get as getSignal, set as setSignal } from '@sylphx/zen';
-import fs from 'fs';
-import path from 'path';
 
 export interface EventStreamCallbacks {
   // Session events
@@ -83,16 +81,9 @@ export interface UseEventStreamOptions {
 // Instance counter for debugging
 let instanceCounter = 0;
 
-// File logging for debugging
-const logFile = path.join(process.cwd(), 'event-stream-debug.log');
-
+// Debug logging with emoji marker for easy filtering
 function logToFile(message: string) {
-  try {
-    const timestamp = new Date().toISOString();
-    fs.appendFileSync(logFile, `${timestamp} ${message}\n`);
-  } catch (err) {
-    console.error('[logToFile] Failed to write log:', err);
-  }
+  console.log(`🔍 ${message}`);
 }
 
 export function useEventStream(options: UseEventStreamOptions = {}) {

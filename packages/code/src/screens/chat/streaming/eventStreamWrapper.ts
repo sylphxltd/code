@@ -9,15 +9,11 @@ import { handleStreamEvent } from './streamEventHandlers.js';
 import { shouldSkipEventStreamEvent } from './streamingSource.js';
 import type { EventContextParams } from './eventContextBuilder.js';
 import { buildEventContext } from './eventContextBuilder.js';
-import fs from 'fs';
-import path from 'path';
 
 const DEBUG_EVENT_STREAM = true; // Toggle for debugging
-const logFile = path.join(process.cwd(), 'event-stream-debug.log');
 
 function logToFile(message: string) {
-  const timestamp = new Date().toISOString();
-  fs.appendFileSync(logFile, `${timestamp} ${message}\n`);
+  console.log(`🔍 ${message}`);
 }
 
 /**
