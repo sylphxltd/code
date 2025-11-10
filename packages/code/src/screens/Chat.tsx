@@ -66,7 +66,7 @@ import { useSelectionState } from './chat/hooks/useSelectionState.js';
 import { useStreamingState } from './chat/hooks/useStreamingState.js';
 // Streaming utilities
 import { createSubscriptionSendUserMessageToAI } from './chat/streaming/subscriptionAdapter.js';
-import { handleStreamEvent } from './chat/streaming/streamEventHandlers.js';
+import { wrapEventStreamCallback } from './chat/streaming/eventStreamWrapper.js';
 
 // Note: useMessageHistory not needed - using useInputState which includes history management
 
@@ -135,6 +135,7 @@ export default function Chat(_props: ChatProps) {
     lastErrorRef,
     wasAbortedRef,
     streamingMessageIdRef,
+    directSubscriptionMessageIdsRef,
     usageRef,
     finishReasonRef,
     dbWriteTimerRef,
@@ -217,6 +218,36 @@ export default function Chat(_props: ChatProps) {
     addDebugLog,
   });
 
+  // Build context params for event stream callbacks
+  const eventContextParams = useMemo(
+    () => ({
+      updateSessionTitle,
+      setIsStreaming,
+      setIsTitleStreaming,
+      setStreamingTitle,
+      streamingMessageIdRef,
+      usageRef,
+      finishReasonRef,
+      lastErrorRef,
+      addLog,
+      aiConfig,
+      notificationSettings,
+    }),
+    [
+      updateSessionTitle,
+      setIsStreaming,
+      setIsTitleStreaming,
+      setStreamingTitle,
+      streamingMessageIdRef,
+      usageRef,
+      finishReasonRef,
+      lastErrorRef,
+      addLog,
+      aiConfig,
+      notificationSettings,
+    ]
+  );
+
   // Multi-client message sync: Subscribe to session:{id} for messages from other clients
   // Filters out own streaming messages by checking streamingMessageIdRef
   // DISABLED: TUI is single-client, no need for multi-client sync callbacks
@@ -255,128 +286,112 @@ export default function Chat(_props: ChatProps) {
       },
 
       // Message sync callbacks with deduplication
-      // Skip events if we have an active direct subscription (streamingMessageIdRef)
-      // to avoid duplicate handling. Process events from other sources (e.g., compact auto-trigger, other clients)
-      onAssistantMessageCreated: (messageId: string) => {
-        console.log('[EventStream] onAssistantMessageCreated:', messageId, 'streamingMessageIdRef:', streamingMessageIdRef.current);
-        // Skip if this is from our direct subscription
-        if (streamingMessageIdRef.current) {
-          console.log('[EventStream] Skipping - direct subscription active');
-          return;
-        }
-        console.log('[EventStream] Handling from event stream');
-        // Handle from event stream (compact auto-trigger or other client)
-        handleStreamEvent(
-          { type: 'assistant-message-created', messageId },
-          {
-            currentSessionId: getCurrentSessionId(),
-            updateSessionTitle,
-            setIsStreaming,
-            setIsTitleStreaming,
-            setStreamingTitle,
-            streamingMessageIdRef,
-            usageRef,
-            finishReasonRef,
-            lastErrorRef,
-            addLog,
-            aiConfig,
-            userMessage: '',
-            notificationSettings,
-          }
-        );
-      },
-      onTextDelta: (text: string) => {
-        console.log('[EventStream] onTextDelta:', text.substring(0, 50), 'streamingMessageIdRef:', streamingMessageIdRef.current);
-        // Skip if this is from our direct subscription
-        if (streamingMessageIdRef.current) {
-          console.log('[EventStream] Skipping text-delta - direct subscription active');
-          return;
-        }
-        console.log('[EventStream] Handling text-delta from event stream');
-        // Handle from event stream
-        handleStreamEvent(
-          { type: 'text-delta', text },
-          {
-            currentSessionId: getCurrentSessionId(),
-            updateSessionTitle,
-            setIsStreaming,
-            setIsTitleStreaming,
-            setStreamingTitle,
-            streamingMessageIdRef,
-            usageRef,
-            finishReasonRef,
-            lastErrorRef,
-            addLog,
-            aiConfig,
-            userMessage: '',
-            notificationSettings,
-          }
-        );
-      },
-      onToolCall: (toolCallId: string, toolName: string, args: unknown) => {
-        // Skip if this is from our direct subscription
-        if (streamingMessageIdRef.current) {
-          return;
-        }
-        // Handle from event stream
-        handleStreamEvent(
-          { type: 'tool-call', toolCallId, toolName, args },
-          {
-            currentSessionId: getCurrentSessionId(),
-            updateSessionTitle,
-            setIsStreaming,
-            setIsTitleStreaming,
-            setStreamingTitle,
-            streamingMessageIdRef,
-            usageRef,
-            finishReasonRef,
-            lastErrorRef,
-            addLog,
-            aiConfig,
-            userMessage: '',
-            notificationSettings,
-          }
-        );
-      },
-      onComplete: (usage?: any, finishReason?: string) => {
-        // Skip if this is from our direct subscription
-        if (streamingMessageIdRef.current) {
-          return;
-        }
-        // Handle from event stream
-        handleStreamEvent(
-          { type: 'complete', usage, finishReason },
-          {
-            currentSessionId: getCurrentSessionId(),
-            updateSessionTitle,
-            setIsStreaming,
-            setIsTitleStreaming,
-            setStreamingTitle,
-            streamingMessageIdRef,
-            usageRef,
-            finishReasonRef,
-            lastErrorRef,
-            addLog,
-            aiConfig,
-            userMessage: '',
-            notificationSettings,
-          }
-        );
-      },
+      // Skip events ONLY if we have an active direct subscription (both flags set)
+      // Process events from event stream sources (e.g., compact auto-trigger, other clients)
+      onAssistantMessageCreated: wrapEventStreamCallback(
+        'assistant-message-created',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        (messageId: string) => ({ type: 'assistant-message-created', messageId })
+      ),
+
+      // Text streaming
+      onTextStart: wrapEventStreamCallback(
+        'text-start',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        () => ({ type: 'text-start' })
+      ),
+      onTextDelta: wrapEventStreamCallback(
+        'text-delta',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        (text: string) => ({ type: 'text-delta', text })
+      ),
+      onTextEnd: wrapEventStreamCallback(
+        'text-end',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        () => ({ type: 'text-end' })
+      ),
+
+      // Reasoning streaming
+      onReasoningStart: wrapEventStreamCallback(
+        'reasoning-start',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        () => ({ type: 'reasoning-start' })
+      ),
+      onReasoningDelta: wrapEventStreamCallback(
+        'reasoning-delta',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        (text: string) => ({ type: 'reasoning-delta', text })
+      ),
+      onReasoningEnd: wrapEventStreamCallback(
+        'reasoning-end',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        (duration: number) => ({ type: 'reasoning-end', duration })
+      ),
+
+      // Tool streaming
+      onToolCall: wrapEventStreamCallback(
+        'tool-call',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        (toolCallId: string, toolName: string, args: unknown) => ({
+          type: 'tool-call',
+          toolCallId,
+          toolName,
+          args,
+        })
+      ),
+      onToolResult: wrapEventStreamCallback(
+        'tool-result',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        (toolCallId: string, toolName: string, result: unknown, duration: number) => ({
+          type: 'tool-result',
+          toolCallId,
+          toolName,
+          result,
+          duration,
+        })
+      ),
+      onToolError: wrapEventStreamCallback(
+        'tool-error',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        (toolCallId: string, toolName: string, error: string, duration: number) => ({
+          type: 'tool-error',
+          toolCallId,
+          toolName,
+          error,
+          duration,
+        })
+      ),
+
+      // Completion
+      onComplete: wrapEventStreamCallback(
+        'complete',
+        streamingMessageIdRef,
+        directSubscriptionMessageIdsRef,
+        eventContextParams,
+        (usage?: any, finishReason?: string) => ({ type: 'complete', usage, finishReason })
+      ),
     }),
-    [
-      setIsTitleStreaming,
-      setStreamingTitle,
-      setIsStreaming,
-      streamingMessageIdRef,
-      usageRef,
-      finishReasonRef,
-      lastErrorRef,
-      addLog,
-      aiConfig,
-      notificationSettings,
-      updateSessionTitle,
-    ]
+    [eventContextParams, streamingMessageIdRef, directSubscriptionMessageIdsRef]
   );
 
   // Event stream for multi-client sync
@@ -400,6 +415,7 @@ export default function Chat(_props: ChatProps) {
       lastErrorRef,
       wasAbortedRef,
       streamingMessageIdRef,
+      directSubscriptionMessageIdsRef,
       usageRef,
       finishReasonRef,
       setIsStreaming,

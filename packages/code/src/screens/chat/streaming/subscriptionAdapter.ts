@@ -35,6 +35,7 @@ import { createLogger } from '@sylphx/code-core';
 import type { StreamEvent } from '@sylphx/code-server';
 import type React from 'react';
 import { handleStreamEvent, updateActiveMessageContent } from './streamEventHandlers.js';
+import { addDirectSubscriptionMessage, removeDirectSubscriptionMessage } from './streamingSource.js';
 
 // Create debug loggers for different components
 const logSession = createLogger('subscription:session');
@@ -83,6 +84,7 @@ export interface SubscriptionAdapterParams {
   usageRef: React.MutableRefObject<TokenUsage | null>;
   finishReasonRef: React.MutableRefObject<string | null>;
   streamingMessageIdRef: React.MutableRefObject<string | null>;
+  directSubscriptionMessageIdsRef: React.MutableRefObject<Set<string>>;
 
   // State setters
   setIsStreaming: (value: boolean) => void;
@@ -115,6 +117,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     usageRef,
     finishReasonRef,
     streamingMessageIdRef,
+    directSubscriptionMessageIdsRef,
     setIsStreaming,
     setIsTitleStreaming,
     setStreamingTitle,
@@ -169,6 +172,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     usageRef.current = null;
     finishReasonRef.current = null;
     streamingMessageIdRef.current = null;
+    // Note: directSubscriptionMessageIdsRef will be populated when assistant-message-created arrives
 
     // Create abort controller for this stream
     abortControllerRef.current = new AbortController();
@@ -310,6 +314,14 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
           },
           onData: (event: StreamEvent) => {
             logMessage('Received event:', event.type);
+
+            // Track message IDs from direct subscription for deduplication
+            if (event.type === 'assistant-message-created') {
+              addDirectSubscriptionMessage(directSubscriptionMessageIdsRef, event.messageId);
+              logMessage('Added to direct subscription set:', event.messageId);
+            }
+
+            // Direct subscription events
             handleStreamEvent(event, {
               currentSessionId: sessionId,
               updateSessionTitle,
@@ -350,6 +362,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
                 usageRef,
                 finishReasonRef,
                 streamingMessageIdRef,
+                directSubscriptionMessageIdsRef,
                 setIsStreaming,
                 notificationSettings,
               });
@@ -372,6 +385,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
                 usageRef,
                 finishReasonRef,
                 streamingMessageIdRef,
+                directSubscriptionMessageIdsRef,
                 setIsStreaming,
                 notificationSettings,
               });
@@ -408,6 +422,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
             usageRef,
             finishReasonRef,
             streamingMessageIdRef,
+            directSubscriptionMessageIdsRef,
             setIsStreaming,
             notificationSettings,
           });
@@ -457,6 +472,7 @@ async function cleanupAfterStream(context: {
   usageRef: React.MutableRefObject<TokenUsage | null>;
   finishReasonRef: React.MutableRefObject<string | null>;
   streamingMessageIdRef: React.MutableRefObject<string | null>;
+  directSubscriptionMessageIdsRef: React.MutableRefObject<Set<string>>;
   setIsStreaming: (value: boolean) => void;
   notificationSettings: { notifyOnCompletion: boolean; notifyOnError: boolean };
 }) {
@@ -537,6 +553,9 @@ async function cleanupAfterStream(context: {
     } catch (notificationError) {
       console.error('[cleanupAfterStream] Failed to send notification:', notificationError);
     }
+
+    // Remove message from direct subscription tracking
+    removeDirectSubscriptionMessage(context.directSubscriptionMessageIdsRef, context.streamingMessageIdRef.current);
 
     // Reset flags
     context.wasAbortedRef.current = false;
