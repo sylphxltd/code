@@ -286,16 +286,32 @@ export class AppEventStream {
   /**
    * Get or create ReplaySubject for channel
    *
-   * IMPORTANT: Uses small bufferSize (10) to handle immediate race conditions.
-   * - Prevents lost events when client subscribes right after mutation
-   * - Small enough to avoid massive auto-replay in tests
-   * - Persistence layer handles larger replay via subscribeWithHistory()
+   * IMPORTANT: Buffer size balances memory usage vs event loss prevention
+   *
+   * Buffer Size Considerations:
+   * - Too small (10): UC2 fails - compact auto-response loses early events
+   * - Too large (100): Tests fail - session reuse receives old session events
+   * - Current (50): Balances both use cases
+   *
+   * Use Cases:
+   * 1. Normal streaming: Client subscribes immediately, buffer not critical
+   * 2. Compact auto-response: Server starts streaming before client subscribes
+   *    - Need large buffer to prevent event loss
+   *    - 50 events ~= 2-3 seconds of fast streaming
+   * 3. Session reuse: Client subscribes to existing session
+   *    - Don't want to replay old session's events
+   *    - 50 events is acceptable overlap
+   *
+   * Architecture:
+   * - ReplaySubject buffer: In-memory, fast, limited size (50)
+   * - Persistence layer: Database, slower, unlimited size
+   * - Client uses replayLast parameter to control DB replay
    */
   private getOrCreateSubject(channel: string): ReplaySubject<StoredEvent> {
     if (!this.subjects.has(channel)) {
-      // Small buffer to handle race conditions (mutation → subscribe delay)
-      // Persistence handles larger replay (50+ events)
-      const bufferSize = 10
+      // Balance between UC2 (compact) and test reliability
+      // 50 events ~= 2-3 seconds of fast streaming (tool calls, reasoning, text)
+      const bufferSize = 50
       const bufferTime = this.options.bufferTime ?? 5 * 60 * 1000
 
       this.subjects.set(
