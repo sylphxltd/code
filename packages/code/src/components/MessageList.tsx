@@ -9,6 +9,7 @@ import { formatTokenCount } from '@sylphx/code-core';
 import { Box, Text } from 'ink';
 import React from 'react';
 import { MessagePart } from './MessagePart.js';
+import MarkdownText from './MarkdownText.js';
 
 interface MessageListProps {
   messages: SessionMessage[];
@@ -93,7 +94,7 @@ export function MessageList({ messages, attachmentTokens }: MessageListProps) {
                               {seg.text}
                             </Text>
                           ) : (
-                            <Text key={`line-${lineIdx}-seg-${segIdx}`}>{seg.text}</Text>
+                            <MarkdownText key={`line-${lineIdx}-seg-${segIdx}`}>{seg.text}</MarkdownText>
                           )
                         )}
                       </Box>
@@ -155,7 +156,7 @@ export function MessageList({ messages, attachmentTokens }: MessageListProps) {
                               {seg.text}
                             </Text>
                           ) : (
-                            <Text key={`legacy-line-${lineIdx}-seg-${segIdx}`}>{seg.text}</Text>
+                            <MarkdownText key={`legacy-line-${lineIdx}-seg-${segIdx}`}>{seg.text}</MarkdownText>
                           )
                         )}
                       </Box>
