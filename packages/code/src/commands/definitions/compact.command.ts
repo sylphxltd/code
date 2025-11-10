@@ -65,19 +65,28 @@ export const compactCommand: Command = {
       const newSession = await client.session.getById.query({ sessionId: result.newSessionId! });
       if (newSession) {
         setCurrentSession(newSession);
-        // Load messages from new session into UI
+
+        // Load messages from new session into UI (includes the summary system message)
         if (newSession.messages && newSession.messages.length > 0) {
           addMessages(newSession.messages);
         }
 
+        // Send success message as assistant message BEFORE triggering AI
+        context.sendMessage(`✓ Compacted session "${sessionTitle}" (${messageCount} messages)\n✓ Created new session with AI-generated summary\n✓ Switched to new session`);
+
         // Auto-trigger AI response to acknowledge the compacted session
-        // Send a greeting message to prompt AI continuation
+        // The triggerAIResponse will send a 'Hi' user message and start streaming
         context.addLog('[Compact] Triggering AI response in new session...');
-        await context.triggerAIResponse('Hi');
+
+        try {
+          await context.triggerAIResponse('Hi');
+        } catch (err) {
+          context.addLog(`[Compact] Failed to trigger AI response: ${err instanceof Error ? err.message : String(err)}`);
+        }
       }
 
-      // Return success message (will be shown as assistant message)
-      return `✓ Compacted session "${sessionTitle}" (${messageCount} messages)\n✓ Created new session with AI-generated summary\n✓ Switched to new session`;
+      // Don't return anything - we've already sent the success message
+      return;
     } catch (error) {
       // Clear compacting status on error
       setCompacting(false);
