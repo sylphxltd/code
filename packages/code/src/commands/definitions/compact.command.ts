@@ -25,7 +25,7 @@ export const compactCommand: Command = {
       return 'Current session has no messages to compact.';
     }
 
-    await context.sendMessage('🔄 Compacting session (server-side AI summarization)...');
+    const statusMessage = await context.sendMessage('🔄 Compacting session...\n⏳ This may take a moment while AI generates a comprehensive summary.');
 
     try {
       // Call server-side compact mutation
@@ -55,10 +55,7 @@ export const compactCommand: Command = {
         }
       }
 
-      // Trigger AI response to process the summary
-      await context.triggerAIResponse('Please continue from where we left off.');
-
-      return `✓ Compacted session "${sessionTitle}" (${messageCount} messages)\n✓ Created new session with detailed summary\n✓ Switched to new session\n✓ AI is processing the summary and will continue working...`;
+      return `✓ Compacted session "${sessionTitle}" (${messageCount} messages)\n✓ Created new session with detailed summary\n✓ Switched to new session\n\nThe conversation summary is now loaded. You can continue working or send a message to trigger AI response.`;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       context.addLog(`[Compact] Error: ${errorMsg}`);
