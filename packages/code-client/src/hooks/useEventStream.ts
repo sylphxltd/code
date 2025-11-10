@@ -24,6 +24,7 @@ import { get as getSignal, set as setSignal } from '@sylphx/zen';
 export interface EventStreamCallbacks {
   // Session events
   onSessionCreated?: (sessionId: string, provider: string, model: string) => void;
+  onSessionUpdated?: (sessionId: string) => void;
   onSessionTitleStart?: (sessionId: string) => void;
   onSessionTitleDelta?: (sessionId: string, text: string) => void;
   onSessionTitleComplete?: (sessionId: string, title: string) => void;
@@ -134,6 +135,11 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
           switch (event.type) {
             case 'session-created':
               callbacksRef.current.onSessionCreated?.(event.sessionId, event.provider, event.model);
+              break;
+
+            case 'session-updated':
+              // Reload session data when updated (e.g., system messages inserted)
+              callbacksRef.current.onSessionUpdated?.(event.sessionId);
               break;
 
             case 'session-title-updated-start':

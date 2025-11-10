@@ -252,6 +252,24 @@ export default function Chat(_props: ChatProps) {
         }
       },
 
+      onSessionUpdated: async (sessionId: string) => {
+        // Reload session when updated (e.g., system messages inserted)
+        const currentSessionId = getCurrentSessionId();
+        if (sessionId === currentSessionId) {
+          // Fetch updated session from server
+          try {
+            const { getTRPCClient } = await import('@sylphx/code-client/trpc-provider');
+            const { setCurrentSession } = await import('@sylphx/code-client/signals/domain/session');
+            const client = await getTRPCClient();
+            const updatedSession = await client.session.getById.query({ sessionId });
+            // Update current session signal with fresh data
+            setCurrentSession(updatedSession);
+          } catch (error) {
+            console.error('[Chat] Failed to reload session after update:', error);
+          }
+        }
+      },
+
       // ENABLED: Title streaming (independent channel, no loop issues)
       onSessionTitleStart: (sessionId: string) => {
         const currentSessionId = getCurrentSessionId();

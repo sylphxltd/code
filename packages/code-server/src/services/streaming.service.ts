@@ -42,6 +42,7 @@ import { validateProvider } from './streaming/provider-validator.js';
 export type StreamEvent =
   // Session-level events
   | { type: 'session-created'; sessionId: string; provider: string; model: string }
+  | { type: 'session-updated'; sessionId: string }
   | { type: 'session-title-updated-start'; sessionId: string }
   | { type: 'session-title-updated-delta'; sessionId: string; text: string }
   | { type: 'session-title-updated-end'; sessionId: string; title: string }
@@ -315,7 +316,13 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
           if (triggerResult) {
             console.log('[streamAIResponse] Trigger fired, inserting system message');
-            await insertSystemMessage(messageRepository, sessionId, triggerResult.message);
+            const systemMessageId = await insertSystemMessage(messageRepository, sessionId, triggerResult.message);
+
+            // Emit session-updated event to refresh UI
+            observer.next({
+              type: 'session-updated',
+              sessionId,
+            });
 
             // Reload session again to include system message and updated flags
             updatedSession = await sessionRepository.getSessionById(sessionId);

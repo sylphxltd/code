@@ -308,28 +308,52 @@ System Status (2024-01-15T10:30:00.000Z):
 
 ---
 
-### 3.5 Todo Snapshot 凍結 ✅
+### 3.5 Todo Snapshot ❌ **不凍結（已移除）**
 
-**注意**: Todo snapshots 已被移除（優化決策）
+**⚠️ 重要更正**: Todo snapshots **不儲存** 到資料庫！
 
-**原因**:
+**原因**（來自 schema.ts 註釋）:
 - 用戶報告 100+ steps per message 很常見
 - 每個 step 存儲 todos 非常浪費
 - Todos 只在 /compact 後的第一個 user message 需要
 
-**新策略**:
+**實際狀況**:
 ```typescript
-// message-builder/index.ts 第 71-74 行
+// 1. Database schema: NO todoSnapshot column
+// messageSteps 表沒有 todoSnapshot 欄位
+// stepTodoSnapshots 表已刪除（@deprecated REMOVED）
+
+// 2. createMessageStep: Parameter is IGNORED
+export async function createMessageStep(
+  db: LibSQLDatabase,
+  messageId: string,
+  stepIndex: number,
+  metadata?: MessageMetadata,
+  _todoSnapshot?: TodoType[] // ← Underscore prefix = ignored!
+): Promise<string>
+
+// 3. loadMessageSteps: Returns NO todoSnapshot
+// 從資料庫載入的 MessageStep 物件沒有 todoSnapshot 欄位
+
+// 4. buildUserMessage: Check NEVER executes
 if (msg.todoSnapshot && msg.todoSnapshot.length > 0) {
+  // ❌ 永遠不會執行（msg.todoSnapshot 永遠是 undefined）
   const todoContext = buildTodoContext(msg.todoSnapshot);
   contentParts.push({ type: 'text', text: todoContext });
 }
 ```
 
-**Prompt Cache 保證**:
-- ✅ Todo snapshot 只在必要時存儲（第一條 user message after compact）
-- ✅ 存儲後永久凍結
-- ✅ 重構 model messages 時使用凍結的 snapshot
+**實際實現**:
+- ❌ **不儲存** 到資料庫
+- ✅ **有發送** 在 runtime events 中（`step-start` event 包含 todoSnapshot）
+- ❌ **不注入** 到 LLM context（buildUserMessage 檢查永遠是 false）
+- ⚠️ **TypeScript 類型仍然定義** `todoSnapshot?: Todo[]`（但不應該）
+
+**詳細分析**: 請參閱 `TODOSNAPSHOT-REALITY.md`
+
+**Prompt Cache 影響**:
+- ✅ Todos **不會** 影響 prompt cache（因為不注入到 LLM context）
+- ⚠️ 如果未來要實現「compact 後注入 todos」，需要考慮 cache 失效策略
 
 ---
 
@@ -462,13 +486,13 @@ orderingIdx: index('idx_step_parts_ordering').on(table.stepId, table.ordering)
 ## 7. 當前架構的優勢
 
 ### ✅ 完整凍結支持
-1. **Tool 額外數據**: args, result, error, duration, startTime - 全部凍結
-2. **Reasoning 額外數據**: duration, startTime - 全部凍結
-3. **System Metadata**: CPU, memory - 凍結在 step.metadata
-4. **File Content**: base64 或 BLOB - 完整凍結
-5. **Todo Snapshot**: 按需凍結（優化後）
-6. **Token Usage**: 每個 step 獨立存儲
-7. **Ordering**: 所有 parts 都有順序保證
+1. **Tool 額外數據**: args, result, error, duration, startTime - 全部凍結 ✅
+2. **Reasoning 額外數據**: duration, startTime - 全部凍結 ✅
+3. **System Metadata**: CPU, memory - 凍結在 step.metadata ✅
+4. **File Content**: base64 或 BLOB - 完整凍結 ✅
+5. **Todo Snapshot**: ❌ **不儲存**（已移除，詳見 TODOSNAPSHOT-REALITY.md）
+6. **Token Usage**: 每個 step 獨立存儲 ✅
+7. **Ordering**: 所有 parts 都有順序保證 ✅
 
 ### ✅ Prompt Cache 保證
 - 相同的系統狀態 → 相同的 system status text
@@ -480,7 +504,7 @@ orderingIdx: index('idx_step_parts_ordering').on(table.stepId, table.ordering)
 ### ✅ 性能優化
 - File-ref 使用 BLOB 存儲（33% smaller than base64）
 - SHA256 去重（未來可共享相同文件）
-- Todo snapshot 按需存儲（不是每個 step）
+- Todo snapshot **不儲存**（移除冗餘數據）
 - Token usage 聚合計算（避免冗餘更新）
 
 ### ✅ 可擴展性
@@ -531,7 +555,7 @@ orderingIdx: index('idx_step_parts_ordering').on(table.stepId, table.ordering)
 - Reasoning: content, duration, startTime ✅
 - File: base64 或 BLOB ✅
 - System: metadata (CPU, memory) ✅
-- Todo: snapshot (按需) ✅
+- Todo: ❌ **不儲存**（已移除 - 詳見 TODOSNAPSHOT-REALITY.md）
 - Token: usage per step ✅
 
 **✅ Prompt Cache 保證**
