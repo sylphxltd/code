@@ -9,8 +9,16 @@ import { handleStreamEvent } from './streamEventHandlers.js';
 import { shouldSkipEventStreamEvent } from './streamingSource.js';
 import type { EventContextParams } from './eventContextBuilder.js';
 import { buildEventContext } from './eventContextBuilder.js';
+import fs from 'fs';
+import path from 'path';
 
 const DEBUG_EVENT_STREAM = true; // Toggle for debugging
+const logFile = path.join(process.cwd(), 'event-stream-debug.log');
+
+function logToFile(message: string) {
+  const timestamp = new Date().toISOString();
+  fs.appendFileSync(logFile, `${timestamp} ${message}\n`);
+}
 
 /**
  * Wrap event stream callback with deduplication
@@ -42,26 +50,19 @@ export function wrapEventStreamCallback<TArgs extends any[]>(
       : streamingMessageIdRef.current;
 
     if (DEBUG_EVENT_STREAM) {
-      console.log(
-        `[EventStream] ${eventType}:`,
-        args[0],
-        'messageId:',
-        messageId,
-        'directSubscriptionSet:',
-        Array.from(directSubscriptionMessageIdsRef.current)
-      );
+      logToFile(`[EventStream] ${eventType} - messageId: ${messageId}, directSubscriptionSet: [${Array.from(directSubscriptionMessageIdsRef.current).join(', ')}]`);
     }
 
     // Skip if this specific message is being handled by direct subscription
     if (shouldSkipEventStreamEvent(messageId ?? undefined, directSubscriptionMessageIdsRef)) {
       if (DEBUG_EVENT_STREAM) {
-        console.log(`[EventStream] Skipping ${eventType} - message ${messageId} has direct subscription`);
+        logToFile(`[EventStream] SKIPPED ${eventType} - message ${messageId} has direct subscription`);
       }
       return;
     }
 
     if (DEBUG_EVENT_STREAM) {
-      console.log(`[EventStream] Handling ${eventType} from event stream`);
+      logToFile(`[EventStream] HANDLING ${eventType} from event stream`);
     }
 
     // Build context and handle event

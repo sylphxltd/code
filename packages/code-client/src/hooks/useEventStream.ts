@@ -81,6 +81,16 @@ export interface UseEventStreamOptions {
 // Instance counter for debugging
 let instanceCounter = 0;
 
+// File logging for debugging
+import fs from 'fs';
+import path from 'path';
+const logFile = path.join(process.cwd(), 'event-stream-debug.log');
+
+function logToFile(message: string) {
+  const timestamp = new Date().toISOString();
+  fs.appendFileSync(logFile, `${timestamp} ${message}\n`);
+}
+
 export function useEventStream(options: UseEventStreamOptions = {}) {
   const { replayLast = 0, callbacks = {} } = options;
   const currentSessionId = useCurrentSessionId();
@@ -92,25 +102,25 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
   // Ref to track subscription
   const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
-  console.log(`[useEventStream #${instanceId}] Hook called, sessionId:`, currentSessionId, 'replayLast:', replayLast);
+  logToFile(`[useEventStream #${instanceId}] Hook called, sessionId: ${currentSessionId}, replayLast: ${replayLast}`);
 
   useEffect(() => {
-    console.log(`[useEventStream #${instanceId}] useEffect running, sessionId:`, currentSessionId);
+    logToFile(`[useEventStream #${instanceId}] useEffect running, sessionId: ${currentSessionId}`);
 
     // Cleanup previous subscription
     if (subscriptionRef.current) {
-      console.log(`[useEventStream #${instanceId}] Unsubscribing from previous subscription`);
+      logToFile(`[useEventStream #${instanceId}] Unsubscribing from previous subscription`);
       subscriptionRef.current.unsubscribe();
       subscriptionRef.current = null;
     }
 
     // Skip if no session
     if (!currentSessionId) {
-      console.log(`[useEventStream #${instanceId}] No currentSessionId, skipping subscription`);
+      logToFile(`[useEventStream #${instanceId}] No currentSessionId, skipping subscription`);
       return;
     }
 
-    console.log(`[useEventStream #${instanceId}] Creating subscription for session:`, currentSessionId, 'replayLast:', replayLast);
+    logToFile(`[useEventStream #${instanceId}] Creating subscription for session: ${currentSessionId}, replayLast: ${replayLast}`);
 
     // Subscribe to event stream
     const client = getTRPCClient();
@@ -123,7 +133,7 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
       {
         onData: (storedEvent: any) => {
           const event = storedEvent.payload;
-          console.log(`[useEventStream #${instanceId}] Received event:`, event.type, 'for session:', currentSessionId);
+          logToFile(`[useEventStream #${instanceId}] Received event: ${event.type} for session: ${currentSessionId}`);
 
           // Handle all event types
           switch (event.type) {
@@ -219,22 +229,22 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
         },
         onError: (error: any) => {
           const errorMessage = error instanceof Error ? error.message : 'Event stream error';
-          console.error(`[useEventStream #${instanceId}] Error:`, errorMessage);
+          logToFile(`[useEventStream #${instanceId}] ERROR: ${errorMessage}`);
           callbacks.onError?.(errorMessage);
           setError(errorMessage);
         },
         onComplete: () => {
-          console.log(`[useEventStream #${instanceId}] Stream completed for session:`, currentSessionId);
+          logToFile(`[useEventStream #${instanceId}] Stream completed for session: ${currentSessionId}`);
         },
       }
     );
 
     subscriptionRef.current = subscription;
-    console.log(`[useEventStream #${instanceId}] Subscription created successfully for session:`, currentSessionId);
+    logToFile(`[useEventStream #${instanceId}] Subscription created successfully for session: ${currentSessionId}`);
 
     // Cleanup on unmount or session change
     return () => {
-      console.log(`[useEventStream #${instanceId}] Cleanup function called for session:`, currentSessionId);
+      logToFile(`[useEventStream #${instanceId}] Cleanup function called for session: ${currentSessionId}`);
       subscription.unsubscribe();
       subscriptionRef.current = null;
     };
