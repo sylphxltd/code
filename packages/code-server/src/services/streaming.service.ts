@@ -230,30 +230,34 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         }
 
         // 4. Add user message to session (with frozen content)
-        const userMessageId = await messageRepository.addMessage({
-          sessionId,
-          role: 'user',
-          content: frozenContent,
-          metadata: {
-            cpu: systemStatus.cpu,
-            memory: systemStatus.memory,
-          },
-          todoSnapshot: session.todos,
-        });
+        // SKIP if content is empty (used for triggering AI with existing messages, e.g., /compact)
+        let userMessageId: string | null = null;
+        if (content.length > 0) {
+          userMessageId = await messageRepository.addMessage({
+            sessionId,
+            role: 'user',
+            content: frozenContent,
+            metadata: {
+              cpu: systemStatus.cpu,
+              memory: systemStatus.memory,
+            },
+            todoSnapshot: session.todos,
+          });
 
-        // 4.1. Emit user-message-created event
-        // Extract text content for display (omit file details)
-        const userMessageText = content
-          .map((part) =>
-            part.type === 'text' ? part.content : `@${part.relativePath}`
-          )
+          // 4.1. Emit user-message-created event
+          // Extract text content for display (omit file details)
+          const userMessageText = content
+            .map((part) =>
+              part.type === 'text' ? part.content : `@${part.relativePath}`
+            )
           .join('');
 
-        observer.next({
-          type: 'user-message-created',
-          messageId: userMessageId,
-          content: userMessageText,
-        });
+          observer.next({
+            type: 'user-message-created',
+            messageId: userMessageId,
+            content: userMessageText,
+          });
+        }
 
         // 4. Reload session to get updated messages
         const updatedSession = await sessionRepository.getSessionById(sessionId);
