@@ -151,6 +151,13 @@ const StreamEventSchema = z.discriminatedUnion('type', [
 
 export type StreamEvent = z.infer<typeof StreamEventSchema>;
 
+/**
+ * Session Event Type
+ * Alias for StreamEvent with semantic naming
+ * Used by message.subscribe() for strongly-typed session event subscriptions
+ */
+export type SessionEvent = StreamEvent;
+
 export const messageRouter = router({
   // REMOVED: getBySession
   // Use session.getById instead - loads all messages with step-based architecture
@@ -308,110 +315,6 @@ export const messageRouter = router({
     }),
 
   /**
-   * Stream AI response (SUBSCRIPTION)
-   * Unified interface for TUI (in-process) and Web (SSE)
-   *
-   * Usage:
-   * ```typescript
-   * // TUI and Web use same API!
-   * client.message.streamResponse.subscribe(
-   *   { sessionId, userMessage, attachments },
-   *   {
-   *     onData: (event) => {
-   *       if (event.type === 'text-delta') {
-   *         appendText(event.text);
-   *       }
-   *     },
-   *     onError: (error) => console.error(error),
-   *     onComplete: () => console.log('Done'),
-   *   }
-   * );
-   * ```
-   *
-   * Transport:
-   * - TUI: In-process observable (zero overhead)
-   * - Web: SSE (httpSubscriptionLink)
-   *
-   * SECURITY: Protected + streaming rate limiting (5 streams/min)
-   */
-  streamResponse: streamingProcedure
-    .input(
-      z.object({
-        sessionId: z.string().nullish(), // Optional - will create if null
-        agentId: z.string().optional(),   // Optional - override session agent
-        provider: z.string().optional(),  // Required if sessionId is null
-        model: z.string().optional(),     // Required if sessionId is null
-        content: z.array(ParsedContentPartSchema), // User message content (if adding new message)
-      })
-    )
-    .subscription(async ({ ctx, input }) => {
-      // Import streaming service
-      const { streamAIResponse } = await import('../../services/streaming.service.js');
-
-      // Get or create sessionId for event channel
-      let eventSessionId = input.sessionId || null;
-
-      // Stream AI response and publish events to event stream
-      return observable<StreamEvent>((emit) => {
-        const streamObservable = streamAIResponse({
-          appContext: ctx.appContext,
-          sessionRepository: ctx.sessionRepository,
-          messageRepository: ctx.messageRepository,
-          aiConfig: ctx.aiConfig,
-          sessionId: eventSessionId,
-          agentId: input.agentId,
-          provider: input.provider,
-          model: input.model,
-          userMessageContent: input.content.length > 0 ? input.content : null,
-        });
-
-        const subscription = streamObservable.subscribe({
-          next: (event) => {
-            // Capture sessionId from session-created event
-            if (event.type === 'session-created') {
-              eventSessionId = event.sessionId;
-            }
-
-            // Publish event to event stream (for replay and multi-client support)
-            if (eventSessionId) {
-              ctx.appContext.eventStream.publish(`session:${eventSessionId}`, event).catch(err => {
-                console.error('[StreamResponse] Event publish error:', err);
-              });
-            }
-
-            // Emit to current subscriber
-            emit.next(event);
-          },
-          error: (error) => {
-            // Publish error to event stream for single-path architecture
-            if (eventSessionId) {
-              ctx.appContext.eventStream.publish(`session:${eventSessionId}`, {
-                type: 'error' as const,
-                error: error instanceof Error ? error.message : String(error),
-              }).catch(err => {
-                console.error('[StreamResponse] Error event publish error:', err);
-              });
-            }
-            emit.error(error);
-          },
-          complete: () => {
-            // Publish complete to event stream for single-path architecture
-            if (eventSessionId) {
-              ctx.appContext.eventStream.publish(`session:${eventSessionId}`, {
-                type: 'complete' as const,
-              }).catch(err => {
-                console.error('[StreamResponse] Complete event publish error:', err);
-              });
-            }
-            emit.complete();
-          },
-        });
-
-        return () => subscription.unsubscribe();
-      });
-    }),
-
-  /**
    * Answer Ask tool question
    * Called by client when user answers Ask tool question
    * Resolves pending Ask tool Promise on server
@@ -535,6 +438,73 @@ export const messageRouter = router({
       };
     }),
 
-  // Note: Message events are now delivered via events.subscribeToSession
-  // which subscribes to the 'session:{id}' channel and receives all streaming events
+  /**
+   * Subscribe to session events (SUBSCRIPTION - Strongly Typed)
+   *
+   * Subscribe to strongly-typed session events with replay support.
+   * Receives all streaming events for a specific session.
+   *
+   * Architecture:
+   * - Client calls triggerStream mutation to start streaming
+   * - Client subscribes to session events (this endpoint)
+   * - Server publishes events to session:{id} channel
+   * - Client receives strongly-typed SessionEvent (not StoredEvent wrapper)
+   *
+   * Usage:
+   * ```ts
+   * // Trigger streaming
+   * await client.message.triggerStream.mutate({ sessionId: 'abc123', content: [...] });
+   *
+   * // Subscribe to events
+   * client.message.subscribe.subscribe(
+   *   { sessionId: 'abc123', replayLast: 10 },
+   *   {
+   *     onData: (event: SessionEvent) => {
+   *       // Strongly typed, no need to unwrap payload
+   *       if (event.type === 'text-delta') {
+   *         console.log(event.text);
+   *       }
+   *     },
+   *     onError: (error) => console.error(error),
+   *   }
+   * );
+   * ```
+   *
+   * Benefits:
+   * - Strongly typed SessionEvent (not any)
+   * - No StoredEvent wrapper to unwrap
+   * - IDE autocomplete for event types
+   * - Clean separation: mutation triggers, subscription receives
+   *
+   * Transport:
+   * - TUI: In-process observable (zero overhead)
+   * - Web: SSE (httpSubscriptionLink)
+   *
+   * SECURITY: Protected + streaming rate limiting (5 streams/min)
+   */
+  subscribe: streamingProcedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+        replayLast: z.number().min(0).max(100).default(0), // Replay last N events
+      })
+    )
+    .subscription(({ ctx, input }) => {
+      const channel = `session:${input.sessionId}`;
+
+      return observable<StreamEvent>((emit) => {
+        const subscription = ctx.appContext.eventStream
+          .subscribeWithHistory(channel, input.replayLast)
+          .subscribe({
+            next: (storedEvent) => {
+              // Unwrap StoredEvent and emit the actual SessionEvent
+              emit.next(storedEvent.payload);
+            },
+            error: (err) => emit.error(err),
+            complete: () => emit.complete(),
+          });
+
+        return () => subscription.unsubscribe();
+      });
+    }),
 });

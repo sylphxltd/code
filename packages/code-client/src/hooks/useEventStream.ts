@@ -1,11 +1,17 @@
 /**
  * Event Stream Hook
- * Passive subscriber architecture for session events
+ * Strongly-typed session event subscription
  *
- * Architecture: Server-driven, client is passive
- * - Server publishes all events to session:${sessionId} channel
- * - Client subscribes and reacts to events
- * - Supports cursor-based replay for session switching
+ * Architecture: Mutation + Subscription
+ * - Client calls triggerStream mutation to start streaming
+ * - Client subscribes to session events via message.subscribe
+ * - Server publishes events to session:{id} channel
+ * - Client receives strongly-typed SessionEvent (not StoredEvent wrapper)
+ *
+ * Benefits:
+ * - Strongly typed SessionEvent
+ * - No StoredEvent wrapper to unwrap
+ * - IDE autocomplete for event types
  * - Automatically resubscribes when session changes
  */
 
@@ -97,17 +103,17 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
       return;
     }
 
-    // Subscribe to event stream
+    // Subscribe to strongly-typed session events
     const client = getTRPCClient();
 
-    const subscription = client.events.subscribeToSession.subscribe(
+    const subscription = client.message.subscribe.subscribe(
       {
         sessionId: currentSessionId,
         replayLast,
       },
       {
-        onData: (storedEvent: any) => {
-          const event = storedEvent.payload;
+        onData: (event: any) => {
+          // Event is directly SessionEvent (no need to unwrap payload)
 
           // Handle all event types
           switch (event.type) {

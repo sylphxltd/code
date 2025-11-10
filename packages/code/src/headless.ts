@@ -42,19 +42,39 @@ export async function runHeadless(prompt: string, options: any): Promise<void> {
       // If no last session, will create new one (sessionId stays null)
     }
 
-    // Stream response from server
+    // Trigger streaming via mutation
     let hasOutput = false;
+    let streamSessionId = sessionId;
+
+    // Parse user input into content parts (similar to TUI)
+    const content = [{ type: 'text' as const, content: prompt }];
+
+    // Start streaming in background
+    const triggerResult = await client.message.triggerStream.mutate({
+      sessionId: streamSessionId,
+      provider: sessionId ? undefined : provider,
+      model: sessionId ? undefined : model,
+      content,
+    });
+
+    // Use returned sessionId if lazy session was created
+    if (triggerResult.sessionId) {
+      streamSessionId = triggerResult.sessionId;
+    }
+
+    // Subscribe to session events
+    if (!streamSessionId) {
+      console.error(chalk.red('\n✗ Failed to get session ID'));
+      process.exit(1);
+    }
 
     // Promise to wait for completion
     await new Promise<void>((resolve, reject) => {
-      // Handle streaming events
-      // tRPC v11: subscribe(input, callbacks)
-      client.message.streamResponse.subscribe(
+      // Subscribe to strongly-typed session events
+      client.message.subscribe.subscribe(
         {
-          sessionId: sessionId, // Use loaded session ID (null for new, string for existing)
-          provider: sessionId ? undefined : provider, // Only provide if creating new (sessionId is null)
-          model: sessionId ? undefined : model, // Only provide if creating new (sessionId is null)
-          userMessage: prompt,
+          sessionId: streamSessionId,
+          replayLast: 0, // No replay needed for headless
         },
         {
           onData: (event: any) => {
