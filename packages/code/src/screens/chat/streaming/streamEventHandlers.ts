@@ -310,6 +310,7 @@ function handleAssistantMessageCreated(event: Extract<StreamEvent, { type: 'assi
     ]
   });
 
+  console.log('🔍 [handleAssistantMessageCreated] SUCCESS - Message added, new count:', currentSession.messages.length + 1);
   logMessage('Added assistant message, total:', currentSession.messages.length + 1);
 }
 
