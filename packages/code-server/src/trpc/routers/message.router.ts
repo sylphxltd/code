@@ -448,6 +448,7 @@ export const messageRouter = router({
             if (eventSessionId && !abortControllerId) {
               abortControllerId = eventSessionId;
               activeStreamAbortControllers.set(eventSessionId, abortController);
+              console.log('[AbortDebug] Registered AbortController for session:', eventSessionId);
             }
 
             // Publish all events to event stream for client subscriptions
@@ -526,11 +527,15 @@ export const messageRouter = router({
     .mutation(async ({ input }) => {
       const { sessionId } = input;
 
+      console.log('[AbortDebug] abortStream mutation called for session:', sessionId);
+      console.log('[AbortDebug] Active controllers:', Array.from(activeStreamAbortControllers.keys()));
+
       // Find and abort the active stream
       const abortController = activeStreamAbortControllers.get(sessionId);
 
       if (!abortController) {
         // No active stream for this session (might have already completed)
+        console.log('[AbortDebug] No active stream found for session:', sessionId);
         return {
           success: false,
           message: 'No active stream found for this session',
@@ -538,7 +543,9 @@ export const messageRouter = router({
       }
 
       // Abort the stream
+      console.log('[AbortDebug] Calling abort() on controller for session:', sessionId);
       abortController.abort();
+      console.log('[AbortDebug] abort() called successfully');
 
       // Cleanup will happen in triggerStream's error/complete handlers
       // No need to delete here - let the subscription cleanup do it

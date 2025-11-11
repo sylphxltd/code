@@ -134,6 +134,11 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           abortSignal,
         } = opts;
 
+        console.log('[AbortDebug] streamAIResponse called with abortSignal:', !!abortSignal);
+        if (abortSignal) {
+          console.log('[AbortDebug] abortSignal.aborted:', abortSignal.aborted);
+        }
+
 
         // 1. Ensure session exists (create if needed)
         let sessionId: string;
@@ -325,6 +330,13 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // Models without native support (like claude-code) will fall back to text-based tools
 
         let currentStepNumber = 0;
+
+        // Add abort event listener for debugging
+        if (abortSignal) {
+          abortSignal.addEventListener('abort', () => {
+            console.log('[AbortDebug] AbortSignal aborted in streamAIResponse!');
+          });
+        }
 
         const stream = createAIStream({
           model,

@@ -345,16 +345,20 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       // Handle abort: Notify server and update client state
       abortControllerRef.current.signal.addEventListener('abort', async () => {
         try {
+          console.log('[AbortDebug] Client abort event fired');
           logSession('Stream aborted by user');
           addLog('[Mutation] Aborted by user');
 
           // Call server to abort the stream
           const abortSessionId = result.sessionId;
+          console.log('[AbortDebug] Calling server abort mutation for session:', abortSessionId);
           if (abortSessionId) {
             try {
-              await caller.message.abortStream.mutate({ sessionId: abortSessionId });
+              const abortResult = await caller.message.abortStream.mutate({ sessionId: abortSessionId });
+              console.log('[AbortDebug] Server abort result:', abortResult);
               logSession('Server notified of abort');
             } catch (abortError) {
+              console.error('[AbortDebug] Failed to notify server of abort:', abortError);
               console.error('[subscriptionAdapter] Failed to notify server of abort:', abortError);
               // Continue with client-side cleanup even if server notification fails
             }
