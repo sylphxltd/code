@@ -399,9 +399,11 @@ async function buildAssistantMessage(
     });
   }
 
-  // Push assistant message
+  // Push assistant message (only if not empty)
   if (results) {
-    results.push({ role: 'assistant', content: assistantContent });
+    if (assistantContent.length > 0) {
+      results.push({ role: 'assistant', content: assistantContent });
+    }
 
     // Push tool message if there are tool results
     if (toolResults.length > 0) {
