@@ -7,7 +7,7 @@ import './index.css';
 import App from './App.tsx';
 
 // Create wrapper component for providers
-function Root() {
+export function Root() {
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
@@ -20,7 +20,8 @@ function Root() {
   const [trpcClient] = useState(() => {
     const client = createTRPCClient();
     // Also set for code-client hooks (for potential shared usage)
-    setTRPCClient(client as any);
+    // Type assertion needed due to different tRPC client types between web and cli
+    setTRPCClient(client as ReturnType<typeof createTRPCClient>);
     return client;
   });
 

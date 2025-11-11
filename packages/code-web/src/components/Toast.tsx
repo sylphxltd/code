@@ -151,8 +151,20 @@ export function ToastContainer({
   );
 }
 
+// Hook return type
+export interface UseToastReturn {
+  toasts: ToastMessage[];
+  addToast: (message: string, type?: ToastType) => void;
+  removeToast: (id: number) => void;
+  success: (message: string) => void;
+  error: (message: string) => void;
+  warning: (message: string) => void;
+  info: (message: string) => void;
+}
+
 // Hook for using toasts
-export function useToast() {
+// eslint-disable-next-line react-refresh/only-export-components
+export function useToast(): UseToastReturn {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const addToast = (message: string, type: ToastType = 'info') => {

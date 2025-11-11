@@ -9,8 +9,16 @@ import Message from './Message';
 import MarkdownContent from './MarkdownContent';
 import type { MessagePart } from '@sylphx/code-client';
 
+interface MessageData {
+  id?: string;
+  role: 'user' | 'assistant';
+  content: MessagePart[];
+  timestamp: number;
+  status?: string;
+}
+
 interface MessageListProps {
-  messages: any[];
+  messages: MessageData[];
   optimisticUserMessage?: string | null;
   isAssistantTyping?: boolean;
   streamingParts?: MessagePart[];

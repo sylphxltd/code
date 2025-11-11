@@ -19,9 +19,14 @@ interface ProviderConfig {
   'default-model'?: string;
 }
 
+interface Config {
+  defaultProvider?: Provider;
+  providers?: Record<Provider, ProviderConfig>;
+}
+
 export default function Settings({ onClose }: SettingsProps) {
   const toast = useToast();
-  const [config, setConfig] = useState<any>({
+  const [config, setConfig] = useState<Config>({
     defaultProvider: 'anthropic',
     providers: {},
   });

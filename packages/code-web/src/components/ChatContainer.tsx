@@ -8,10 +8,11 @@ import { trpc } from '../trpc';
 import MessageList from './MessageList';
 import InputArea from './InputArea';
 import type { MessagePart } from '@sylphx/code-client';
+import type { UseToastReturn } from './Toast';
 
 interface ChatContainerProps {
   sessionId: string | null;
-  toast: any;
+  toast: UseToastReturn;
 }
 
 export default function ChatContainer({ sessionId, toast }: ChatContainerProps) {
@@ -89,7 +90,7 @@ export default function ChatContainer({ sessionId, toast }: ChatContainerProps) 
             // Refetch sessions list
             utils.session.getRecent.invalidate();
           }}
-          onSessionCreated={(newSessionId, provider, model) => {
+          onSessionCreated={(newSessionId) => {
             console.log('Session created:', newSessionId);
             setCurrentSessionId(newSessionId);
             setStreamingTitle('');

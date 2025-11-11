@@ -7,10 +7,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { trpc } from '../trpc';
 import type { MessagePart } from '@sylphx/code-client';
+import type { UseToastReturn } from './Toast';
 
 interface InputAreaProps {
   sessionId: string | null;  // null = new session will be created
-  toast: any;
+  toast: UseToastReturn;
   onMessageSent?: (message: string) => void;
   onStreamingStart?: () => void;
   onStreamingPartsUpdate?: (parts: MessagePart[]) => void;
@@ -36,6 +37,22 @@ interface StreamRequest {
   key: number; // Used to trigger new subscription
 }
 
+// Stream event types
+type StreamEvent =
+  | { type: 'session-created'; sessionId: string; provider: string; model: string }
+  | { type: 'assistant-message-created'; messageId: string }
+  | { type: 'reasoning-start' }
+  | { type: 'reasoning-delta'; text: string }
+  | { type: 'reasoning-end' }
+  | { type: 'text-start' }
+  | { type: 'text-delta'; text: string }
+  | { type: 'text-end' }
+  | { type: 'session-title-start' }
+  | { type: 'session-title-delta'; text: string }
+  | { type: 'session-title-complete'; title: string }
+  | { type: 'complete'; usage?: unknown }
+  | { type: 'error'; error: string };
+
 export default function InputArea({
   sessionId,
   toast,
@@ -51,7 +68,9 @@ export default function InputArea({
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const [streamRequest, setStreamRequest] = useState<StreamRequest | null>(null);
-  const [streamingParts, setStreamingParts] = useState<MessagePart[]>([]);
+  // Local streaming parts state (used only in setStreamingParts updater callbacks)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_streamingParts, setStreamingParts] = useState<MessagePart[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const utils = trpc.useUtils();
@@ -69,13 +88,13 @@ export default function InputArea({
           userMessage: streamRequest.userMessage,
           attachments: streamRequest.attachments,
         }
-      : undefined as any,
+      : (undefined as never),
     {
       enabled: streamRequest !== null,
       onStarted: () => {
         console.log('[Subscription] Started streaming');
       },
-      onData: (event: any) => {
+      onData: (event: StreamEvent) => {
         console.log('[Subscription] Event:', event.type, event);
 
         switch (event.type) {
@@ -91,7 +110,8 @@ export default function InputArea({
 
           case 'reasoning-start':
             onStreamingStart?.();
-            setStreamingParts((prev) => {
+            // Track streaming parts locally for state management
+            setStreamingParts((prev: MessagePart[]) => {
               const newParts: MessagePart[] = [...prev, { type: 'reasoning', content: '', status: 'active' }];
               onStreamingPartsUpdate?.(newParts);
               return newParts;

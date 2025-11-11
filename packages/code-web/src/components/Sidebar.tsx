@@ -4,12 +4,13 @@
  */
 
 import { trpc } from '../trpc';
+import type { UseToastReturn } from './Toast';
 
 interface SidebarProps {
   currentSessionId: string | null;
-  onSelectSession: (sessionId: string) => void;
+  onSelectSession: (sessionId: string | null) => void;
   onOpenSettings: () => void;
-  toast: any;
+  toast: UseToastReturn;
 }
 
 export default function Sidebar({
@@ -39,7 +40,7 @@ export default function Sidebar({
     }
 
     // Set session to null to trigger new session creation on first message
-    onSelectSession(null as any);
+    onSelectSession(null);
   };
 
   return (
