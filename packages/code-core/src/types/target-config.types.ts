@@ -265,31 +265,48 @@ export type DynamicConfig<T = Record<string, unknown>> = T & {
 };
 
 /**
- * Generic transformation result
+ * Generic transformation result (discriminated union)
  */
-export interface TransformationResult<T = unknown> {
-	success: boolean;
-	data?: T;
-	error?: string;
-	warnings?: string[];
-}
+export type TransformationResult<T = unknown> =
+	| {
+			success: true;
+			data: T;
+			warnings?: string[];
+	  }
+	| {
+			success: false;
+			error: string;
+			warnings?: string[];
+	  };
 
 /**
- * Generic validation result
+ * Generic validation result (discriminated union)
  */
-export interface ValidationResult<T = unknown> {
-	isValid: boolean;
-	data?: T;
-	errors: string[];
-}
+export type ValidationResult<T = unknown> =
+	| {
+			isValid: true;
+			data: T;
+			errors?: never;
+	  }
+	| {
+			isValid: false;
+			data?: never;
+			errors: string[];
+	  };
 
 /**
- * Generic operation result with metadata
+ * Generic operation result with metadata (discriminated union)
  */
-export interface OperationResult<T = unknown, M = Record<string, unknown>> {
-	success: boolean;
-	data?: T;
-	metadata?: M;
-	error?: string;
-	timestamp: string;
-}
+export type OperationResult<T = unknown, M = Record<string, unknown>> =
+	| {
+			success: true;
+			data: T;
+			metadata?: M;
+			timestamp: string;
+	  }
+	| {
+			success: false;
+			error: string;
+			metadata?: M;
+			timestamp: string;
+	  };
