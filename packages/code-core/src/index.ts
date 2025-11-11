@@ -238,7 +238,8 @@ export { buildTodoContext } from './utils/todo-context.js'
 export { generateSessionTitleWithStreaming, cleanAITitle } from './utils/session-title.js'
 export { generateSessionTitle } from './utils/session-title.js'
 export { formatSessionDisplay } from './session/utils/title.js'
-export { formatTodoChange, formatTodoCount } from './utils/todo-formatters.js'
+// NOTE: formatTodoChange and formatTodoCount are used internally by tools/todo.ts
+// Exporting them here causes duplicate exports in the bundle. Keep them internal.
 export { formatTokenCount, getTokenizerInfo, countTokens } from './utils/token-counter.js'
 export { filterFiles, type FileInfo } from './utils/file-scanner.js'
 export { fetchModels, type ModelInfo } from './utils/ai-model-fetcher.js'
@@ -250,11 +251,15 @@ export * from './utils/tool-formatters.js'
 // ============================================================================
 // Tools
 // ============================================================================
+// NOTE: './tools/index.js' exports all tool-related functions including:
+// - Filesystem tools (read, write, edit)
+// - Shell tools (bash, bash-output, kill-bash)
+// - Search tools (glob, grep)
+// - Interaction tools (ask)
+// - Registry functions (getAISDKTools, getToolCategories, getAllToolNames)
+// - Todo tools (createTodoTool)
+// - Bash manager (bashManager)
 export * from './tools/index.js'
-export { getAISDKTools, getToolCategories, getAllToolNames, type GetToolsOptions } from './tools/registry.js'
-export { createTodoTool, type TodoToolContext } from './tools/todo.js'
-export { setUserInputHandler, clearUserInputHandler, setQueueUpdateCallback } from './tools/interaction.js'
-export { bashManager } from './tools/bash-manager.js'
 export { scanProjectFiles } from './utils/file-scanner.js'
 export { sendNotification } from './utils/notifications.js'
 

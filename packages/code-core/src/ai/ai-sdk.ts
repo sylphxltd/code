@@ -7,7 +7,8 @@
 import { streamText, TextPart, UserContent, type AssistantContent, type ModelMessage } from 'ai';
 import type { LanguageModelV2, LanguageModelV2ToolResultOutput } from '@ai-sdk/provider';
 import * as os from 'node:os';
-import { getAISDKTools } from '../tools/index.js';
+// NOTE: getAISDKTools is imported dynamically to avoid circular dependency
+// (ai-sdk → tools → index → ai-sdk creates a bundler issue with duplicate exports)
 import { hasUserInputHandler } from '../tools/interaction.js';
 import { buildTodoContext } from '../utils/todo-context.js';
 
@@ -453,13 +454,19 @@ export async function* createAIStream(
       }
     }
 
+    // Get tools dynamically to avoid circular dependency during module initialization
+    const tools = enableTools ? await (async () => {
+      const { getAISDKTools } = await import('../tools/index.js');
+      return getAISDKTools({ interactive: hasUserInputHandler() });
+    })() : undefined;
+
     // Call AI SDK with single step
     const { fullStream, response, finishReason, usage, content } = streamText({
       model,
       messages: preparedMessages,
       system: systemPrompt,
       // Only provide tools if enabled (saves tokens and improves performance for simple tasks)
-      ...(enableTools ? { tools: getAISDKTools({ interactive: hasUserInputHandler() }) } : {}),
+      ...(tools ? { tools } : {}),
       // Only pass abortSignal if provided (exactOptionalPropertyTypes compliance)
       ...(abortSignal ? { abortSignal } : {}),
       // Provider-specific options (reasoning control, etc)
@@ -629,5 +636,7 @@ export async function* createAIStream(
 
 /**
  * Export helper functions
+ * NOTE: Only export functions defined in this file.
+ * Do NOT re-export getAISDKTools or buildTodoContext as they're already exported from main index.ts
  */
-export { getAISDKTools, getSystemStatus, buildSystemStatusFromMetadata, buildTodoContext, normalizeMessage };
+export { getSystemStatus, buildSystemStatusFromMetadata, normalizeMessage };
