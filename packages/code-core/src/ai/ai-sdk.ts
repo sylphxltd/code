@@ -3,13 +3,18 @@
  * Wraps AI SDK's auto multi-step mode into manual control for flexibility
  */
 
-import {
-	streamText,
-	type AssistantContent,
-	type ModelMessage,
-	type StreamTextPart,
-} from "ai";
+import { streamText, type AssistantContent, type ModelMessage } from "ai";
 import type { LanguageModel, ToolSet } from "ai";
+
+/**
+ * Extract element type from AsyncIterable
+ */
+type ExtractStreamElement<T> = T extends AsyncIterable<infer U> ? U : never;
+
+/**
+ * Infer AI SDK's stream chunk type from streamText return value
+ */
+type AISDKStreamChunk = ExtractStreamElement<ReturnType<typeof streamText<ToolSet>>["fullStream"]>;
 
 /**
  * Additional chunk types for manual step control
@@ -28,7 +33,7 @@ export type StepEndChunk = {
 /**
  * Stream chunk = AI SDK chunks + our step control chunks
  */
-export type StreamChunk = StreamTextPart<ToolSet> | StepStartChunk | StepEndChunk;
+export type StreamChunk = AISDKStreamChunk | StepStartChunk | StepEndChunk;
 
 /**
  * Step info (our own)
