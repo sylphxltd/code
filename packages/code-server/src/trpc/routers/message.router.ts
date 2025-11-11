@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import type { ProviderId } from '@sylphx/code-core';
 
 /**
  * Abort Signal Manager
@@ -28,7 +29,7 @@ const MessagePartSchema = z.union([
     type: z.literal('tool-use'),
     toolUseId: z.string(),
     toolName: z.string(),
-    toolInput: z.any(),
+    toolInput: z.unknown(), // Tool input is dynamic JSON
   }),
   z.object({
     type: z.literal('tool-result'),
@@ -121,13 +122,13 @@ const StreamEventSchema = z.discriminatedUnion('type', [
     type: z.literal('tool-call'),
     toolCallId: z.string(),
     toolName: z.string(),
-    args: z.any(),
+    args: z.unknown(), // Tool arguments are dynamic JSON
   }),
   z.object({
     type: z.literal('tool-result'),
     toolCallId: z.string(),
     toolName: z.string(),
-    result: z.any(),
+    result: z.unknown(), // Tool result is dynamic JSON
     duration: z.number(),
   }),
   z.object({
@@ -223,7 +224,7 @@ export const messageRouter = router({
         }
 
         const session = await ctx.sessionRepository.createSession(
-          input.provider as any,
+          input.provider as ProviderId,
           input.model,
           input.agentId || 'coder'
         );
