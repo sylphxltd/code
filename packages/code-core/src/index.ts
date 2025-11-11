@@ -17,7 +17,9 @@
 // ============================================================================
 // AI & Streaming
 // ============================================================================
-export { createAIStream, getSystemStatus, buildSystemStatusFromMetadata, getSystemPrompt, type SystemStatus } from './ai/ai-sdk.js'
+// NOTE: Use wildcard export to avoid bundler creating duplicate exports
+// (explicit re-export + source file inline exports = duplicate in same chunk)
+export * from './ai/ai-sdk.js'
 export { processStream, type StreamCallbacks } from './ai/stream-handler.js'
 export { buildModelMessages } from './ai/message-builder/index.js'
 
@@ -251,15 +253,38 @@ export * from './utils/tool-formatters.js'
 // ============================================================================
 // Tools
 // ============================================================================
-// NOTE: './tools/index.js' exports all tool-related functions including:
-// - Filesystem tools (read, write, edit)
-// - Shell tools (bash, bash-output, kill-bash)
-// - Search tools (glob, grep)
-// - Interaction tools (ask)
-// - Registry functions (getAISDKTools, getToolCategories, getAllToolNames)
-// - Todo tools (createTodoTool)
-// - Bash manager (bashManager)
-export * from './tools/index.js'
+// Export tools explicitly to avoid bundler creating duplicate export statements
+// (wildcard re-exports cause bundler to generate exports in both the chunk and index)
+
+// Filesystem tools
+export { readFileTool, writeFileTool, editFileTool, filesystemTools } from './tools/filesystem.js';
+
+// Shell tools
+export { executeBashTool, bashOutputTool, killBashTool, shellTools } from './tools/shell.js';
+
+// Search tools
+export { globTool, grepTool, searchTools } from './tools/search.js';
+
+// Interaction tools
+export {
+  setQueueUpdateCallback,
+  hasUserInputHandler,
+  getQueueLength,
+  setUserInputHandler,
+  clearUserInputHandler,
+  askUserSelectionTool,
+  interactionTools,
+} from './tools/interaction.js';
+
+// Registry
+export { getAISDKTools, getToolCategories, getAllToolNames, type GetToolsOptions } from './tools/registry.js';
+
+// Bash manager
+export { bashManager } from './tools/bash-manager.js';
+
+// Todo tool
+export { createTodoTool, type TodoToolContext } from './tools/todo.js';
+
 export { scanProjectFiles } from './utils/file-scanner.js'
 export { sendNotification } from './utils/notifications.js'
 

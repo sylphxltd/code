@@ -266,7 +266,7 @@ export interface SystemStatus {
  * ⚠️ IMPORTANT: Never call this for historical messages!
  * Use buildSystemStatusFromMetadata() instead to preserve prompt cache.
  */
-function getSystemStatus(): SystemStatus {
+export function getSystemStatus(): SystemStatus {
   const timestamp = new Date().toISOString();
 
   // Get memory usage
@@ -316,7 +316,7 @@ function getSystemStatus(): SystemStatus {
  * @param metadata - Stored SystemStatus from SessionMessage.metadata
  * @returns Formatted system status string for LLM
  */
-function buildSystemStatusFromMetadata(metadata: SystemStatus): string {
+export function buildSystemStatusFromMetadata(metadata: SystemStatus): string {
   return `<system_status>
 Time: ${metadata.timestamp}
 CPU: ${metadata.cpu}
@@ -382,7 +382,7 @@ function injectSystemStatusToOutput(output: LanguageModelV2ToolResultOutput, sys
  * Normalize content to modern array format
  * Converts legacy string content to Array<TextPart | ImagePart | FilePart | ... >
  */
-function normalizeMessage(message: ModelMessage): ModelMessage {
+export function normalizeMessage(message: ModelMessage): ModelMessage {
   const content = message.content;
   if (typeof content === 'string') {
     // Legacy string format → convert to TextPart array
@@ -634,9 +634,5 @@ export async function* createAIStream(
   }
 }
 
-/**
- * Export helper functions
- * NOTE: Only export functions defined in this file.
- * Do NOT re-export getAISDKTools or buildTodoContext as they're already exported from main index.ts
- */
-export { getSystemStatus, buildSystemStatusFromMetadata, normalizeMessage };
+// NOTE: All exports from this file are done inline (export function, export const, export type)
+// No need for a final export {} statement as it causes bundler to create duplicate exports
