@@ -447,13 +447,34 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
                   .map(sm => sm.content)
                   .join('\n\n');
 
-                const systemMessageContent: ModelMessage = {
-                  role: 'user',
-                  content: [{ type: 'text', text: combinedContent }],
-                };
-
                 console.log(`🔄 [onPrepareMessages] Injecting ${systemMessages.length} system messages into model messages`);
-                return [...messages, systemMessageContent];
+                console.log(`🔄 [onPrepareMessages] System message content preview:`, combinedContent.substring(0, 200) + '...');
+
+                // Append to last message to avoid consecutive user messages
+                const lastMessage = messages[messages.length - 1];
+                if (lastMessage && lastMessage.role === 'user') {
+                  // Append system message to last user message
+                  const lastContent = lastMessage.content;
+                  const updatedContent = Array.isArray(lastContent)
+                    ? [...lastContent, { type: 'text' as const, text: '\n\n' + combinedContent }]
+                    : [{ type: 'text' as const, text: combinedContent }];
+
+                  const updatedMessages = [
+                    ...messages.slice(0, -1),
+                    { ...lastMessage, content: updatedContent }
+                  ];
+
+                  console.log(`🔄 [onPrepareMessages] Appended to last user message`);
+                  return updatedMessages;
+                } else {
+                  // Fallback: add as separate user message (shouldn't happen in practice)
+                  console.warn(`🔄 [onPrepareMessages] Last message is not user role, adding as separate message`);
+                  const updatedMessages = [...messages, {
+                    role: 'user' as const,
+                    content: [{ type: 'text' as const, text: combinedContent }],
+                  }];
+                  return updatedMessages;
+                }
               }
 
               return messages;
