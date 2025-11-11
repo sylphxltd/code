@@ -167,6 +167,51 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     // Create abort controller for this stream
     abortControllerRef.current = new AbortController();
 
+    // CRITICAL: Register abort handler IMMEDIATELY after creating AbortController
+    // Must register before any async operations (getTRPCClient, mutation, etc.)
+    // Otherwise, if user presses ESC during async operation, handler won't be registered yet
+    let mutationSessionId: string | null = null; // Will be set after mutation completes
+
+    abortControllerRef.current.signal.addEventListener('abort', async () => {
+      try {
+        console.log('[AbortDebug] Client abort event fired');
+        logSession('Stream aborted by user');
+        addLog('[Mutation] Aborted by user');
+
+        // Use sessionId from mutation result (available after mutation completes)
+        // Or fall back to currentSessionId if mutation hasn't completed yet
+        const abortSessionId = mutationSessionId || currentSessionId;
+        console.log('[AbortDebug] Calling server abort mutation for session:', abortSessionId);
+
+        if (abortSessionId) {
+          try {
+            const caller = await getTRPCClient();
+            const abortResult = await caller.message.abortStream.mutate({ sessionId: abortSessionId });
+            console.log('[AbortDebug] Server abort result:', abortResult);
+            logSession('Server notified of abort');
+          } catch (abortError) {
+            console.error('[AbortDebug] Failed to notify server of abort:', abortError);
+            console.error('[subscriptionAdapter] Failed to notify server of abort:', abortError);
+            // Continue with client-side cleanup even if server notification fails
+          }
+        }
+
+        // Mark active parts as aborted
+        updateActiveMessageContent(sessionId, streamingMessageIdRef.current, (prev) =>
+          prev.map((part) =>
+            part.status === 'active' ? { ...part, status: 'abort' as const } : part
+          )
+        );
+
+        // Reset streaming state
+        setIsStreaming(false);
+        streamingMessageIdRef.current = null;
+      } catch (handlerError) {
+        console.error('[subscriptionAdapter] Error in abort handler:', handlerError);
+        setIsStreaming(false);
+      }
+    });
+
     try {
       logSession('Getting tRPC client');
       // Get tRPC caller (in-process client)
@@ -332,6 +377,9 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 
       logSession('Mutation completed:', result);
 
+      // Store sessionId for abort handler (registered earlier)
+      mutationSessionId = result.sessionId;
+
       // CRITICAL: Update sessionId if lazy session was created
       // This ensures useEventStream subscribes to the correct session
       if (result.sessionId && result.sessionId !== sessionId) {
@@ -341,44 +389,6 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 
       // Set streaming flag immediately after mutation triggers
       setIsStreaming(true);
-
-      // Handle abort: Notify server and update client state
-      abortControllerRef.current.signal.addEventListener('abort', async () => {
-        try {
-          console.log('[AbortDebug] Client abort event fired');
-          logSession('Stream aborted by user');
-          addLog('[Mutation] Aborted by user');
-
-          // Call server to abort the stream
-          const abortSessionId = result.sessionId;
-          console.log('[AbortDebug] Calling server abort mutation for session:', abortSessionId);
-          if (abortSessionId) {
-            try {
-              const abortResult = await caller.message.abortStream.mutate({ sessionId: abortSessionId });
-              console.log('[AbortDebug] Server abort result:', abortResult);
-              logSession('Server notified of abort');
-            } catch (abortError) {
-              console.error('[AbortDebug] Failed to notify server of abort:', abortError);
-              console.error('[subscriptionAdapter] Failed to notify server of abort:', abortError);
-              // Continue with client-side cleanup even if server notification fails
-            }
-          }
-
-          // Mark active parts as aborted
-          updateActiveMessageContent(sessionId, streamingMessageIdRef.current, (prev) =>
-            prev.map((part) =>
-              part.status === 'active' ? { ...part, status: 'abort' as const } : part
-            )
-          );
-
-          // Reset streaming state
-          setIsStreaming(false);
-          streamingMessageIdRef.current = null;
-        } catch (handlerError) {
-          console.error('[subscriptionAdapter] Error in abort handler:', handlerError);
-          setIsStreaming(false);
-        }
-      });
     } catch (error) {
       logSession('Mutation call error:', {
         error: error instanceof Error ? error.message : String(error),
