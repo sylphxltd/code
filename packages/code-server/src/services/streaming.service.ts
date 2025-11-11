@@ -809,7 +809,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             // This is an abort, not an error - don't log as error
             aborted = true;
             // Emit abort event
+            console.log('[streamAIResponse] Emitting abort event to observer');
             observer.next({ type: 'abort' });
+            console.log('[streamAIResponse] Abort event emitted');
           } else {
             // Real error - log it
             console.error('[streamAIResponse] Stream processing error:', error);

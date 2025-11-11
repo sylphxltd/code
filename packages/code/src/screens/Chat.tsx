@@ -327,6 +327,17 @@ export default function Chat(_props: ChatProps) {
       onComplete: (usage?: any, finishReason?: string) => {
         handleStreamEvent({ type: 'complete', usage, finishReason }, eventContextParams);
       },
+
+      // Error handling
+      onError: (error: string) => {
+        handleStreamEvent({ type: 'error', error }, eventContextParams);
+      },
+
+      // Abort handling
+      onAbort: () => {
+        console.log('[Chat] onAbort callback fired');
+        handleStreamEvent({ type: 'abort' }, eventContextParams);
+      },
     }),
     [eventContextParams]
   );
