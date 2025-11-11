@@ -53,7 +53,7 @@ export type StreamEvent =
   | { type: 'system-message-created'; messageId: string; content: string }
 
   // Step-level events (NEW)
-  | { type: 'step-start'; stepId: string; stepIndex: number; metadata: { cpu: string; memory: string }; todoSnapshot: any[] }
+  | { type: 'step-start'; stepId: string; stepIndex: number; metadata: { cpu: string; memory: string }; todoSnapshot: any[]; systemMessages?: Array<{ type: string; content: string; timestamp: number }> }
   | { type: 'step-complete'; stepId: string; usage: TokenUsage; duration: number; finishReason: string }
 
   // Content streaming events (within a step)
@@ -429,13 +429,16 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
                 console.log(`🔄 [onPrepareMessages] Created step-${stepNumber}${systemMessages.length > 0 ? ` with ${systemMessages.length} system messages` : ''}`);
 
                 // Emit step-start event for UI
-                observer.next({
+                const stepStartEvent = {
                   type: 'step-start' as const,
                   stepId: newStepId,
                   stepIndex: stepNumber,
                   metadata: { cpu: 'N/A', memory: 'N/A' }, // Placeholder (resources now in system messages)
                   todoSnapshot: [], // Deprecated
-                });
+                  systemMessages: systemMessages.length > 0 ? systemMessages : undefined,
+                };
+                console.log(`🔄 [onPrepareMessages] Emitting step-start event${systemMessages.length > 0 ? ` with ${systemMessages.length} system messages` : ''}`);
+                observer.next(stepStartEvent);
               } catch (stepError) {
                 console.error('[onPrepareMessages] Failed to create step:', stepError);
               }
