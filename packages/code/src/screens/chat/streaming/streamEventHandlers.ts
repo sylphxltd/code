@@ -67,9 +67,10 @@ export function updateActiveMessageContent(
     return;
   }
 
-  // Find active message by ID if provided, otherwise find any active message
+  // Find message by ID if provided, otherwise find any active message
+  // When messageId is provided, find by ID regardless of status (allows updating parts after status change)
   const activeMessage = messageId
-    ? session.messages.find((m) => m.id === messageId && m.status === 'active')
+    ? session.messages.find((m) => m.id === messageId)
     : session.messages.find((m) => m.status === 'active');
 
   if (!activeMessage) {
