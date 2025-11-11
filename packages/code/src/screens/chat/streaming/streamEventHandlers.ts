@@ -553,8 +553,17 @@ function handleComplete(event: Extract<StreamEvent, { type: 'complete' }>, conte
   const currentSessionId = getCurrentSessionId();
   const currentSession = getSignal($currentSession);
 
+  console.log('🎯 [handleComplete] Called!', {
+    usage: event.usage,
+    finishReason: event.finishReason,
+    hasContext: !!context,
+    hasSetIsStreaming: !!context.setIsStreaming,
+  });
+
   // Stop streaming UI indicator
   context.setIsStreaming(false);
+
+  console.log('🎯 [handleComplete] Set isStreaming to false');
 
   // Update active message status to completed
   if (currentSession && context.streamingMessageIdRef.current) {

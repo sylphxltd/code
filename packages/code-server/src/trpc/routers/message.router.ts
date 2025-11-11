@@ -374,8 +374,18 @@ export const messageRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      console.log('🌟 [triggerStream] MUTATION ENTRY', {
+        sessionId: input.sessionId,
+        agentId: input.agentId,
+        provider: input.provider,
+        model: input.model,
+        contentLength: input.content.length,
+      });
+
       // Import streaming service
       const { streamAIResponse } = await import('../../services/streaming.service.js');
+
+      console.log('🌟 [triggerStream] About to call streamAIResponse');
 
       // Get or create sessionId for event channel
       let eventSessionId = input.sessionId || null;
@@ -394,36 +404,41 @@ export const messageRouter = router({
       });
 
       /**
-       * ARCHITECTURE: Wait for session-created event (lazy sessions only)
+       * ARCHITECTURE: Subscribe to stream and wait for session-created (lazy sessions only)
        *
-       * Problem: Client needs sessionId to subscribe to correct event channel
-       * Solution: Wait for session-created event before returning from mutation
+       * Problem: Observable must be subscribed to execute streaming
+       * Solution: Always subscribe, but only wait for session-created if sessionId is null
        *
        * Flow:
-       * 1. Existing session → Resolve immediately with sessionId
-       * 2. Lazy session → Wait for session-created event → Resolve with new sessionId
+       * 1. Existing session → Subscribe immediately, resolve with existing sessionId
+       * 2. Lazy session → Subscribe, wait for session-created event, resolve with new sessionId
        * 3. Client uses returned sessionId to subscribe via message.subscribe
        *
-       * Memory: Subscription is cleaned up after session-created or error
+       * Memory: Subscription cleaned up after complete/error
        */
       const sessionIdPromise = new Promise<string>((resolve, reject) => {
-        // Early exit: Session already exists, no need to subscribe
+        // CRITICAL: Always subscribe to observable to trigger streaming execution
+        // For existing sessions: Resolve immediately with sessionId
+        // For lazy sessions: Wait for session-created event
+
+        let hasResolved = false;
+
+        // If session already exists, resolve immediately (but continue subscription for streaming)
         if (eventSessionId) {
           resolve(eventSessionId);
-          return;
+          hasResolved = true;
         }
 
-        // Subscribe to stream to capture session-created event
-        // CRITICAL: Must unsubscribe to prevent memory leak
+        // Subscribe to stream to capture session-created event (lazy sessions)
+        // CRITICAL: Must subscribe to trigger observable execution
         const subscription = streamObservable.subscribe({
           next: (event) => {
-            // Capture sessionId from session-created event
-            if (event.type === 'session-created') {
+            // Capture sessionId from session-created event (lazy sessions only)
+            if (event.type === 'session-created' && !hasResolved) {
               eventSessionId = event.sessionId;
               // Resolve promise with new sessionId
               resolve(eventSessionId);
-              // CRITICAL: Cleanup subscription immediately
-              subscription.unsubscribe();
+              hasResolved = true;
             }
 
             // Publish all events to event stream for client subscriptions
@@ -445,7 +460,10 @@ export const messageRouter = router({
             }
             // CRITICAL: Cleanup before rejecting
             subscription.unsubscribe();
-            reject(error);
+            // Only reject if promise not already resolved (for existing sessions, already resolved)
+            if (!hasResolved) {
+              reject(error);
+            }
           },
           complete: () => {
             // Publish complete to event stream
@@ -463,9 +481,12 @@ export const messageRouter = router({
       });
 
       // Wait for sessionId (either immediate or from session-created event)
+      console.log('🌟 [triggerStream] Waiting for sessionIdPromise');
       const finalSessionId = await sessionIdPromise;
+      console.log('🌟 [triggerStream] SessionIdPromise resolved:', finalSessionId);
 
       // Return sessionId so client can subscribe
+      console.log('🌟 [triggerStream] Returning success');
       return {
         success: true,
         sessionId: finalSessionId,

@@ -220,6 +220,11 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
               break;
 
             case 'complete':
+              console.log('📡 [useEventStream] complete event received:', {
+                usage: event.usage,
+                finishReason: event.finishReason,
+                hasCallback: !!callbacksRef.current.onComplete,
+              });
               callbacksRef.current.onComplete?.(event.usage, event.finishReason);
               break;
 

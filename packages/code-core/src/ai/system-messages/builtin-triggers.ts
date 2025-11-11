@@ -80,8 +80,16 @@ const memoryResourceTrigger: TriggerHook = async (context) => {
 
   const isWarningActive = isFlagSet(session, 'memoryWarning');
 
+  console.log(`💾 [memoryTrigger] Session ${session.id.substring(0, 8)}...`, {
+    memUsage: Math.round(memUsage * 100) + '%',
+    threshold: Math.round(RESOURCE_WARNING_THRESHOLD * 100) + '%',
+    isWarningActive,
+    flags,
+  });
+
   // State transition: Normal → Warning
   if (memUsage >= RESOURCE_WARNING_THRESHOLD && !isWarningActive) {
+    console.log(`💾 [memoryTrigger] Triggering warning (Normal → Warning)`);
     return {
       message: SystemMessages.resourceWarningMemory(status.memory),
       flagUpdates: { memoryWarning: true },
@@ -90,6 +98,7 @@ const memoryResourceTrigger: TriggerHook = async (context) => {
 
   // State transition: Warning → Normal
   if (memUsage < RESOURCE_WARNING_THRESHOLD && isWarningActive) {
+    console.log(`💾 [memoryTrigger] Triggering recovery (Warning → Normal)`);
     return {
       message: `<system_message type="resource-recovered-memory">
 ✅ System Resource Recovered - Memory
@@ -107,6 +116,7 @@ The memory constraints have been resolved.
     };
   }
 
+  console.log(`💾 [memoryTrigger] No state transition needed`);
   return null;
 };
 

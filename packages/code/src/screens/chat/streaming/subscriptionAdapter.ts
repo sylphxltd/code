@@ -123,9 +123,21 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     attachments?: FileAttachment[],
     options?: TriggerAIOptions
   ) => {
+    console.log('🚀 [subscriptionAdapter] Function entry - sendUserMessageToAI called', {
+      messageLength: userMessage.length,
+      hasAttachments: !!attachments?.length,
+      hasOptions: !!options,
+    });
+    console.log('🚀 [subscriptionAdapter] About to call logSession');
     logSession('Send user message called');
+    console.log('🚀 [subscriptionAdapter] logSession completed');
     logSession('User message length:', userMessage.length);
     logSession('Provider:', selectedProvider, 'Model:', selectedModel);
+
+    console.log('🚀 [subscriptionAdapter] Checking provider/model', {
+      provider: selectedProvider,
+      model: selectedModel,
+    });
 
     // Block if no provider configured
     // Use selectedProvider and selectedModel from store (reactive state)
@@ -133,6 +145,8 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     const model = selectedModel;
 
     if (!provider || !model) {
+      console.log('🚀 [subscriptionAdapter] NO PROVIDER/MODEL - returning early');
+
       logSession('No provider or model configured!', { provider, model });
       addLog('[subscriptionAdapter] No AI provider configured. Use /provider to configure.');
 
@@ -155,11 +169,13 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       return;
     }
 
+    console.log('🚀 [subscriptionAdapter] Provider/model OK, proceeding');
     logSession('Provider configured, proceeding with streaming');
 
     // LAZY SESSIONS: Server will create session if currentSessionId is null
     // Client just passes null, server handles creation
     const sessionId = currentSessionId;
+    console.log('🚀 [subscriptionAdapter] SessionId:', sessionId);
 
     // Reset streaming state for new stream
     streamingMessageIdRef.current = null;
@@ -167,14 +183,18 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
     // Create abort controller for this stream
     abortControllerRef.current = new AbortController();
 
+    console.log('🚀 [subscriptionAdapter] About to enter try block');
     try {
+      console.log('🚀 [subscriptionAdapter] Inside try block - getting tRPC client');
       logSession('Getting tRPC client');
       // Get tRPC caller (in-process client)
       const caller = await getTRPCClient();
+      console.log('🚀 [subscriptionAdapter] tRPC client obtained, parsing content');
       logSession('tRPC client obtained');
 
       // Parse user input into ordered content parts
       const { parts: content } = parseUserInput(userMessage, attachments || []);
+      console.log('🚀 [subscriptionAdapter] Content parsed, content parts:', content.length);
 
       logSession('Parsed content:', JSON.stringify(content, null, 2));
 
@@ -310,6 +330,13 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
         logSession('Skipping optimistic update (skipUserMessage=true - triggering with existing messages)');
       }
 
+      console.log('🚀 [subscriptionAdapter] About to call triggerStream mutation', {
+        sessionId,
+        provider,
+        model,
+        contentLength: content.length,
+      });
+
       logSession('Calling triggerStream mutation', {
         sessionId,
         hasProvider: !!provider,
@@ -323,12 +350,14 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       // - Server publishes all events to event bus
       // - Client receives events via useEventStream (Chat.tsx)
       // - No subscription callbacks needed - all handled in event handlers
+      console.log('🚀 [subscriptionAdapter] CALLING MUTATION NOW');
       const result = await caller.message.triggerStream.mutate({
         sessionId: sessionId,
         provider: sessionId ? undefined : provider,
         model: sessionId ? undefined : model,
         content, // Empty array = use existing messages, non-empty = add new user message
       });
+      console.log('🚀 [subscriptionAdapter] MUTATION COMPLETED', result);
 
       logSession('Mutation completed:', result);
 

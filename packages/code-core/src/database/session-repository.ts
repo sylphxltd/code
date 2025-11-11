@@ -301,9 +301,12 @@ export class SessionRepository {
       messages: sessionMessages,
       todos: sessionTodos,
       nextTodoId: session.nextTodoId,
+      flags: session.flags || undefined,
       created: session.created,
       updated: session.updated,
     };
+
+    console.log(`🏁 [SessionRepository] Loaded session ${sessionId.substring(0, 8)}... flags:`, result.flags);
 
     return result;
   }

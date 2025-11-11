@@ -402,6 +402,10 @@ export interface Session {
   todos: Todo[];           // Per-session todo list (not global!)
   nextTodoId: number;      // Next todo ID for this session (starts at 1)
 
+  // System message trigger flags (state tracking)
+  // Used to prevent duplicate system messages (e.g., memoryWarning, cpuWarning)
+  flags?: Record<string, boolean>;
+
   // Note: Streaming state derived from message.status, not stored here
   // To check if streaming: messages.some(m => m.status === 'active')
 

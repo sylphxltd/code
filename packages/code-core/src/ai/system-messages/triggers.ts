@@ -43,6 +43,8 @@ export async function checkAllTriggers(
   // Ensure triggers are initialized
   initializeTriggers();
 
+  console.log(`🎯 [checkAllTriggers] Session ${session.id.substring(0, 8)}... current flags:`, session.flags);
+
   // Build trigger context
   const context: TriggerContext = {
     session,
@@ -54,10 +56,13 @@ export async function checkAllTriggers(
   const result = await triggerRegistry.checkAll(context);
 
   if (result) {
+    console.log(`🎯 [checkAllTriggers] Trigger fired! Flag updates:`, result.flagUpdates);
     // Update session flags
     if (Object.keys(result.flagUpdates).length > 0) {
       await sessionRepository.updateSessionFlags(session.id, result.flagUpdates);
     }
+  } else {
+    console.log(`🎯 [checkAllTriggers] No triggers fired`);
   }
 
   return result;
