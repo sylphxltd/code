@@ -9,14 +9,16 @@ import type { TriggerHook } from './registry.js';
 
 /**
  * Context Warning Thresholds
+ * Set to low values for testing, restore to 0.8/0.9 for production
  */
-const CONTEXT_WARNING_80 = 0.8;
-const CONTEXT_WARNING_90 = 0.9;
+const CONTEXT_WARNING_80 = process.env.TEST_MODE ? 0.1 : 0.8;
+const CONTEXT_WARNING_90 = process.env.TEST_MODE ? 0.2 : 0.9;
 
 /**
  * Resource Warning Threshold
+ * Set to low value for testing, restore to 0.8 for production
  */
-const RESOURCE_WARNING_THRESHOLD = 0.8;
+const RESOURCE_WARNING_THRESHOLD = process.env.TEST_MODE ? 0.1 : 0.8;
 
 /**
  * CPU Resource Trigger
@@ -208,10 +210,55 @@ const sessionStartTodoTrigger: TriggerHook = async (context) => {
 };
 
 /**
+ * Test Trigger - Manually trigger system messages for testing
+ * Only enabled in TEST_MODE
+ */
+const testTrigger: TriggerHook = async (context) => {
+  const { session } = context;
+
+  // Check if test flag is set
+  const shouldTest = isFlagSet(session, 'testSystemMessage');
+  if (!shouldTest) {
+    return null;
+  }
+
+  // Return test messages
+  return {
+    messageType: 'test-message',
+    message: `<system_message type="test-message">
+🧪 Test System Message
+
+This is a test system message to verify the display and functionality.
+
+Multiple messages can appear simultaneously:
+- This is message 1
+- More messages can be added
+- Each with its own type
+
+Current timestamp: ${Date.now()}
+</system_message>`,
+    flagUpdates: { testSystemMessage: false }, // Reset flag after showing once
+  };
+};
+
+/**
  * Register all built-in triggers
  */
 export function registerBuiltinTriggers(): void {
   // Priority order (lower = higher priority)
+
+  // Test trigger (only in TEST_MODE)
+  if (process.env.TEST_MODE) {
+    triggerRegistry.register({
+      id: 'test-trigger',
+      name: 'Test System Message',
+      description: 'Manual test trigger for development',
+      priority: -1, // Highest priority
+      enabled: true,
+      hook: testTrigger,
+    });
+  }
+
   triggerRegistry.register({
     id: 'context-90-critical',
     name: 'Context 90% Critical',
