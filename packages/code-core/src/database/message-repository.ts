@@ -53,7 +53,7 @@ export class MessageRepository {
    */
   async addMessage(options: {
     sessionId: string;
-    role: 'user' | 'assistant';
+    role: 'user' | 'assistant' | 'system';
     content: MessagePart[];
     usage?: TokenUsage;
     finishReason?: string;

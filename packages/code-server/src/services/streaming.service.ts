@@ -873,19 +873,23 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         if (finalStatus === 'abort' && aiConfig.notifyLLMOnAbort) {
           try {
             console.log('[streamAIResponse] Creating system message to notify LLM about abort');
-            const systemMessage = await messageRepository.createMessage({
+            const systemMessageId = await messageRepository.addMessage({
               sessionId,
               role: 'system',
-              content: 'Previous assistant message was aborted by user.',
+              content: [{
+                type: 'text',
+                text: 'Previous assistant message was aborted by user.',
+                status: 'completed',
+              }],
               status: 'completed',
             });
-            console.log('[streamAIResponse] System message created:', systemMessage.id);
+            console.log('[streamAIResponse] System message created:', systemMessageId);
 
             // Emit system-message-created event
             observer.next({
               type: 'system-message-created',
-              messageId: systemMessage.id,
-              content: systemMessage.content,
+              messageId: systemMessageId,
+              content: 'Previous assistant message was aborted by user.',
             });
             console.log('[streamAIResponse] system-message-created event emitted');
           } catch (systemMessageError) {
