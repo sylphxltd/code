@@ -840,14 +840,17 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         // 11. Update message status (aggregated from all steps)
         const finalStatus = aborted ? 'abort' : finalUsage ? 'completed' : 'error';
+        console.log('[streamAIResponse] Updating message status to:', finalStatus, 'messageId:', assistantMessageId);
         try {
           await messageRepository.updateMessageStatus(
             assistantMessageId,
             finalStatus,
             finalFinishReason
           );
+          console.log('[streamAIResponse] Message status updated in DB');
 
           // Emit message-status-updated event (unified status change event)
+          console.log('[streamAIResponse] Emitting message-status-updated event');
           observer.next({
             type: 'message-status-updated',
             messageId: assistantMessageId,
@@ -855,6 +858,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             usage: finalUsage,
             finishReason: finalFinishReason,
           });
+          console.log('[streamAIResponse] message-status-updated event emitted successfully');
         } catch (dbError) {
           console.error('[streamAIResponse] Failed to update message status:', dbError);
           // Continue - not critical for user experience

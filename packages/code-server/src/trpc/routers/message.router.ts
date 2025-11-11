@@ -97,6 +97,15 @@ const StreamEventSchema = z.discriminatedUnion('type', [
   // Message creation
   z.object({ type: z.literal('assistant-message-created'), messageId: z.string() }),
 
+  // Message status updates (UNIFIED STATUS CHANGE EVENT)
+  z.object({
+    type: z.literal('message-status-updated'),
+    messageId: z.string(),
+    status: z.enum(['active', 'completed', 'error', 'abort']),
+    usage: TokenUsageSchema.optional(),
+    finishReason: z.string().optional(),
+  }),
+
   // Text streaming
   z.object({ type: z.literal('text-start') }),
   z.object({ type: z.literal('text-delta'), text: z.string() }),
