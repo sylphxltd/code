@@ -321,7 +321,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
             // Emit system-message-created event (same pattern as assistant-message-created)
             observer.next({
-              type: 'system-message-created',
+              type: 'system-message-created' as const,
               messageId: systemMessageId,
               content: triggerResult.message,
             });
