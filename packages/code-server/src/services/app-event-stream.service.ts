@@ -32,7 +32,7 @@ export class AppEventStream {
 	private cleanupInterval?: NodeJS.Timeout;
 
 	constructor(
-		private persistence?: EventPersistence,
+		private persistence: EventPersistence | undefined = undefined,
 		private options: {
 			bufferSize?: number; // Number of events to keep in memory (default: 100)
 			bufferTime?: number; // Time to keep events in memory in ms (default: 5 min)

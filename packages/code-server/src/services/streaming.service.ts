@@ -13,7 +13,7 @@
  */
 
 import { streamText, type TextStreamPart, type LanguageModelUsage } from "ai";
-import { observable } from "@trpc/server/observable";
+import { observable, type Observable } from "@trpc/server/observable";
 import type {
 	SessionRepository,
 	MessageRepository,
@@ -173,7 +173,7 @@ export interface StreamAIResponseOptions {
  * 5. Emits events to observer
  * 6. Saves final result to database
  */
-export function streamAIResponse(opts: StreamAIResponseOptions) {
+export function streamAIResponse(opts: StreamAIResponseOptions): Observable<StreamEvent, unknown> {
 	return observable<StreamEvent>((observer) => {
 		let aborted = false;
 

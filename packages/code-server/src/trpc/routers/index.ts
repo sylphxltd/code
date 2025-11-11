@@ -22,7 +22,7 @@ export const appRouter = router({
 	config: configRouter,
 	admin: adminRouter,
 	events: eventsRouter,
-});
+}) satisfies ReturnType<typeof router>;
 
 /**
  * Export type for client-side type safety
