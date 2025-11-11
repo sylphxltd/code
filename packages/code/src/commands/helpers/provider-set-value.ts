@@ -3,6 +3,7 @@
  * Extract duplicated provider configuration setting logic
  */
 
+import type { ProviderId } from "../../../types/provider.types.js";
 import type { CommandContext } from "../types.js";
 
 /**
@@ -10,7 +11,7 @@ import type { CommandContext } from "../types.js";
  */
 export async function askSelectProviderKey(
 	context: CommandContext,
-	providerId: string,
+	providerId: ProviderId,
 	schema: Array<{ key: string; label: string }>,
 ): Promise<string | null> {
 	const { AI_PROVIDERS } = await import("@sylphx/code-core");
@@ -21,7 +22,7 @@ export async function askSelectProviderKey(
 	}));
 
 	await context.sendMessage(
-		`Configure ${AI_PROVIDERS[providerId as keyof typeof AI_PROVIDERS].name} - Select setting:`,
+		`Configure ${AI_PROVIDERS[providerId].name} - Select setting:`,
 	);
 	const keyAnswers = await context.waitForInput({
 		type: "selection",
@@ -82,7 +83,7 @@ export async function askForValueByType(
  */
 export async function setProviderConfigValue(
 	context: CommandContext,
-	providerId: string,
+	providerId: ProviderId,
 	key: string,
 	value: string,
 	schema: Array<{ key: string; label: string; secret?: boolean }>,
@@ -96,7 +97,7 @@ export async function setProviderConfigValue(
 		providers: {
 			...aiConfig!.providers,
 			[providerId]: {
-				...aiConfig!.providers?.[providerId as keyof typeof aiConfig.providers],
+				...aiConfig!.providers?.[providerId],
 				[key]: value,
 			},
 		},
@@ -113,7 +114,7 @@ export async function setProviderConfigValue(
 	const displayField = schema.find((f) => f.key === key);
 	const displayValue = displayField?.secret ? "***" : value;
 
-	return `Set ${AI_PROVIDERS[providerId as keyof typeof AI_PROVIDERS].name} ${key} to: ${displayValue}`;
+	return `Set ${AI_PROVIDERS[providerId].name} ${key} to: ${displayValue}`;
 }
 
 /**
@@ -121,10 +122,10 @@ export async function setProviderConfigValue(
  */
 export async function interactiveSetProviderConfig(
 	context: CommandContext,
-	providerId: string,
+	providerId: ProviderId,
 ): Promise<string> {
 	const { getProvider } = await import("@sylphx/code-core");
-	const provider = getProvider(providerId as any);
+	const provider = getProvider(providerId);
 	const schema = provider.getConfigSchema();
 
 	// Ask for key

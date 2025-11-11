@@ -32,8 +32,8 @@ export async function getProviderOptions(
 	return Object.values(AI_PROVIDERS).map((p) => {
 		let isConfigured = false;
 		try {
-			const provider = getProvider(p.id as any);
-			const providerConfig = aiConfig?.providers?.[p.id as keyof typeof aiConfig.providers];
+			const provider = getProvider(p.id);
+			const providerConfig = aiConfig?.providers?.[p.id];
 			isConfigured = providerConfig ? provider.isConfigured(providerConfig) : false;
 		} catch {
 			// Provider not found or error checking config
@@ -78,15 +78,15 @@ export async function askSelectProvider(
  */
 export async function ensureProviderConfigured(
 	context: CommandContext,
-	providerId: string,
+	providerId: ProviderId,
 	autoPromptConfigure: boolean = true,
 ): Promise<{ success: true; config: any } | { success: false; message: string }> {
 	const { AI_PROVIDERS } = await import("@sylphx/code-core");
 	const { getProvider } = await import("@sylphx/code-core");
 	const aiConfig = get($aiConfig);
 
-	const provider = getProvider(providerId as any);
-	const providerConfig = aiConfig?.providers?.[providerId as keyof typeof aiConfig.providers];
+	const provider = getProvider(providerId);
+	const providerConfig = aiConfig?.providers?.[providerId];
 
 	// Already configured
 	if (providerConfig && provider.isConfigured(providerConfig)) {
@@ -97,13 +97,13 @@ export async function ensureProviderConfigured(
 	if (!autoPromptConfigure) {
 		return {
 			success: false,
-			message: `${AI_PROVIDERS[providerId as keyof typeof AI_PROVIDERS].name} is not configured. Use: /provider set ${providerId}`,
+			message: `${AI_PROVIDERS[providerId].name} is not configured. Use: /provider set ${providerId}`,
 		};
 	}
 
 	// Ask if user wants to configure now
 	await context.sendMessage(
-		`${AI_PROVIDERS[providerId as keyof typeof AI_PROVIDERS].name} is not configured yet.`,
+		`${AI_PROVIDERS[providerId].name} is not configured yet.`,
 	);
 	const configureAnswers = await context.waitForInput({
 		type: "selection",
@@ -136,8 +136,7 @@ export async function ensureProviderConfigured(
 
 	// Check if now configured
 	const updatedConfig = get($aiConfig);
-	const updatedProviderConfig =
-		updatedConfig?.providers?.[providerId as keyof typeof updatedConfig.providers];
+	const updatedProviderConfig = updatedConfig?.providers?.[providerId];
 
 	if (!updatedProviderConfig || !provider.isConfigured(updatedProviderConfig)) {
 		return {
@@ -155,7 +154,7 @@ export async function ensureProviderConfigured(
  */
 export async function switchToProvider(
 	context: CommandContext,
-	providerId: string,
+	providerId: ProviderId,
 	providerConfig: any,
 ): Promise<string> {
 	const { AI_PROVIDERS } = await import("@sylphx/code-core");
@@ -168,9 +167,9 @@ export async function switchToProvider(
 
 	// Get default model and update config
 	const { getDefaultModel } = await import("@sylphx/code-core");
-	const defaultModel = await getDefaultModel(providerId as any, providerConfig);
+	const defaultModel = await getDefaultModel(providerId, providerConfig);
 	if (!defaultModel) {
-		return `Failed to get default model for ${AI_PROVIDERS[providerId as keyof typeof AI_PROVIDERS].name}`;
+		return `Failed to get default model for ${AI_PROVIDERS[providerId].name}`;
 	}
 
 	// Save default model to config
@@ -187,7 +186,7 @@ export async function switchToProvider(
 	await context.saveConfig(newConfig);
 
 	// Update UI state
-	setSelectedProvider(providerId as ProviderId);
+	setSelectedProvider(providerId);
 	setSelectedModel(defaultModel);
 
 	// Update current session's provider (preserve history)
@@ -197,7 +196,7 @@ export async function switchToProvider(
 	}
 	// No fallback: Config is updated, next message will create session automatically
 
-	return `Now using ${AI_PROVIDERS[providerId as keyof typeof AI_PROVIDERS].name} with model: ${defaultModel}`;
+	return `Now using ${AI_PROVIDERS[providerId].name} with model: ${defaultModel}`;
 }
 
 /**
@@ -205,7 +204,7 @@ export async function switchToProvider(
  */
 export async function ensureConfiguredAndSwitch(
 	context: CommandContext,
-	providerId: string,
+	providerId: ProviderId,
 	autoPromptConfigure: boolean = true,
 ): Promise<string> {
 	const result = await ensureProviderConfigured(context, providerId, autoPromptConfigure);
