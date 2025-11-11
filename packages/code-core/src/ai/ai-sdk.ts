@@ -98,6 +98,18 @@ export type FinishChunk = {
 	};
 };
 
+export type StepStartChunk = {
+	type: "step-start";
+	stepNumber: number;
+};
+
+export type StepEndChunk = {
+	type: "step-end";
+	stepNumber: number;
+	finishReason: string;
+	responseMessages: ModelMessage[];
+};
+
 export type StreamChunk =
 	| TextStartChunk
 	| TextDeltaChunk
@@ -114,7 +126,9 @@ export type StreamChunk =
 	| FileChunk
 	| StreamErrorChunk
 	| AbortChunk
-	| FinishChunk;
+	| FinishChunk
+	| StepStartChunk
+	| StepEndChunk;
 
 /**
  * Step info (our own)
@@ -207,7 +221,7 @@ async function* createAIStream(options: CreateAIStreamOptions): AsyncIterable<St
 	while (stepNumber < MAX_STEPS) {
 		// Emit step-start event
 		yield {
-			type: "step-start" as any,
+			type: "step-start",
 			stepNumber,
 		};
 
@@ -368,7 +382,7 @@ async function* createAIStream(options: CreateAIStreamOptions): AsyncIterable<St
 		// Emit step-end event with response messages
 		// These messages contain tool results in AI SDK's wrapped format
 		yield {
-			type: "step-end" as any,
+			type: "step-end",
 			stepNumber,
 			finishReason: currentFinishReason,
 			responseMessages, // Include AI SDK's processed messages
