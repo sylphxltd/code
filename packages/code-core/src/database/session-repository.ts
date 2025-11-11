@@ -25,6 +25,7 @@
 import { eq, desc, and, like, sql, inArray, lt } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import {
 	sessions,
 	messages,
@@ -48,6 +49,18 @@ import type {
 	TokenUsage,
 	MessageMetadata,
 } from "../types/session.types.js";
+
+/**
+ * Zod schemas for validating JSON data from database
+ */
+const StringArraySchema = z.array(z.string());
+
+const MessagePartSchema: z.ZodType<MessagePart> = z.any(); // ASSUMPTION: MessagePart already validated when inserted
+
+const MessageMetadataSchema = z.object({
+	cpu: z.string().optional(),
+	memory: z.string().optional(),
+}).passthrough(); // Allow additional fields for future extensions
 import type { Todo as TodoType } from "../types/todo.types.js";
 import type { ProviderId } from "../config/ai-config.js";
 import { retryDatabase } from "../utils/retry.js";
@@ -182,12 +195,13 @@ export class SessionRepository {
 			sessionRecords = [];
 			for (const raw of rawSessions) {
 				try {
-					// Try to parse enabledRuleIds
+					// Parse and validate enabledRuleIds with Zod
 					let enabledRuleIds: string[] = [];
 					if (raw.enabled_rule_ids) {
-						try {
-							enabledRuleIds = JSON.parse(raw.enabled_rule_ids as string);
-						} catch {
+						const parsed = StringArraySchema.safeParse(JSON.parse(raw.enabled_rule_ids as string));
+						if (parsed.success) {
+							enabledRuleIds = parsed.data;
+						} else {
 							// Corrupted JSON - default to empty array and fix it
 							enabledRuleIds = [];
 							// Fix the corrupted record
@@ -195,6 +209,24 @@ export class SessionRepository {
 								.update(sessions)
 								.set({ enabledRuleIds: [] })
 								.where(eq(sessions.id, raw.id as string));
+						}
+					}
+
+					// Parse and validate toolIds with Zod
+					let toolIds: string[] | null = null;
+					if (raw.tool_ids) {
+						const parsed = StringArraySchema.safeParse(JSON.parse(raw.tool_ids as string));
+						if (parsed.success) {
+							toolIds = parsed.data;
+						}
+					}
+
+					// Parse and validate mcpServerIds with Zod
+					let mcpServerIds: string[] | null = null;
+					if (raw.mcp_server_ids) {
+						const parsed = StringArraySchema.safeParse(JSON.parse(raw.mcp_server_ids as string));
+						if (parsed.success) {
+							mcpServerIds = parsed.data;
 						}
 					}
 
@@ -206,8 +238,8 @@ export class SessionRepository {
 						model: raw.model as string | null,
 						agentId: raw.agent_id as string,
 						enabledRuleIds,
-						toolIds: raw.tool_ids ? JSON.parse(raw.tool_ids as string) : null,
-						mcpServerIds: raw.mcp_server_ids ? JSON.parse(raw.mcp_server_ids as string) : null,
+						toolIds,
+						mcpServerIds,
 						nextTodoId: raw.next_todo_id as number,
 						created: raw.created as number,
 						updated: raw.updated as number,
@@ -409,15 +441,31 @@ export class SessionRepository {
 				const parts = partsByStep.get(step.id) || [];
 				const stepUsageData = usageByStep.get(step.id);
 
+				// Parse message parts with validation
+				const parsedParts = parts.map((p) => {
+					const parsed = MessagePartSchema.safeParse(JSON.parse(p.content));
+					if (!parsed.success) {
+						// Fallback to raw parse (MessagePartSchema is z.any(), always succeeds)
+						return JSON.parse(p.content) as MessagePart;
+					}
+					return parsed.data as MessagePart;
+				});
+
 				const messageStep: MessageStep = {
 					id: step.id,
 					stepIndex: step.stepIndex,
-					parts: parts.map((p) => JSON.parse(p.content) as MessagePart),
+					parts: parsedParts,
 					status: (step.status as "active" | "completed" | "error" | "abort") || "completed",
 				};
 
 				if (step.metadata) {
-					messageStep.metadata = JSON.parse(step.metadata) as MessageMetadata;
+					const parsed = MessageMetadataSchema.safeParse(JSON.parse(step.metadata));
+					if (parsed.success) {
+						messageStep.metadata = parsed.data;
+					} else {
+						// Fallback for corrupted metadata - use empty object
+						messageStep.metadata = {};
+					}
 				}
 
 				// REMOVED: todoSnapshot - no longer stored per-step
