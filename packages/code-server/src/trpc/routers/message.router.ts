@@ -461,18 +461,12 @@ export const messageRouter = router({
 
             // Publish all events to event stream for client subscriptions
             if (eventSessionId) {
-              if (event.type === 'abort') {
-                console.log('[TriggerStream] Publishing abort event to session:', eventSessionId);
-              }
               if (event.type === 'message-status-updated') {
                 console.log('[TriggerStream] Publishing message-status-updated event:', event);
               }
               ctx.appContext.eventStream.publish(`session:${eventSessionId}`, event).catch(err => {
                 console.error('[TriggerStream] Event publish error:', err);
               });
-              if (event.type === 'abort') {
-                console.log('[TriggerStream] Abort event published');
-              }
               if (event.type === 'message-status-updated') {
                 console.log('[TriggerStream] message-status-updated event published');
               }

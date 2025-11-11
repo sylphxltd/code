@@ -570,17 +570,6 @@ function handleToolError(event: Extract<StreamEvent, { type: 'tool-error' }>, co
 // Completion Events
 // ============================================================================
 
-function handleComplete(event: Extract<StreamEvent, { type: 'complete' }>, context: EventHandlerContext) {
-  // DEPRECATED: Status updates now handled by message-status-updated event
-  // This handler kept for backwards compatibility only
-
-  console.log('[handleComplete] Complete event received (DEPRECATED - use message-status-updated)');
-  logMessage('Stream completed successfully');
-
-  // Note: Streaming state cleanup is handled by message-status-updated
-  // This ensures correct order: status update → cleanup
-}
-
 function handleError(event: Extract<StreamEvent, { type: 'error' }>, context: EventHandlerContext) {
   const currentSessionId = getCurrentSessionId();
 
@@ -596,26 +585,6 @@ function handleError(event: Extract<StreamEvent, { type: 'error' }>, context: Ev
   });
 
   // Stop streaming UI indicator on error
-  context.setIsStreaming(false);
-}
-
-function handleAbort(event: Extract<StreamEvent, { type: 'abort' }>, context: EventHandlerContext) {
-  const currentSessionId = getCurrentSessionId();
-
-  console.log('[handleAbort] Abort event received (DEPRECATED - use message-status-updated)');
-  context.addLog('[StreamEvent] Stream aborted');
-
-  // DEPRECATED: Mark all active parts as aborted
-  // This is now handled by message-status-updated event from server
-  updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
-    console.log('[handleAbort] Marking', prev.length, 'parts as aborted');
-    return prev.map((part) =>
-      part.status === 'active' ? { ...part, status: 'abort' as const } : part
-    );
-  });
-
-  // Clear streaming state
-  context.streamingMessageIdRef.current = null;
   context.setIsStreaming(false);
 }
 
@@ -730,10 +699,8 @@ const eventHandlers: Record<StreamEvent['type'], EventHandler> = {
   // File events
   'file': handleFile,
 
-  // Completion events
-  'complete': handleComplete,
+  // Error events
   'error': handleError,
-  'abort': handleAbort,
 };
 
 /**

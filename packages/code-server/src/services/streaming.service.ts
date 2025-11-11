@@ -69,10 +69,8 @@ export type StreamEvent =
   | { type: 'tool-error'; toolCallId: string; toolName: string; error: string; duration: number }
   | { type: 'file'; mediaType: string; base64: string }
 
-  // Message completion
-  | { type: 'complete'; usage?: TokenUsage; finishReason?: string }
-  | { type: 'error'; error: string }
-  | { type: 'abort' };
+  // Error events
+  | { type: 'error'; error: string };
 
 /**
  * Parsed content part from frontend
@@ -515,7 +513,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           },
           onAbort: () => {
             aborted = true;
-            observer.next({ type: 'abort' });
+            // Note: Abort notification now handled by message-status-updated event
           },
           onError: (error) => {
             observer.next({ type: 'error', error });
@@ -869,12 +867,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // - Error/timeout/network issues are NOT user abort
         // - Status 'abort' is only set when abortSignal.aborted is true (line 805-807, 842)
         // - This ensures we only notify LLM when user explicitly cancels
-        console.log('[streamAIResponse] DEBUG abort notification check:', {
-          finalStatus,
-          notifyLLMOnAbort: aiConfig.notifyLLMOnAbort,
-          abortSignalTriggered: abortSignal?.aborted,
-          condition: finalStatus === 'abort' && aiConfig.notifyLLMOnAbort,
-        });
         if (finalStatus === 'abort' && aiConfig.notifyLLMOnAbort) {
           try {
             console.log('[streamAIResponse] Creating system message to notify LLM about abort');
@@ -903,15 +895,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           }
         }
 
-        // 12. Emit complete event (message content done) - DEPRECATED, kept for compatibility
-        // TODO: Remove after all clients migrate to message-status-updated
-        observer.next({
-          type: 'complete',
-          usage: finalUsage,
-          finishReason: finalFinishReason,
-        });
-
-        // 13. Complete observable (title continues independently via eventStream)
+        // 12. Complete observable (title continues independently via eventStream)
         observer.complete();
       } catch (error) {
         console.error('[streamAIResponse] Error in execution:', error);

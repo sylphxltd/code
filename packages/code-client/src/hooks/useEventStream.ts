@@ -67,10 +67,8 @@ export interface EventStreamCallbacks {
     }>;
   }>) => void;
 
-  // Completion
-  onComplete?: (usage?: any, finishReason?: string) => void;
+  // Error events
   onError?: (error: string) => void;
-  onAbort?: () => void;
 }
 
 export interface UseEventStreamOptions {
@@ -252,17 +250,9 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
               callbacksRef.current.onAskQuestion?.(event.questionId, event.questions);
               break;
 
-            case 'complete':
-              callbacksRef.current.onComplete?.(event.usage, event.finishReason);
-              break;
-
             case 'error':
               callbacksRef.current.onError?.(event.error);
               setError(event.error);
-              break;
-
-            case 'abort':
-              callbacksRef.current.onAbort?.();
               break;
           }
         },
