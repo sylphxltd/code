@@ -141,7 +141,7 @@ class BashManager {
 }
 
 // Singleton instance
-export const bashManager = new BashManager();
+export const bashManager: BashManager = new BashManager();
 
 // Auto-cleanup every 10 minutes
 setInterval(

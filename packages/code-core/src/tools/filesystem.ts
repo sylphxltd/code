@@ -5,13 +5,13 @@
 
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
-import { tool } from "ai";
+import { tool, type CoreTool } from "ai";
 import { z } from "zod";
 
 /**
  * Read file tool with size limits to prevent crashes
  */
-export const readFileTool = tool({
+export const readFileTool: CoreTool<any, any> = tool({
 	description: "Read contents of a file from the filesystem",
 	inputSchema: z.object({
 		file_path: z.string().describe("Path to file"),
@@ -67,7 +67,7 @@ export const readFileTool = tool({
 /**
  * Write file tool
  */
-export const writeFileTool = tool({
+export const writeFileTool: CoreTool<any, any> = tool({
 	description: "Write content to a file",
 	inputSchema: z.object({
 		file_path: z.string().describe("Path to file (overwrites if exists)"),
@@ -97,7 +97,7 @@ export const writeFileTool = tool({
 /**
  * Edit file tool
  */
-export const editFileTool = tool({
+export const editFileTool: CoreTool<any, any> = tool({
 	description: "Perform exact string replacements in files",
 	inputSchema: z.object({
 		file_path: z.string().describe("Path to file"),
@@ -200,7 +200,7 @@ export const editFileTool = tool({
 /**
  * All filesystem tools
  */
-export const filesystemTools = {
+export const filesystemTools: Record<string, CoreTool<any, any>> = {
 	read: readFileTool,
 	write: writeFileTool,
 	edit: editFileTool,

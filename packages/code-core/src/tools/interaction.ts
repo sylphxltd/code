@@ -3,7 +3,7 @@
  * Tools for the AI to ask questions and get user input
  */
 
-import { tool } from "ai";
+import { tool, type CoreTool } from "ai";
 import { z } from "zod";
 import type { Question, SelectOption } from "../types/interaction.types.js";
 
@@ -56,7 +56,7 @@ function notifyQueueUpdate() {
  * Set queue update callback
  * Called by Chat component to receive queue length updates
  */
-export function setQueueUpdateCallback(callback: (count: number) => void) {
+export function setQueueUpdateCallback(callback: (count: number) => void): void {
 	queueUpdateCallback = callback;
 }
 
@@ -71,7 +71,7 @@ export function hasUserInputHandler(): boolean {
 /**
  * Get current queue length
  */
-export function getQueueLength() {
+export function getQueueLength(): number {
 	return askQueue.length;
 }
 
@@ -81,14 +81,14 @@ export function getQueueLength() {
  */
 export function setUserInputHandler(
 	handler: (request: UserInputRequest) => Promise<string | Record<string, string | string[]>>,
-) {
+): void {
 	userInputHandler = handler;
 }
 
 /**
  * Clear the user input handler
  */
-export function clearUserInputHandler() {
+export function clearUserInputHandler(): void {
 	userInputHandler = null;
 	askQueue = [];
 	isProcessingAsk = false;
@@ -145,7 +145,7 @@ async function processNextAsk() {
 /**
  * Ask user a multiple choice question
  */
-export const askUserSelectionTool = tool({
+export const askUserSelectionTool: CoreTool<any, any> = tool({
 	description:
 		"Ask the user a multiple choice question and wait for their selection. Supports predefined options, free text input, and default selections.",
 	inputSchema: z.object({
@@ -225,6 +225,6 @@ export const askUserSelectionTool = tool({
 /**
  * Export all interaction tools
  */
-export const interactionTools = {
+export const interactionTools: Record<string, CoreTool<any, any>> = {
 	ask: askUserSelectionTool,
 };

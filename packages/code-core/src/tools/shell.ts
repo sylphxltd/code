@@ -5,7 +5,7 @@
 
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { tool } from "ai";
+import { tool, type CoreTool } from "ai";
 import { z } from "zod";
 import { bashManager } from "./bash-manager.js";
 
@@ -14,7 +14,7 @@ const execAsync = promisify(exec);
 /**
  * Execute bash command tool
  */
-export const executeBashTool = tool({
+export const executeBashTool: CoreTool<any, any> = tool({
 	description: "Execute a bash command and return its output",
 	inputSchema: z.object({
 		command: z.string().describe("Bash command to execute"),
@@ -75,7 +75,7 @@ export const executeBashTool = tool({
 /**
  * Get output from background bash process
  */
-export const bashOutputTool = tool({
+export const bashOutputTool: CoreTool<any, any> = tool({
 	description: "Get output from a background bash process",
 	inputSchema: z.object({
 		bash_id: z.string().describe("bash_id from background bash command"),
@@ -125,7 +125,7 @@ export const bashOutputTool = tool({
 /**
  * Kill a background bash process
  */
-export const killBashTool = tool({
+export const killBashTool: CoreTool<any, any> = tool({
 	description: "Kill a background bash process",
 	inputSchema: z.object({
 		bash_id: z.string().describe("bash_id of process to kill"),
@@ -148,7 +148,7 @@ export const killBashTool = tool({
 /**
  * All shell tools
  */
-export const shellTools = {
+export const shellTools: Record<string, CoreTool<any, any>> = {
 	bash: executeBashTool,
 	"bash-output": bashOutputTool,
 	"kill-bash": killBashTool,

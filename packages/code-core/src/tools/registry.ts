@@ -43,7 +43,7 @@ export interface GetToolsOptions {
  * });
  * ```
  */
-export function getAISDKTools(options: GetToolsOptions = {}) {
+export function getAISDKTools(options: GetToolsOptions = {}): Record<string, any> {
 	const { interactive = true, todoContext } = options;
 
 	const baseTools = {
@@ -67,7 +67,7 @@ export function getAISDKTools(options: GetToolsOptions = {}) {
 /**
  * Get tool names grouped by category
  */
-export function getToolCategories(options: GetToolsOptions = {}) {
+export function getToolCategories(options: GetToolsOptions = {}): Record<string, string[]> {
 	const { todoContext } = options;
 
 	const categories: Record<string, string[]> = {

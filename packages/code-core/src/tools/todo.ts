@@ -24,7 +24,7 @@
  * ```
  */
 
-import { tool } from "ai";
+import { tool, type CoreTool } from "ai";
 import { z } from "zod";
 import type { Todo, TodoUpdate } from "../types/todo.types.js";
 import { formatTodoChange } from "../utils/todo-formatters.js";
@@ -55,7 +55,7 @@ export interface TodoToolContext {
  * Create todo tool with injected session context
  * This factory pattern allows the tool to work in any environment
  */
-export function createTodoTool(context: TodoToolContext) {
+export function createTodoTool(context: TodoToolContext): CoreTool<any, any> {
 	return tool({
 		description: "Update task list to track work progress",
 		inputSchema: z.object({
