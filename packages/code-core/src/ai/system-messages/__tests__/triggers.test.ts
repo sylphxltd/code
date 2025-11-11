@@ -3,7 +3,7 @@
  * Tests the logic without needing real sessions or UI
  */
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect } from 'vitest';
 import type { Session } from '../../../types/session.types.js';
 
 describe('System Message Triggers', () => {

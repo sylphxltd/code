@@ -211,7 +211,7 @@ const sessionStartTodoTrigger: TriggerHook = async (context) => {
  * Random Test Trigger - For UI testing only
  * Randomly triggers to show system messages in UI
  *
- * 10% chance to trigger on each assistant message (step > 0)
+ * 50% chance to trigger on each assistant message (step > 0)
  */
 const randomTestTrigger: TriggerHook = async (context) => {
   const { session } = context;
@@ -225,8 +225,8 @@ const randomTestTrigger: TriggerHook = async (context) => {
     return null;
   }
 
-  // 10% chance to trigger
-  if (Math.random() > 0.1) {
+  // 50% chance to trigger
+  if (Math.random() > 0.5) {
     return null;
   }
 
@@ -281,7 +281,7 @@ export function registerBuiltinTriggers(): void {
     triggerRegistry.register({
       id: 'random-test-trigger',
       name: 'Random Test System Message',
-      description: 'Random trigger for UI testing (10% chance)',
+      description: 'Random trigger for UI testing (50% chance)',
       priority: -1, // Highest priority
       enabled: true,
       hook: randomTestTrigger,
