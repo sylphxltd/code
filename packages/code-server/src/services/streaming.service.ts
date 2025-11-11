@@ -308,28 +308,32 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         }
 
         try {
-          const triggerResult = await checkAllTriggers(
+          const triggerResults = await checkAllTriggers(
             updatedSession,
             messageRepository,
             sessionRepository,
             contextTokens
           );
 
-          if (triggerResult) {
-            console.log('[streamAIResponse] Trigger fired, inserting system message');
-            const systemMessageId = await insertSystemMessage(messageRepository, sessionId, triggerResult.message);
+          if (triggerResults.length > 0) {
+            console.log(`[streamAIResponse] ${triggerResults.length} trigger(s) fired, inserting system messages`);
 
-            // Emit system-message-created event (same pattern as assistant-message-created)
-            observer.next({
-              type: 'system-message-created' as const,
-              messageId: systemMessageId,
-              content: triggerResult.message,
-            });
+            // Insert each system message sequentially
+            for (const triggerResult of triggerResults) {
+              const systemMessageId = await insertSystemMessage(messageRepository, sessionId, triggerResult.message);
 
-            // Reload session again to include system message and updated flags
+              // Emit system-message-created event (same pattern as assistant-message-created)
+              observer.next({
+                type: 'system-message-created' as const,
+                messageId: systemMessageId,
+                content: triggerResult.message,
+              });
+            }
+
+            // Reload session once after all system messages inserted
             updatedSession = await sessionRepository.getSessionById(sessionId);
             if (!updatedSession) {
-              observer.error(new Error('Session not found after adding system message'));
+              observer.error(new Error('Session not found after adding system messages'));
               return;
             }
           }

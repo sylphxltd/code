@@ -96,17 +96,18 @@ class TriggerRegistry {
 
   /**
    * Check all enabled triggers
-   * Returns first trigger that needs to fire (by priority)
+   * Returns ALL triggers that need to fire (sorted by priority)
    */
-  async checkAll(context: TriggerContext): Promise<TriggerResult | null> {
+  async checkAll(context: TriggerContext): Promise<TriggerResult[]> {
     const enabledTriggers = this.getEnabled();
+    const firedTriggers: TriggerResult[] = [];
 
     for (const trigger of enabledTriggers) {
       try {
         const result = await trigger.hook(context);
         if (result) {
           console.log(`[TriggerRegistry] Trigger fired: ${trigger.id}`);
-          return result;
+          firedTriggers.push(result);
         }
       } catch (error) {
         console.error(`[TriggerRegistry] Trigger ${trigger.id} failed:`, error);
@@ -114,7 +115,7 @@ class TriggerRegistry {
       }
     }
 
-    return null;
+    return firedTriggers;
   }
 }
 

@@ -29,17 +29,17 @@ export function initializeTriggers(): void {
 }
 
 /**
- * Check all triggers and return system message to insert
+ * Check all triggers and return system messages to insert
  * Uses TriggerRegistry to check all enabled triggers by priority
  *
- * Returns object with message and flag updates, or null if no triggers fired
+ * Returns array of results with messages and flag updates
  */
 export async function checkAllTriggers(
   session: Session,
   messageRepository: MessageRepository,
   sessionRepository: SessionRepository,
   contextTokens?: { current: number; max: number }
-): Promise<{ message: string; flagUpdates: Record<string, boolean> } | null> {
+): Promise<Array<{ message: string; flagUpdates: Record<string, boolean> }>> {
   // Ensure triggers are initialized
   initializeTriggers();
 
@@ -53,19 +53,28 @@ export async function checkAllTriggers(
   };
 
   // Check all triggers (registry handles priority)
-  const result = await triggerRegistry.checkAll(context);
+  const results = await triggerRegistry.checkAll(context);
 
-  if (result) {
-    console.log(`🎯 [checkAllTriggers] Trigger fired! Flag updates:`, result.flagUpdates);
-    // Update session flags
-    if (Object.keys(result.flagUpdates).length > 0) {
-      await sessionRepository.updateSessionFlags(session.id, result.flagUpdates);
+  if (results.length > 0) {
+    console.log(`🎯 [checkAllTriggers] ${results.length} trigger(s) fired!`);
+
+    // Merge all flag updates and apply them once
+    const mergedFlagUpdates: Record<string, boolean> = {};
+    for (const result of results) {
+      Object.assign(mergedFlagUpdates, result.flagUpdates);
+    }
+
+    console.log(`🎯 [checkAllTriggers] Merged flag updates:`, mergedFlagUpdates);
+
+    // Update session flags once with all changes
+    if (Object.keys(mergedFlagUpdates).length > 0) {
+      await sessionRepository.updateSessionFlags(session.id, mergedFlagUpdates);
     }
   } else {
     console.log(`🎯 [checkAllTriggers] No triggers fired`);
   }
 
-  return result;
+  return results;
 }
 
 /**
