@@ -122,7 +122,7 @@ class TriggerRegistry {
 /**
  * Global trigger registry instance
  */
-export const triggerRegistry = new TriggerRegistry();
+export const triggerRegistry: TriggerRegistry = new TriggerRegistry();
 
 /**
  * Helper to get session flags safely
