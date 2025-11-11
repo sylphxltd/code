@@ -28,7 +28,6 @@ import {
   createMessageStep,
   updateStepParts,
   completeMessageStep,
-  processStream,
   getProvider,
 } from '@sylphx/code-core';
 import type { StreamCallbacks } from '@sylphx/code-core';
@@ -564,26 +563,280 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           },
         };
 
-        let result;
+        // 10. Process stream with step-aware part accumulation
+        // CRITICAL: We need to save parts PER STEP, not accumulate all steps into one array
+        // Each step-end event should trigger saving parts for that step
+        let currentStepParts: MessagePart[] = [];
+        const activeTools = new Map<string, { name: string; startTime: number; args: unknown }>();
+        let currentTextContent = '';
+        let currentReasoningContent = '';
+        let reasoningStartTime: number | null = null;
+        let finalUsage: TokenUsage | undefined;
+        let finalFinishReason: string | undefined;
+        let hasError = false;
+
         try {
-          result = await processStream(stream, callbacks);
-        } catch (processError) {
-          console.error('[streamAIResponse] 10. processStream FAILED:', processError);
-          throw processError;
+          for await (const chunk of stream) {
+            // Handle step-end event: save current step's parts
+            if ((chunk as any).type === 'step-end') {
+              const stepNum = (chunk as any).stepNumber;
+              const stepId = `${assistantMessageId}-step-${stepNum}`;
+
+              console.log(`📦 [streamAIResponse] Step ${stepNum} ended, saving ${currentStepParts.length} parts`);
+
+              // Save any pending text content
+              if (currentTextContent) {
+                currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+                currentTextContent = '';
+              }
+
+              // Update step parts in database
+              try {
+                await updateStepParts(sessionRepository.db, stepId, currentStepParts);
+              } catch (dbError) {
+                console.error(`[streamAIResponse] Failed to update step ${stepNum} parts:`, dbError);
+              }
+
+              // Complete the step
+              try {
+                await completeMessageStep(sessionRepository.db, stepId, {
+                  status: aborted ? 'abort' : finalUsage ? 'completed' : 'error',
+                  finishReason: (chunk as any).finishReason,
+                  usage: finalUsage,
+                  provider: session.provider,
+                  model: session.model,
+                });
+              } catch (dbError) {
+                console.error(`[streamAIResponse] Failed to complete step ${stepNum}:`, dbError);
+              }
+
+              // Emit step-complete event
+              const stepDuration = 0; // TODO: Calculate from step startTime
+              observer.next({
+                type: 'step-complete',
+                stepId,
+                usage: finalUsage || { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+                duration: stepDuration,
+                finishReason: (chunk as any).finishReason || 'unknown',
+              });
+
+              // Reset parts accumulation for next step
+              currentStepParts = [];
+              continue;
+            }
+
+            // Handle step-start event
+            if ((chunk as any).type === 'step-start') {
+              // Just reset parts (step record already created by onPrepareMessages)
+              currentStepParts = [];
+              continue;
+            }
+
+            // Regular chunk processing (same as processStream)
+            switch (chunk.type) {
+              case 'text-start': {
+                callbacks.onTextStart?.();
+                break;
+              }
+
+              case 'text-delta': {
+                currentTextContent += chunk.textDelta;
+                callbacks.onTextDelta?.(chunk.textDelta);
+                break;
+              }
+
+              case 'text-end': {
+                if (currentTextContent) {
+                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+                  currentTextContent = '';
+                }
+                callbacks.onTextEnd?.();
+                break;
+              }
+
+              case 'reasoning-start': {
+                if (currentTextContent) {
+                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+                  currentTextContent = '';
+                }
+                reasoningStartTime = Date.now();
+                callbacks.onReasoningStart?.();
+                break;
+              }
+
+              case 'reasoning-delta': {
+                currentReasoningContent += chunk.textDelta;
+                callbacks.onReasoningDelta?.(chunk.textDelta);
+                break;
+              }
+
+              case 'reasoning-end': {
+                const duration = reasoningStartTime ? Date.now() - reasoningStartTime : 0;
+                if (currentReasoningContent || reasoningStartTime) {
+                  currentStepParts.push({
+                    type: 'reasoning',
+                    content: currentReasoningContent,
+                    status: 'completed',
+                    duration
+                  });
+                  currentReasoningContent = '';
+                  reasoningStartTime = null;
+                }
+                callbacks.onReasoningEnd?.(duration);
+                break;
+              }
+
+              case 'tool-call': {
+                if (currentTextContent) {
+                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+                  currentTextContent = '';
+                }
+
+                currentStepParts.push({
+                  type: 'tool',
+                  toolId: chunk.toolCallId,
+                  name: chunk.toolName,
+                  status: 'active',
+                  args: chunk.args,
+                });
+
+                activeTools.set(chunk.toolCallId, {
+                  name: chunk.toolName,
+                  startTime: Date.now(),
+                  args: chunk.args,
+                });
+
+                callbacks.onToolCall?.(chunk.toolCallId, chunk.toolName, chunk.args);
+                break;
+              }
+
+              case 'tool-result': {
+                const tool = activeTools.get(chunk.toolCallId);
+                if (tool) {
+                  const duration = Date.now() - tool.startTime;
+                  activeTools.delete(chunk.toolCallId);
+
+                  const toolPart = currentStepParts.find(
+                    (p) => p.type === 'tool' && p.name === chunk.toolName && p.status === 'active'
+                  );
+
+                  if (toolPart && toolPart.type === 'tool') {
+                    toolPart.status = 'completed';
+                    toolPart.duration = duration;
+                    toolPart.result = chunk.result;
+                  }
+
+                  callbacks.onToolResult?.(chunk.toolCallId, chunk.toolName, chunk.result, duration);
+                }
+                break;
+              }
+
+              case 'tool-error': {
+                if (currentTextContent) {
+                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+                  currentTextContent = '';
+                }
+
+                const tool = activeTools.get(chunk.toolCallId);
+                if (tool) {
+                  const duration = Date.now() - tool.startTime;
+                  activeTools.delete(chunk.toolCallId);
+
+                  const toolPart = currentStepParts.find(
+                    (p) => p.type === 'tool' && p.name === chunk.toolName && p.status === 'active'
+                  );
+
+                  if (toolPart && toolPart.type === 'tool') {
+                    toolPart.status = 'error';
+                    toolPart.duration = duration;
+                    toolPart.error = chunk.error;
+                  }
+
+                  callbacks.onToolError?.(chunk.toolCallId, chunk.toolName, chunk.error, duration);
+                }
+                break;
+              }
+
+              case 'file': {
+                if (currentTextContent) {
+                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+                  currentTextContent = '';
+                }
+
+                currentStepParts.push({
+                  type: 'file',
+                  mediaType: chunk.mediaType,
+                  base64: chunk.base64,
+                  status: 'completed',
+                });
+
+                callbacks.onFile?.(chunk.mediaType, chunk.base64);
+                break;
+              }
+
+              case 'abort': {
+                if (currentTextContent) {
+                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+                  currentTextContent = '';
+                }
+
+                currentStepParts.forEach(part => {
+                  if (part.status === 'active') {
+                    part.status = 'abort';
+                  }
+                });
+
+                callbacks.onAbort?.();
+                break;
+              }
+
+              case 'error': {
+                if (currentTextContent) {
+                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+                  currentTextContent = '';
+                }
+
+                currentStepParts.push({ type: 'error', error: chunk.error, status: 'completed' });
+                hasError = true;
+                callbacks.onError?.(chunk.error);
+                break;
+              }
+
+              case 'finish': {
+                finalUsage = chunk.usage;
+                finalFinishReason = chunk.finishReason;
+                callbacks.onFinish?.(chunk.usage, chunk.finishReason);
+                break;
+              }
+            }
+          }
+
+          // Save final text content if any
+          if (currentTextContent) {
+            currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+          }
+
+        } catch (error) {
+          console.error('[streamAIResponse] Stream processing error:', error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+
+          if (currentTextContent) {
+            currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
+          }
+          currentStepParts.push({ type: 'error', error: errorMessage, status: 'completed' });
+          hasError = true;
+          callbacks.onError?.(errorMessage);
         }
 
-        // Emit error event if no valid response (ensures error message reaches UI)
-        if (!result.usage && !aborted) {
-          // Check if there's an error part in messageParts
-          const errorPart = result.messageParts.find(p => p.type === 'error');
+        // Emit error event if no valid response
+        if (!finalUsage && !aborted && !hasError) {
+          const errorPart = currentStepParts.find(p => p.type === 'error');
           if (errorPart && errorPart.type === 'error') {
-            // Re-emit error event to ensure it reaches subscription handlers
             observer.next({
               type: 'error',
               error: errorPart.error,
             });
           } else {
-            // No error part found, emit generic error
             observer.next({
               type: 'error',
               error: 'API request failed to generate a response. Please check your API credentials and configuration.',
@@ -591,64 +844,23 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           }
         }
 
-        // 11. Complete step-0 and save final message to database
-        const stepEndTime = Date.now();
-
-        // Compute stepId from assistantMessageId and currentStepNumber
-        const stepId = `${assistantMessageId}-step-${currentStepNumber}`;
-
-        // 11.1. Update step parts (with error handling - don't let DB errors crash the stream)
-        try {
-          await updateStepParts(sessionRepository.db, stepId, result.messageParts);
-        } catch (dbError) {
-          console.error('[streamAIResponse] Failed to update step parts:', dbError);
-          // Continue - error is already in messageParts, will be shown to user
-        }
-
-        // 11.2. Complete the step
-        try {
-          await completeMessageStep(sessionRepository.db, stepId, {
-            status: aborted ? 'abort' : result.usage ? 'completed' : 'error',
-            finishReason: result.finishReason,
-            usage: result.usage,
-            provider: session.provider,
-            model: session.model,
-          });
-        } catch (dbError) {
-          console.error('[streamAIResponse] Failed to complete step:', dbError);
-          // Continue - not critical for user experience
-        }
-
-        // 11.3. Emit step-complete event
-        const stepDuration = stepEndTime - Date.now(); // FIXME: Calculate from step startTime
-        observer.next({
-          type: 'step-complete',
-          stepId,
-          usage: result.usage || { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-          duration: stepDuration,
-          finishReason: result.finishReason || 'unknown',
-        });
-
-        // 11.4. Update message status (aggregated from steps)
+        // 11. Update message status (aggregated from all steps)
         try {
           await messageRepository.updateMessageStatus(
             assistantMessageId,
-            aborted ? 'abort' : result.usage ? 'completed' : 'error',
-            result.finishReason
+            aborted ? 'abort' : finalUsage ? 'completed' : 'error',
+            finalFinishReason
           );
         } catch (dbError) {
           console.error('[streamAIResponse] Failed to update message status:', dbError);
           // Continue - not critical for user experience
         }
 
-        // REMOVED: Message usage table - usage now computed from stepUsage on demand
-        // The updateMessageUsage call is now a no-op for backward compatibility
-
         // 12. Emit complete event (message content done)
         observer.next({
           type: 'complete',
-          usage: result.usage,
-          finishReason: result.finishReason,
+          usage: finalUsage,
+          finishReason: finalFinishReason,
         });
 
         // 13. Complete observable (title continues independently via eventStream)
