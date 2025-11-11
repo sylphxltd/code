@@ -6,45 +6,9 @@
 
 import { streamText, TextPart, UserContent, type AssistantContent, type ModelMessage } from "ai";
 import type { LanguageModelV2, LanguageModelV2ToolResultOutput } from "@ai-sdk/provider";
-import * as os from "node:os";
 // NOTE: getAISDKTools is imported dynamically to avoid circular dependency
 // (ai-sdk → tools → index → ai-sdk creates a bundler issue with duplicate exports)
 import { hasUserInputHandler } from "../tools/interaction.js";
-import { buildTodoContext } from "../utils/todo-context.js";
-
-// Legacy system prompt - kept for backwards compatibility and fallback
-const LEGACY_SYSTEM_PROMPT = `You are a helpful coding assistant.
-
-You help users with:
-- Programming tasks and code review
-- Debugging and troubleshooting
-- File operations and system tasks
-- Software development best practices
-
-Guidelines:
-- Write clean, functional, well-documented code
-- Use tools proactively when needed to complete tasks
-- Explain complex concepts clearly
-- Follow language-specific best practices
-- Test and verify your work when possible`;
-
-/**
- * Base system prompt - introduces Sylphx
- */
-const BASE_SYSTEM_PROMPT = `You are Sylphx, an AI development assistant.`;
-
-/**
- * Get the system prompt to use (combines base + rules + agent)
- * @deprecated Use buildSystemPrompt(agentId) instead for stateless architecture
- */
-function getSystemPrompt(): string {
-	// Fallback to legacy for backwards compatibility
-	// New code should use buildSystemPrompt(agentId) from system-prompt-builder.ts
-	return LEGACY_SYSTEM_PROMPT;
-}
-
-// For backwards compatibility
-const SYSTEM_PROMPT = LEGACY_SYSTEM_PROMPT;
 
 /**
  * Stream chunk types (our own)
@@ -233,12 +197,12 @@ function normalizeMessage(message: ModelMessage): ModelMessage {
 }
 
 /**
- * Create AI stream with Sylphx tools pre-configured
- * Uses manual loop to control message history with timestamps
+ * Create AI stream with tool support
+ * Uses manual loop to control message history
  */
 async function* createAIStream(options: CreateAIStreamOptions): AsyncIterable<StreamChunk> {
 	const {
-		systemPrompt = getSystemPrompt(),
+		systemPrompt,
 		model,
 		messages: initialMessages,
 		enableTools = true,
@@ -448,4 +412,4 @@ async function* createAIStream(options: CreateAIStreamOptions): AsyncIterable<St
 
 // Export value functions and constants
 // NOTE: index.ts uses wildcard re-export for this file to avoid explicit duplicate listings
-export { getSystemPrompt, SYSTEM_PROMPT, normalizeMessage, createAIStream };
+export { normalizeMessage, createAIStream };
