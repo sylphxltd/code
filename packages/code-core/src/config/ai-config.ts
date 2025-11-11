@@ -65,6 +65,10 @@ const aiConfigSchema = z.object({
   defaultModelId: z.string().optional(), // NEW: Default model ID (normalized)
   defaultToolIds: z.array(z.string()).optional(), // NEW: Default enabled tools
   defaultMcpServerIds: z.array(z.string()).optional(), // NEW: Default enabled MCP servers
+
+  // Behavior configuration
+  notifyLLMOnAbort: z.boolean().optional().default(false), // Inject system message when streaming is aborted
+
   providers: z.record(
     z.string(),
     z.object({
