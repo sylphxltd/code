@@ -413,6 +413,99 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             const systemStatus = getSystemStatus();
             return injectSystemStatusToOutput(output, systemStatus);
           },
+          // ⭐ NEW: Prepare messages before each step (allows injecting system messages mid-stream)
+          onPrepareMessages: async (messages, stepNumber) => {
+            // Step 0: Already checked triggers before stream start, skip
+            if (stepNumber === 0) {
+              return messages;
+            }
+
+            console.log(`🔄 [onPrepareMessages] Step ${stepNumber}: Checking triggers`);
+
+            try {
+              // Reload session to get latest state (includes new tool results)
+              const currentSession = await sessionRepository.getSessionById(sessionId);
+              if (!currentSession) {
+                console.warn(`[onPrepareMessages] Session ${sessionId} not found`);
+                return messages;
+              }
+
+              // Calculate context token usage
+              let contextTokens: { current: number; max: number } | undefined;
+              try {
+                let totalTokens = 0;
+                for (const message of currentSession.messages) {
+                  if (message.usage) {
+                    totalTokens += message.usage.totalTokens;
+                  }
+                }
+
+                const modelDetails = await providerInstance.getModelDetails(modelName, providerConfig);
+                const maxContextLength = modelDetails?.contextLength;
+
+                if (maxContextLength && totalTokens > 0) {
+                  contextTokens = {
+                    current: totalTokens,
+                    max: maxContextLength,
+                  };
+                }
+              } catch (error) {
+                console.error('[onPrepareMessages] Failed to calculate context tokens:', error);
+              }
+
+              // Check all triggers
+              const triggerResults = await checkAllTriggers(
+                currentSession,
+                messageRepository,
+                sessionRepository,
+                contextTokens
+              );
+
+              // If triggers fired, insert system messages and rebuild model messages
+              if (triggerResults.length > 0) {
+                console.log(`🔄 [onPrepareMessages] ${triggerResults.length} trigger(s) fired, inserting system messages`);
+
+                // Insert each system message into database
+                for (const triggerResult of triggerResults) {
+                  const systemMessageId = await insertSystemMessage(
+                    messageRepository,
+                    sessionId,
+                    triggerResult.message
+                  );
+
+                  // Emit system-message-created event for UI
+                  observer.next({
+                    type: 'system-message-created' as const,
+                    messageId: systemMessageId,
+                    content: triggerResult.message,
+                  });
+                }
+
+                // Reload session with new system messages
+                const refreshedSession = await sessionRepository.getSessionById(sessionId);
+                if (!refreshedSession) {
+                  console.warn(`[onPrepareMessages] Failed to reload session after inserting system messages`);
+                  return messages;
+                }
+
+                // Rebuild model messages (includes new system messages)
+                const newMessages = await buildModelMessages(
+                  refreshedSession.messages,
+                  modelCapabilities,
+                  messageRepository.getFileRepository()
+                );
+
+                console.log(`🔄 [onPrepareMessages] Rebuilt messages: ${messages.length} → ${newMessages.length}`);
+                return newMessages;
+              }
+
+              return messages;
+            } catch (error) {
+              console.error('[onPrepareMessages] Error checking triggers:', error);
+              // Don't crash the stream, just skip trigger check
+              return messages;
+            }
+          },
         });
 
         // 10.1. Start title generation immediately (parallel API requests)
