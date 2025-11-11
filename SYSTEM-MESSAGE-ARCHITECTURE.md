@@ -232,26 +232,106 @@ Use both message-level and step-level system messages:
 }
 ```
 
-## Recommendation
+## ✅ IMPLEMENTED: Hybrid Approach (Option C)
 
-### Phase 1: Quick Fix (Option B)
-For immediate deployment:
-- Add system-hint support in processStream()
-- Display to user during long operations
-- No LLM awareness, but better UX
+### Current Implementation
 
-### Phase 2: Proper Solution (Option A)
-For robust architecture:
-- Refactor to multi-step streaming
-- Check triggers between steps
-- LLM gets system messages in subsequent steps
-- Supports advanced agent behaviors
+**Hybrid Architecture** - Both message-level and step-level system messages:
 
-### Phase 3: Hybrid (Option C)
-Combine both:
-- Message-level for session boundaries
-- Step-level for runtime guidance
-- Best of both worlds
+#### Message-Level System Messages
+- **Format**: `role = 'system'` standalone message in database
+- **Use cases**:
+  - Session start (todos, reminders)
+  - After compact (summary context)
+  - Between user messages
+- **Timing**: Checked **before** streaming starts
+
+#### Step-Level System Messages
+- **Format**: Injected into model messages during `onPrepareMessages` hook
+- **Use cases**:
+  - Context warnings during long operations
+  - Resource alerts mid-execution
+  - Dynamic guidance between AI steps
+- **Timing**: Checked **between** AI SDK steps (step 1, 2, 3...)
+
+### Implementation Details
+
+```typescript
+// streaming.service.ts
+const stream = createAIStream({
+  model,
+  messages,
+  system: systemPrompt,
+  // ⭐ NEW Hook
+  onPrepareMessages: async (messages, stepNumber) => {
+    if (stepNumber === 0) return messages; // Skip initial step
+
+    // 1. Reload session (includes tool results from previous step)
+    const session = await sessionRepository.getSessionById(sessionId);
+
+    // 2. Calculate context tokens
+    const contextTokens = calculateContextTokens(session);
+
+    // 3. Check all triggers
+    const triggerResults = await checkAllTriggers(session, ...);
+
+    // 4. Insert system messages if triggers fired
+    if (triggerResults.length > 0) {
+      for (const trigger of triggerResults) {
+        await insertSystemMessage(messageRepository, sessionId, trigger.message);
+      }
+
+      // 5. Rebuild model messages (includes new system messages)
+      const refreshedSession = await sessionRepository.getSessionById(sessionId);
+      return await buildModelMessages(refreshedSession.messages);
+    }
+
+    return messages;
+  }
+});
+```
+
+### Benefits
+
+- ✅ **LLM Awareness**: LLM sees and responds to system messages
+- ✅ **Real-time**: Warnings appear during long operations (100+ steps)
+- ✅ **Flexible**: Supports both session-level and runtime scenarios
+- ✅ **Efficient**: Only checks when needed (between steps with tool calls)
+
+### Flow Diagram
+
+```
+User Message "understand this project"
+  ↓
+checkAllTriggers() ← Message-level check
+  ↓ (Insert session-start system message if needed)
+Create Assistant Message
+  ↓
+Stream Step 0
+  ├─ Tool: Read file A
+  ├─ Tool: Read file B
+  ├─ Tool: Read file C
+  └─ finishReason: 'tool-calls'
+  ↓
+onPrepareMessages(step 1) ← Step-level check
+  ↓ (Memory usage 85%)
+Insert system message: "⚠️ Memory Warning"
+  ↓
+Stream Step 1 (LLM sees memory warning)
+  ├─ Text: "I notice memory is high, I'll be careful..."
+  ├─ Tool: Process data (smaller chunks)
+  └─ finishReason: 'tool-calls'
+  ↓
+onPrepareMessages(step 2) ← Check again
+  ↓ (Context usage 82%)
+Insert system message: "⚠️ Context Warning"
+  ↓
+Stream Step 2 (LLM sees context warning)
+  ├─ Text: "Context is filling up, I'll summarize findings..."
+  └─ finishReason: 'stop'
+  ↓
+Complete
+```
 
 ## Implementation Priority
 
