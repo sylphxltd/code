@@ -317,31 +317,35 @@ export const ObjectUtils = {
   },
 
   /** Get nested value from object */
-  get: (obj: any, path: string, defaultValue?: unknown): unknown => {
+  get: (obj: unknown, path: string, defaultValue?: unknown): unknown => {
+    if (obj == null || typeof obj !== 'object') {
+      return defaultValue;
+    }
+
     const keys = path.split('.');
-    let current = obj;
+    let current: unknown = obj;
 
     for (const key of keys) {
       if (current == null || typeof current !== 'object') {
         return defaultValue;
       }
-      current = current[key];
+      current = (current as Record<string, unknown>)[key];
     }
 
     return current !== undefined ? current : defaultValue;
   },
 
-  /** Set nested value in object */
-  set: (obj: any, path: string, value: unknown): void => {
+  /** Set nested value in object - mutates input object */
+  set: (obj: Record<string, unknown>, path: string, value: unknown): void => {
     const keys = path.split('.');
-    let current = obj;
+    let current: Record<string, unknown> = obj;
 
     for (let i = 0; i < keys.length - 1; i++) {
       const key = keys[i];
-      if (!(key in current) || typeof current[key] !== 'object') {
+      if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
         current[key] = {};
       }
-      current = current[key];
+      current = current[key] as Record<string, unknown>;
     }
 
     current[keys[keys.length - 1]] = value;
@@ -353,7 +357,7 @@ export const ObjectUtils = {
  */
 export const FunctionUtils = {
   /** Debounce function */
-  debounce: <T extends (...args: any[]) => any>(
+  debounce: <T extends (...args: never[]) => unknown>(
     fn: T,
     delay: number
   ): ((...args: Parameters<T>) => void) => {
@@ -365,7 +369,7 @@ export const FunctionUtils = {
   },
 
   /** Throttle function */
-  throttle: <T extends (...args: any[]) => any>(
+  throttle: <T extends (...args: never[]) => unknown>(
     fn: T,
     delay: number
   ): ((...args: Parameters<T>) => void) => {
@@ -380,7 +384,7 @@ export const FunctionUtils = {
   },
 
   /** Memoize function */
-  memoize: <T extends (...args: any[]) => any>(
+  memoize: <T extends (...args: never[]) => unknown>(
     fn: T,
     keyFn?: (...args: Parameters<T>) => string
   ): T => {
