@@ -310,10 +310,7 @@ export function InputSection({
               onEscape={
                 // ESC to abort streaming
                 isStreaming && abortControllerRef.current
-                  ? () => {
-                      console.log('[InputSection] ESC pressed, aborting stream');
-                      abortControllerRef.current?.abort();
-                    }
+                  ? () => abortControllerRef.current?.abort()
                   : undefined
               }
             />

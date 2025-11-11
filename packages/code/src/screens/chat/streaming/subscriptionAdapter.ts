@@ -174,23 +174,19 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 
     abortControllerRef.current.signal.addEventListener('abort', async () => {
       try {
-        console.log('[AbortDebug] Client abort event fired');
         logSession('Stream aborted by user');
         addLog('[Mutation] Aborted by user');
 
         // Use sessionId from mutation result (available after mutation completes)
         // Or fall back to currentSessionId if mutation hasn't completed yet
         const abortSessionId = mutationSessionId || currentSessionId;
-        console.log('[AbortDebug] Calling server abort mutation for session:', abortSessionId);
 
         if (abortSessionId) {
           try {
             const caller = await getTRPCClient();
-            const abortResult = await caller.message.abortStream.mutate({ sessionId: abortSessionId });
-            console.log('[AbortDebug] Server abort result:', abortResult);
+            await caller.message.abortStream.mutate({ sessionId: abortSessionId });
             logSession('Server notified of abort');
           } catch (abortError) {
-            console.error('[AbortDebug] Failed to notify server of abort:', abortError);
             console.error('[subscriptionAdapter] Failed to notify server of abort:', abortError);
             // Continue with client-side cleanup even if server notification fails
           }

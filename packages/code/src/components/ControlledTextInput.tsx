@@ -79,7 +79,6 @@ function ControlledTextInput({
 
       // ESC - abort/cancel (highest priority)
       if (key.escape && onEscape) {
-        console.log('[ControlledTextInput] ESC key pressed, calling onEscape');
         onEscape();
         return;
       }
