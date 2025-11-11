@@ -191,23 +191,20 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
             logSession('Server notified of abort');
           } catch (abortError) {
             console.error('[subscriptionAdapter] Failed to notify server of abort:', abortError);
-            // Continue with client-side cleanup even if server notification fails
+            // Fallback: If server notification fails, clean up locally
+            updateActiveMessageContent(sessionId, streamingMessageIdRef.current, (prev) =>
+              prev.map((part) =>
+                part.status === 'active' ? { ...part, status: 'abort' as const } : part
+              )
+            );
+            setIsStreaming(false);
+            streamingMessageIdRef.current = null;
           }
         }
 
-        // Mark active parts as aborted
-        console.log('[subscriptionAdapter] Marking parts as aborted, streamingMessageId:', streamingMessageIdRef.current);
-        updateActiveMessageContent(sessionId, streamingMessageIdRef.current, (prev) => {
-          console.log('[subscriptionAdapter] Updating', prev.length, 'parts');
-          return prev.map((part) =>
-            part.status === 'active' ? { ...part, status: 'abort' as const } : part
-          );
-        });
-
-        // Reset streaming state
-        console.log('[subscriptionAdapter] Setting isStreaming to false');
-        setIsStreaming(false);
-        streamingMessageIdRef.current = null;
+        // DO NOT clean up here - wait for server's abort event
+        // This ensures handleAbort has access to streamingMessageIdRef
+        console.log('[subscriptionAdapter] Waiting for server abort event to complete cleanup');
       } catch (handlerError) {
         console.error('[subscriptionAdapter] Error in abort handler:', handlerError);
         setIsStreaming(false);
