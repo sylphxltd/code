@@ -801,10 +801,23 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           console.error('[streamAIResponse] Stream processing error:', error);
           const errorMessage = error instanceof Error ? error.message : String(error);
 
-          // Add error part
-          currentStepParts.push({ type: 'error', error: errorMessage, status: 'completed' });
-          hasError = true;
-          callbacks.onError?.(errorMessage);
+          // Check if this is an abort error (NoOutputGeneratedError when aborted)
+          const isAbortError =
+            (error instanceof Error && error.message.includes('No output generated')) ||
+            (abortSignal && abortSignal.aborted);
+
+          if (isAbortError) {
+            // This is an abort, not an error
+            aborted = true;
+            console.log('[streamAIResponse] Stream aborted by user');
+            // Emit abort event
+            observer.next({ type: 'abort' });
+          } else {
+            // Add error part for real errors
+            currentStepParts.push({ type: 'error', error: errorMessage, status: 'completed' });
+            hasError = true;
+            callbacks.onError?.(errorMessage);
+          }
         }
 
         // Emit error event if no valid response
