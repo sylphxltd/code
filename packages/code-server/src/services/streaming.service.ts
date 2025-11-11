@@ -633,9 +633,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 				let hasError = false;
 
 				try {
-					console.log("[streamAIResponse] Starting to process fullStream");
 					for await (const chunk of fullStream) {
-						console.log("[streamAIResponse] Received chunk:", chunk.type, JSON.stringify(chunk).substring(0, 200));
 						// Process AI SDK stream chunks
 						// CRITICAL: Part ordering is determined by START events, not END events
 						// This ensures correct ordering regardless of when end events arrive
@@ -655,14 +653,14 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
 							case "text-delta": {
 								// Update active text part
-								if (currentTextPartIndex !== null && chunk.textDelta !== undefined) {
+								// ASSUMPTION: AI SDK v5 uses 'text' property, not 'textDelta'
+								const textContent = (chunk as any).text || (chunk as any).textDelta;
+								if (currentTextPartIndex !== null && textContent !== undefined) {
 									const part = currentStepParts[currentTextPartIndex];
 									if (part && part.type === "text") {
-										part.content += chunk.textDelta;
+										part.content += textContent;
 									}
-									callbacks.onTextDelta?.(chunk.textDelta);
-								} else if (chunk.textDelta === undefined) {
-									console.error("[streamAIResponse] text-delta event with undefined textDelta:", chunk);
+									callbacks.onTextDelta?.(textContent);
 								}
 								break;
 							}
@@ -698,13 +696,15 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
 							case "reasoning-delta": {
 								// Update active reasoning part
-								if (currentReasoningPartIndex !== null) {
+								// ASSUMPTION: AI SDK v5 uses 'text' property, not 'textDelta'
+								const reasoningContent = (chunk as any).text || (chunk as any).textDelta;
+								if (currentReasoningPartIndex !== null && reasoningContent !== undefined) {
 									const part = currentStepParts[currentReasoningPartIndex];
 									if (part && part.type === "reasoning") {
-										part.content += chunk.textDelta;
+										part.content += reasoningContent;
 									}
+									callbacks.onReasoningDelta?.(reasoningContent);
 								}
-								callbacks.onReasoningDelta?.(chunk.textDelta);
 								break;
 							}
 
@@ -829,15 +829,33 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 							}
 
 							case "finish": {
-								finalUsage = chunk.usage;
+								// ASSUMPTION: AI SDK v5 uses 'totalUsage' property
+								const usage = (chunk as any).totalUsage || (chunk as any).usage;
+								finalUsage = usage;
 								finalFinishReason = chunk.finishReason;
-								callbacks.onFinish?.(chunk.usage, chunk.finishReason);
+								callbacks.onFinish?.(usage, chunk.finishReason);
+								break;
+							}
+
+							// AI SDK v5 multi-step events - handled by prepareStep
+							case "start": {
+								// Stream started - no action needed
+								break;
+							}
+
+							case "start-step": {
+								// Step started - prepareStep hook already handles step creation
+								break;
+							}
+
+							case "finish-step": {
+								// Step finished - prepareStep hook handles step completion
 								break;
 							}
 
 							default: {
-								// Log unhandled event types for debugging
-								console.log("[streamAIResponse] Unhandled chunk type:", chunk.type, chunk);
+								// Log truly unhandled event types for debugging
+								console.log("[streamAIResponse] Unhandled chunk type:", chunk.type);
 								break;
 							}
 						}
