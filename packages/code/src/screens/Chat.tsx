@@ -22,6 +22,7 @@ import {
   useProjectFiles,
   useSessionInitialization,
   useTokenCalculation,
+  useAbortHandler,
   // Zen signals
   useCurrentScreen,
   useIsLoading,
@@ -139,6 +140,13 @@ export default function Chat(_props: ChatProps) {
     setIsTitleStreaming,
     setStreamingTitle,
   } = streamingState;
+
+  // Abort handler - ESC to cancel streaming
+  useAbortHandler({
+    isStreaming,
+    abortControllerRef,
+    addLog,
+  });
 
   const selectionState = useSelectionState();
   const {
