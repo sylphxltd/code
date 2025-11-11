@@ -122,13 +122,17 @@ export function MessageList({ messages, attachmentTokens }: MessageListProps) {
                             <Text key={`line-${lineIdx}-seg-${segIdx}`} backgroundColor="#1a472a" color="#00FF88">
                               {seg.text}
                             </Text>
-                          ) : (
+                          ) : msg.role === 'system' ? (
+                            // System messages: render plain text (no markdown to avoid Box nesting)
                             <Text
                               key={`line-${lineIdx}-seg-${segIdx}`}
-                              color={msg.role === 'system' ? '#FFD700' : undefined}
+                              color="#FFD700"
                             >
-                              <MarkdownText>{seg.text}</MarkdownText>
+                              {seg.text}
                             </Text>
+                          ) : (
+                            // User messages: use MarkdownText (safe because not nested in Text)
+                            <MarkdownText key={`line-${lineIdx}-seg-${segIdx}`}>{seg.text}</MarkdownText>
                           )
                         )}
                       </Box>
@@ -203,13 +207,17 @@ export function MessageList({ messages, attachmentTokens }: MessageListProps) {
                             <Text key={`legacy-line-${lineIdx}-seg-${segIdx}`} backgroundColor="#1a472a" color="#00FF88">
                               {seg.text}
                             </Text>
-                          ) : (
+                          ) : msg.role === 'system' ? (
+                            // System messages: render plain text (no markdown to avoid Box nesting)
                             <Text
                               key={`legacy-line-${lineIdx}-seg-${segIdx}`}
-                              color={msg.role === 'system' ? '#FFD700' : undefined}
+                              color="#FFD700"
                             >
-                              <MarkdownText>{seg.text}</MarkdownText>
+                              {seg.text}
                             </Text>
+                          ) : (
+                            // User messages: use MarkdownText (safe because not nested in Text)
+                            <MarkdownText key={`legacy-line-${lineIdx}-seg-${segIdx}`}>{seg.text}</MarkdownText>
                           )
                         )}
                       </Box>
