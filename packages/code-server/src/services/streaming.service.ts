@@ -568,9 +568,11 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // Each step-end event should trigger saving parts for that step
         let currentStepParts: MessagePart[] = [];
         const activeTools = new Map<string, { name: string; startTime: number; args: unknown }>();
-        let currentTextContent = '';
-        let currentReasoningContent = '';
-        let reasoningStartTime: number | null = null;
+
+        // Track active parts by index (for updating on delta/end events)
+        let currentTextPartIndex: number | null = null;
+        let currentReasoningPartIndex: number | null = null;
+
         let finalUsage: TokenUsage | undefined;
         let finalFinishReason: string | undefined;
         let hasError = false;
@@ -591,11 +593,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
               console.log(`📦 [streamAIResponse] Step ${stepNum} ended, saving ${currentStepParts.length} parts:`, currentStepParts.map(p => p.type));
 
-              // Save any pending text content
-              if (currentTextContent) {
-                currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-                currentTextContent = '';
-              }
+              // No need to save pending content - all parts created on start events
+              // Just save whatever we have
 
               // Update step parts in database
               try {
@@ -639,82 +638,94 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
               continue;
             }
 
-            // Regular chunk processing (same as processStream)
+            // Regular chunk processing
+            // CRITICAL: Part ordering is determined by START events, not END events
+            // This ensures correct ordering regardless of when end events arrive
             switch (chunk.type) {
               case 'text-start': {
+                // Create text part immediately (determines position in array)
+                const partIndex = currentStepParts.length;
+                currentStepParts.push({
+                  type: 'text',
+                  content: '',
+                  status: 'active',
+                });
+                currentTextPartIndex = partIndex;
                 callbacks.onTextStart?.();
                 break;
               }
 
               case 'text-delta': {
-                currentTextContent += chunk.textDelta;
+                // Update active text part
+                if (currentTextPartIndex !== null) {
+                  const part = currentStepParts[currentTextPartIndex];
+                  if (part && part.type === 'text') {
+                    part.content += chunk.textDelta;
+                  }
+                }
                 callbacks.onTextDelta?.(chunk.textDelta);
                 break;
               }
 
               case 'text-end': {
-                if (currentTextContent) {
-                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-                  currentTextContent = '';
+                // Mark text part as completed
+                if (currentTextPartIndex !== null) {
+                  const part = currentStepParts[currentTextPartIndex];
+                  if (part && part.type === 'text') {
+                    part.status = 'completed';
+                  }
+                  currentTextPartIndex = null;
                 }
                 callbacks.onTextEnd?.();
                 break;
               }
 
               case 'reasoning-start': {
-                if (currentTextContent) {
-                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-                  currentTextContent = '';
-                }
-                reasoningStartTime = Date.now();
+                // Create reasoning part immediately (determines position in array)
+                const partIndex = currentStepParts.length;
+                const startTime = Date.now();
+                currentStepParts.push({
+                  type: 'reasoning',
+                  content: '',
+                  status: 'active',
+                  duration: 0,
+                  startTime, // Store for duration calculation
+                });
+                currentReasoningPartIndex = partIndex;
                 callbacks.onReasoningStart?.();
                 break;
               }
 
               case 'reasoning-delta': {
-                currentReasoningContent += chunk.textDelta;
+                // Update active reasoning part
+                if (currentReasoningPartIndex !== null) {
+                  const part = currentStepParts[currentReasoningPartIndex];
+                  if (part && part.type === 'reasoning') {
+                    part.content += chunk.textDelta;
+                  }
+                }
                 callbacks.onReasoningDelta?.(chunk.textDelta);
                 break;
               }
 
               case 'reasoning-end': {
-                const duration = reasoningStartTime ? Date.now() - reasoningStartTime : 0;
-                if (currentReasoningContent || reasoningStartTime) {
-                  currentStepParts.push({
-                    type: 'reasoning',
-                    content: currentReasoningContent,
-                    status: 'completed',
-                    duration
-                  });
-                  currentReasoningContent = '';
-                  reasoningStartTime = null;
+                // Mark reasoning part as completed and calculate duration
+                if (currentReasoningPartIndex !== null) {
+                  const part = currentStepParts[currentReasoningPartIndex];
+                  if (part && part.type === 'reasoning') {
+                    part.status = 'completed';
+                    const duration = (part as any).startTime ? Date.now() - (part as any).startTime : 0;
+                    part.duration = duration;
+                    delete (part as any).startTime; // Clean up temp field
+                    callbacks.onReasoningEnd?.(duration);
+                  }
+                  currentReasoningPartIndex = null;
                 }
-                callbacks.onReasoningEnd?.(duration);
                 break;
               }
 
               case 'tool-call': {
-                // Save any pending text content
-                if (currentTextContent) {
-                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-                  currentTextContent = '';
-                }
-
-                // CRITICAL: Save pending reasoning content BEFORE tool-call
-                // LLM may start reasoning, then decide to call tool during reasoning
-                // reasoning-end event comes AFTER tool-call, but we need reasoning BEFORE tool-call in parts array
-                if (currentReasoningContent || reasoningStartTime) {
-                  const duration = reasoningStartTime ? Date.now() - reasoningStartTime : 0;
-                  currentStepParts.push({
-                    type: 'reasoning',
-                    content: currentReasoningContent,
-                    status: 'completed',
-                    duration
-                  });
-                  currentReasoningContent = '';
-                  reasoningStartTime = null;
-                }
-
+                // Create tool part (position determined by when tool-call event arrives)
                 currentStepParts.push({
                   type: 'tool',
                   toolId: chunk.toolCallId,
@@ -755,11 +766,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
               }
 
               case 'tool-error': {
-                if (currentTextContent) {
-                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-                  currentTextContent = '';
-                }
-
                 const tool = activeTools.get(chunk.toolCallId);
                 if (tool) {
                   const duration = Date.now() - tool.startTime;
@@ -781,11 +787,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
               }
 
               case 'file': {
-                if (currentTextContent) {
-                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-                  currentTextContent = '';
-                }
-
                 currentStepParts.push({
                   type: 'file',
                   mediaType: chunk.mediaType,
@@ -798,11 +799,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
               }
 
               case 'abort': {
-                if (currentTextContent) {
-                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-                  currentTextContent = '';
-                }
-
+                // Mark all active parts as aborted
                 currentStepParts.forEach(part => {
                   if (part.status === 'active') {
                     part.status = 'abort';
@@ -814,11 +811,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
               }
 
               case 'error': {
-                if (currentTextContent) {
-                  currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-                  currentTextContent = '';
-                }
-
                 currentStepParts.push({ type: 'error', error: chunk.error, status: 'completed' });
                 hasError = true;
                 callbacks.onError?.(chunk.error);
@@ -834,18 +826,13 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             }
           }
 
-          // Save final text content if any
-          if (currentTextContent) {
-            currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-          }
+          // No cleanup needed - all parts created on start events
 
         } catch (error) {
           console.error('[streamAIResponse] Stream processing error:', error);
           const errorMessage = error instanceof Error ? error.message : String(error);
 
-          if (currentTextContent) {
-            currentStepParts.push({ type: 'text', content: currentTextContent, status: 'completed' });
-          }
+          // Add error part
           currentStepParts.push({ type: 'error', error: errorMessage, status: 'completed' });
           hasError = true;
           callbacks.onError?.(errorMessage);
