@@ -70,6 +70,7 @@ export type {
 // ============================================================================
 // React Hooks
 // ============================================================================
+export { useAbortHandler } from './hooks/keyboard/useAbortHandler.js'
 export { useAIConfig as useAIConfigActions } from './hooks/useAIConfig.js'
 export { useAskToolHandler } from './hooks/useAskToolHandler.js'
 export { useChat } from './hooks/useChat.js'
