@@ -4,6 +4,13 @@
  * Emits streaming events for text and tool calls
  */
 
+import { z } from "zod";
+
+/**
+ * Zod schema for validating tool call arguments from AI-generated JSON
+ */
+const ToolArgumentsSchema = z.record(z.unknown());
+
 // Buffer safety margins to handle split tags
 const TEXT_TAG_SAFETY_MARGIN = 10; // Reserve chars for "</text>"
 const ARGUMENTS_TAG_SAFETY_MARGIN = 15; // Reserve chars for "</arguments>"
@@ -240,9 +247,20 @@ export class StreamingXMLParser {
 
 					let args: Record<string, unknown> = {};
 					try {
-						args = JSON.parse(this.state.argsBuffer);
+						const parsedArgs = ToolArgumentsSchema.safeParse(JSON.parse(this.state.argsBuffer));
+						if (parsedArgs.success) {
+							args = parsedArgs.data;
+						} else {
+							console.error(
+								"Invalid tool arguments format:",
+								this.state.argsBuffer,
+								parsedArgs.error.message,
+							);
+							// Fallback to empty object
+						}
 					} catch (error) {
-						console.error("Failed to parse tool arguments:", this.state.argsBuffer, error);
+						console.error("Failed to parse tool arguments JSON:", this.state.argsBuffer, error);
+						// Fallback to empty object
 					}
 
 					// Save values before resetting state

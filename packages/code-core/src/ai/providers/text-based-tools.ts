@@ -5,6 +5,12 @@
  */
 
 import type { LanguageModelV2ToolChoice } from "@ai-sdk/provider";
+import { z } from "zod";
+
+/**
+ * Zod schema for validating tool call arguments from AI-generated JSON
+ */
+const ToolArgumentsSchema = z.record(z.unknown());
 
 /**
  * Tool definition from Vercel AI SDK
@@ -123,13 +129,24 @@ export function parseToolCalls(text: string): ParsedToolCall[] {
 
 	while ((match = toolCallRegex.exec(text)) !== null) {
 		try {
+			const parsedArgs = ToolArgumentsSchema.safeParse(JSON.parse(match[3].trim()));
+			if (!parsedArgs.success) {
+				console.error(
+					"Invalid tool call arguments format:",
+					match[3],
+					parsedArgs.error.message,
+				);
+				// Skip invalid tool calls
+				continue;
+			}
+
 			calls.push({
 				toolName: match[1].trim(),
 				toolCallId: match[2].trim(),
-				arguments: JSON.parse(match[3].trim()),
+				arguments: parsedArgs.data,
 			});
 		} catch (error) {
-			console.error("Failed to parse tool call arguments:", match[3], error);
+			console.error("Failed to parse tool call arguments JSON:", match[3], error);
 			// Skip invalid tool calls
 		}
 	}
@@ -162,14 +179,25 @@ export function parseContentBlocks(text: string): ParsedContentBlock[] {
 		} else if (match[2] !== undefined) {
 			// Tool use block
 			try {
+				const parsedArgs = ToolArgumentsSchema.safeParse(JSON.parse(match[4].trim()));
+				if (!parsedArgs.success) {
+					console.error(
+						"Invalid tool call arguments format:",
+						match[4],
+						parsedArgs.error.message,
+					);
+					// Skip invalid tool calls
+					continue;
+				}
+
 				blocks.push({
 					type: "tool_use",
 					toolName: match[2].trim(),
 					toolCallId: match[3].trim(),
-					arguments: JSON.parse(match[4].trim()),
+					arguments: parsedArgs.data,
 				});
 			} catch (error) {
-				console.error("Failed to parse tool call arguments:", match[4], error);
+				console.error("Failed to parse tool call arguments JSON:", match[4], error);
 				// Skip invalid tool calls
 			}
 		}
