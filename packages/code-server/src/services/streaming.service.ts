@@ -865,9 +865,14 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         }
 
         // 11.5. Create system message to notify LLM about abort (if enabled)
+        // IMPORTANT: Only create notification for USER-INITIATED abort (via ESC key)
+        // - Error/timeout/network issues are NOT user abort
+        // - Status 'abort' is only set when abortSignal.aborted is true (line 805-807, 842)
+        // - This ensures we only notify LLM when user explicitly cancels
         console.log('[streamAIResponse] DEBUG abort notification check:', {
           finalStatus,
           notifyLLMOnAbort: aiConfig.notifyLLMOnAbort,
+          abortSignalTriggered: abortSignal?.aborted,
           condition: finalStatus === 'abort' && aiConfig.notifyLLMOnAbort,
         });
         if (finalStatus === 'abort' && aiConfig.notifyLLMOnAbort) {
@@ -878,7 +883,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
               role: 'system',
               content: [{
                 type: 'text',
-                text: 'Previous assistant message was aborted by user.',
+                content: 'Previous assistant message was aborted by user.',
                 status: 'completed',
               }],
               status: 'completed',
