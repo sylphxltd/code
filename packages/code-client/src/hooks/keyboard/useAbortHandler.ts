@@ -25,6 +25,8 @@ export interface UseAbortHandlerOptions {
 export function useAbortHandler(options: UseAbortHandlerOptions) {
   const { isStreaming, abortControllerRef, addLog } = options;
 
+  console.log('[AbortDebug] useAbortHandler called, isStreaming:', isStreaming);
+
   useInput(
     (char, key) => {
       if (!key.escape) {
