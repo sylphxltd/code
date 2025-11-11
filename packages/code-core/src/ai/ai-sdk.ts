@@ -37,14 +37,14 @@ const BASE_SYSTEM_PROMPT = `You are Sylphx, an AI development assistant.`;
  * Get the system prompt to use (combines base + rules + agent)
  * @deprecated Use buildSystemPrompt(agentId) instead for stateless architecture
  */
-export function getSystemPrompt(): string {
+function getSystemPrompt(): string {
   // Fallback to legacy for backwards compatibility
   // New code should use buildSystemPrompt(agentId) from system-prompt-builder.ts
   return LEGACY_SYSTEM_PROMPT;
 }
 
-// Export for backwards compatibility
-export const SYSTEM_PROMPT = LEGACY_SYSTEM_PROMPT;
+// For backwards compatibility
+const SYSTEM_PROMPT = LEGACY_SYSTEM_PROMPT;
 
 /**
  * Stream chunk types (our own)
@@ -266,7 +266,7 @@ export interface SystemStatus {
  * ⚠️ IMPORTANT: Never call this for historical messages!
  * Use buildSystemStatusFromMetadata() instead to preserve prompt cache.
  */
-export function getSystemStatus(): SystemStatus {
+function getSystemStatus(): SystemStatus {
   const timestamp = new Date().toISOString();
 
   // Get memory usage
@@ -316,7 +316,7 @@ export function getSystemStatus(): SystemStatus {
  * @param metadata - Stored SystemStatus from SessionMessage.metadata
  * @returns Formatted system status string for LLM
  */
-export function buildSystemStatusFromMetadata(metadata: SystemStatus): string {
+function buildSystemStatusFromMetadata(metadata: SystemStatus): string {
   return `<system_status>
 Time: ${metadata.timestamp}
 CPU: ${metadata.cpu}
@@ -382,7 +382,7 @@ function injectSystemStatusToOutput(output: LanguageModelV2ToolResultOutput, sys
  * Normalize content to modern array format
  * Converts legacy string content to Array<TextPart | ImagePart | FilePart | ... >
  */
-export function normalizeMessage(message: ModelMessage): ModelMessage {
+function normalizeMessage(message: ModelMessage): ModelMessage {
   const content = message.content;
   if (typeof content === 'string') {
     // Legacy string format → convert to TextPart array
@@ -405,7 +405,7 @@ export function normalizeMessage(message: ModelMessage): ModelMessage {
  * Create AI stream with Sylphx tools pre-configured
  * Uses manual loop to control message history with timestamps
  */
-export async function* createAIStream(
+async function* createAIStream(
   options: CreateAIStreamOptions
 ): AsyncIterable<StreamChunk> {
   const {
@@ -634,5 +634,13 @@ export async function* createAIStream(
   }
 }
 
-// NOTE: All exports from this file are done inline (export function, export const, export type)
-// No need for a final export {} statement as it causes bundler to create duplicate exports
+// Export value functions and constants
+// NOTE: index.ts uses wildcard re-export for this file to avoid explicit duplicate listings
+export {
+  getSystemPrompt,
+  SYSTEM_PROMPT,
+  getSystemStatus,
+  buildSystemStatusFromMetadata,
+  normalizeMessage,
+  createAIStream,
+};

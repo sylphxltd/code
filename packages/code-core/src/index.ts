@@ -17,8 +17,8 @@
 // ============================================================================
 // AI & Streaming
 // ============================================================================
-// NOTE: Use wildcard export to avoid bundler creating duplicate exports
-// (explicit re-export + source file inline exports = duplicate in same chunk)
+// Use wildcard to re-export all (types + values) from ai-sdk
+// ai-sdk.ts exports via explicit export {} statement at end of file
 export * from './ai/ai-sdk.js'
 export { processStream, type StreamCallbacks } from './ai/stream-handler.js'
 export { buildModelMessages } from './ai/message-builder/index.js'
