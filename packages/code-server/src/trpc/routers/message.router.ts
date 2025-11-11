@@ -374,18 +374,8 @@ export const messageRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      console.log('🌟 [triggerStream] MUTATION ENTRY', {
-        sessionId: input.sessionId,
-        agentId: input.agentId,
-        provider: input.provider,
-        model: input.model,
-        contentLength: input.content.length,
-      });
-
       // Import streaming service
       const { streamAIResponse } = await import('../../services/streaming.service.js');
-
-      console.log('🌟 [triggerStream] About to call streamAIResponse');
 
       // Get or create sessionId for event channel
       let eventSessionId = input.sessionId || null;
@@ -481,12 +471,9 @@ export const messageRouter = router({
       });
 
       // Wait for sessionId (either immediate or from session-created event)
-      console.log('🌟 [triggerStream] Waiting for sessionIdPromise');
       const finalSessionId = await sessionIdPromise;
-      console.log('🌟 [triggerStream] SessionIdPromise resolved:', finalSessionId);
 
       // Return sessionId so client can subscribe
-      console.log('🌟 [triggerStream] Returning success');
       return {
         success: true,
         sessionId: finalSessionId,

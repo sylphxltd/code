@@ -24,7 +24,6 @@ export function initializeTriggers(): void {
   if (!triggersInitialized) {
     registerBuiltinTriggers();
     triggersInitialized = true;
-    console.log('[Triggers] Registered', triggerRegistry.getAll().length, 'triggers');
   }
 }
 
@@ -43,8 +42,6 @@ export async function checkAllTriggers(
   // Ensure triggers are initialized
   initializeTriggers();
 
-  console.log(`🎯 [checkAllTriggers] Session ${session.id.substring(0, 8)}... current flags:`, session.flags);
-
   // Build trigger context
   const context: TriggerContext = {
     session,
@@ -56,22 +53,16 @@ export async function checkAllTriggers(
   const results = await triggerRegistry.checkAll(context);
 
   if (results.length > 0) {
-    console.log(`🎯 [checkAllTriggers] ${results.length} trigger(s) fired!`);
-
     // Merge all flag updates and apply them once
     const mergedFlagUpdates: Record<string, boolean> = {};
     for (const result of results) {
       Object.assign(mergedFlagUpdates, result.flagUpdates);
     }
 
-    console.log(`🎯 [checkAllTriggers] Merged flag updates:`, mergedFlagUpdates);
-
     // Update session flags once with all changes
     if (Object.keys(mergedFlagUpdates).length > 0) {
       await sessionRepository.updateSessionFlags(session.id, mergedFlagUpdates);
     }
-  } else {
-    console.log(`🎯 [checkAllTriggers] No triggers fired`);
   }
 
   return results;
@@ -93,7 +84,6 @@ export async function insertSystemMessage(
     status: 'completed',
   });
 
-  console.log(`[Triggers] Inserted system message ${messageId.substring(0, 8)}...`);
   return messageId;
 }
 

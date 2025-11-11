@@ -158,18 +158,10 @@ export function createHandleSubmit(params: MessageHandlerParams) {
 
     // If already streaming, ignore submit (don't start new stream)
     if (isStreaming) {
-      console.log('⚠️  [handleSubmit] Blocked: isStreaming is true');
       return;
     }
 
-    console.log('✅ [handleSubmit] isStreaming is false, proceeding with message send');
-
     // Handle pendingInput for text type
-    console.log('🔍 [handleSubmit] Checking pendingInput path:', {
-      hasPendingInput: !!pendingInput,
-      pendingInputType: pendingInput?.type,
-      hasInputResolver: !!inputResolver.current,
-    });
     if (pendingInput && pendingInput.type === 'text' && inputResolver.current) {
       addLog(`[handleSubmit] Resolving text input: ${value}`);
 
@@ -197,42 +189,25 @@ export function createHandleSubmit(params: MessageHandlerParams) {
       inputResolver.current = null;
       setPendingInput(null);
       setInput('');
-      console.log('🔍 [handleSubmit] Returning early: pendingInput resolved');
       return;
     }
-
-    console.log('🔍 [handleSubmit] Checking autocomplete path:', {
-      startsWithSlash: value.startsWith('/'),
-      filteredCommandsCount: filteredCommands.length,
-    });
     // If we're in command mode with active autocomplete, don't handle here
     // Let useInput handle the autocomplete selection
     if (value.startsWith('/') && filteredCommands.length > 0) {
       addLog(
         `[handleSubmit] Skipping, autocomplete active (${filteredCommands.length} suggestions)`
       );
-      console.log('🔍 [handleSubmit] Returning early: autocomplete active');
       return;
     }
-
-    console.log('🔍 [handleSubmit] Checking skipNextSubmit:', {
-      skipNextSubmit: skipNextSubmit.current,
-    });
     // Skip if we just handled this in autocomplete (prevent double execution)
     if (skipNextSubmit.current) {
       addLog(`[handleSubmit] Skipping due to skipNextSubmit flag: ${value}`);
       skipNextSubmit.current = false;
-      console.log('🔍 [handleSubmit] Returning early: skipNextSubmit was true');
       return;
     }
 
     addLog(`[handleSubmit] Processing: ${value}`);
     const userMessage = value.trim();
-
-    console.log('🔍 [handleSubmit] Checking command path:', {
-      startsWithSlash: userMessage.startsWith('/'),
-      userMessage: userMessage.substring(0, 20),
-    });
     // Check if it's a command
     if (userMessage.startsWith('/')) {
       const parts = userMessage.split(' ');
@@ -320,11 +295,8 @@ export function createHandleSubmit(params: MessageHandlerParams) {
       }
 
       setPendingCommand(null);
-      console.log('🔍 [handleSubmit] Returning early: command executed');
       return;
     }
-
-    console.log('🔍 [handleSubmit] ✓ Regular message path - proceeding to send');
     // For regular messages, clear input after getting the value
     setInput('');
 
@@ -339,25 +311,13 @@ export function createHandleSubmit(params: MessageHandlerParams) {
     // Clear pending attachments after capturing them
     clearAttachments();
 
-    console.log('📤 [handleSubmit] About to call sendUserMessageToAI', {
-      messageLength: userMessage.length,
-      attachmentsCount: attachmentsForMessage.length,
-      hasSendFunction: !!sendUserMessageToAI,
-      functionType: typeof sendUserMessageToAI,
-      functionName: sendUserMessageToAI.name,
-    });
-
     try {
       // Regular message - send to AI using shared helper
-      console.log('📤 [handleSubmit] Calling sendUserMessageToAI NOW');
       await sendUserMessageToAI(userMessage, attachmentsForMessage);
-      console.log('📤 [handleSubmit] sendUserMessageToAI returned successfully');
     } catch (error) {
       console.error('📤 [handleSubmit] sendUserMessageToAI threw error:', error);
       throw error;
     }
-
-    console.log('📤 [handleSubmit] sendUserMessageToAI completed');
 
     // Add to message history (append since we store oldest-first)
     setMessageHistory((prev) => {

@@ -306,8 +306,6 @@ export class SessionRepository {
       updated: session.updated,
     };
 
-    console.log(`🏁 [SessionRepository] Loaded session ${sessionId.substring(0, 8)}... flags:`, result.flags);
-
     return result;
   }
 
@@ -584,8 +582,6 @@ export class SessionRepository {
         .update(sessions)
         .set({ flags: newFlags, updated: Date.now() })
         .where(eq(sessions.id, sessionId));
-
-      console.log(`[SessionRepository] Updated flags for ${sessionId}:`, flagUpdates);
     });
   }
 

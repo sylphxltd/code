@@ -295,28 +295,15 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         }
 
         // 6. Build ModelMessage[] for AI (transforms frozen content, no file reading)
-        console.log('[streamAIResponse] Session messages:', JSON.stringify(updatedSession.messages.map(m => ({
-          role: m.role,
-          contentLength: Array.isArray(m.content) ? m.content.length : 'string',
-          stepsCount: m.steps?.length || 0,
-          steps: m.steps?.map(s => ({
-            stepIndex: s.stepIndex,
-            partsCount: s.parts.length,
-            partTypes: s.parts.map(p => p.type)
-          }))
-        })), null, 2));
-
         const messages = await buildModelMessages(
           updatedSession.messages,
           modelCapabilities,
           messageRepository.getFileRepository()
         );
 
-        console.log('[streamAIResponse] Built model messages:', JSON.stringify(messages, null, 2));
-
         // 7. Determine agentId and build system prompt
         // STATELESS: Use explicit parameters from AppContext
-        const agentId = inputAgentId || session.agentId || DEFAULT_AGENT_ID;
+        const agentId = inputAgentId || session.agentId || 'coder';
         const agents = opts.appContext.agentManager.getAll();
         const enabledRuleIds = session.enabledRuleIds || [];
         const enabledRules = opts.appContext.ruleManager.getEnabled(enabledRuleIds);
@@ -337,8 +324,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
         // Only enable native tools if model supports them
         // Models without native support (like claude-code) will fall back to text-based tools
 
-        // Track pending system message for next step creation
-        let pendingSystemMessage: string | undefined;
         let currentStepNumber = 0;
 
         const stream = createAIStream({
@@ -353,8 +338,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
           onPrepareMessages: async (messages, stepNumber) => {
             // Update current step number
             currentStepNumber = stepNumber;
-
-            console.log(`🔄 [onPrepareMessages] Step ${stepNumber}: Checking triggers`);
 
             try {
               // Reload session to get latest state (includes new tool results)
@@ -404,10 +387,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
                   }))
                 : [];
 
-              if (triggerResults.length > 0) {
-                console.log(`🔄 [onPrepareMessages] ${triggerResults.length} trigger(s) fired`);
-              }
-
               // Always create step (even if no system messages)
               const newStepId = `${assistantMessageId}-step-${stepNumber}`;
               try {
@@ -419,7 +398,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
                   undefined, // todoSnapshot (deprecated)
                   systemMessages.length > 0 ? systemMessages : undefined
                 );
-                console.log(`🔄 [onPrepareMessages] Created step-${stepNumber}${systemMessages.length > 0 ? ` with ${systemMessages.length} system messages` : ''}`);
 
                 // Emit step-start event for UI
                 const stepStartEvent = {
@@ -430,7 +408,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
                   todoSnapshot: [], // Deprecated
                   systemMessages: systemMessages.length > 0 ? systemMessages : undefined,
                 };
-                console.log(`🔄 [onPrepareMessages] Emitting step-start event${systemMessages.length > 0 ? ` with ${systemMessages.length} system messages` : ''}`);
                 observer.next(stepStartEvent);
               } catch (stepError) {
                 console.error('[onPrepareMessages] Failed to create step:', stepError);
@@ -442,9 +419,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
                 const combinedContent = systemMessages
                   .map(sm => sm.content)
                   .join('\n\n');
-
-                console.log(`🔄 [onPrepareMessages] Injecting ${systemMessages.length} system messages into model messages`);
-                console.log(`🔄 [onPrepareMessages] System message content preview:`, combinedContent.substring(0, 200) + '...');
 
                 // Append to last message to avoid consecutive user messages
                 const lastMessage = messages[messages.length - 1];
@@ -460,11 +434,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
                     { ...lastMessage, content: updatedContent }
                   ];
 
-                  console.log(`🔄 [onPrepareMessages] Appended to last user message`);
                   return updatedMessages;
                 } else {
                   // Fallback: add as separate user message (shouldn't happen in practice)
-                  console.warn(`🔄 [onPrepareMessages] Last message is not user role, adding as separate message`);
                   const updatedMessages = [...messages, {
                     role: 'user' as const,
                     content: [{ type: 'text' as const, text: combinedContent }],
@@ -565,20 +537,11 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
 
         try {
           for await (const chunk of stream) {
-            // Debug: log all chunk types
-            if ((chunk as any).type === 'step-start' || (chunk as any).type === 'step-end') {
-              console.log(`🔔 [streamAIResponse] Event: ${(chunk as any).type}, stepNumber: ${(chunk as any).stepNumber}`);
-            } else {
-              console.log(`🔔 [streamAIResponse] Event: ${chunk.type}`);
-            }
-
             // Handle step-end event: save current step's parts
             if ((chunk as any).type === 'step-end') {
               const stepNum = (chunk as any).stepNumber;
               const stepId = `${assistantMessageId}-step-${stepNum}`;
               const responseMessages = (chunk as any).responseMessages;
-
-              console.log(`📦 [streamAIResponse] Step ${stepNum} ended, saving ${currentStepParts.length} parts:`, currentStepParts.map(p => p.type));
 
               // Update tool results with AI SDK's wrapped format from response.messages
               if (responseMessages && Array.isArray(responseMessages)) {
