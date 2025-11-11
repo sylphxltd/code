@@ -65,6 +65,13 @@ export type MessagePart =
       status: 'completed';   // Files are immediately completed when received
     }
   | {
+      type: 'system-message';
+      content: string;       // Full XML content with <system_message> tags
+      messageType: string;   // Type identifier (e.g., 'resource-warning-memory')
+      timestamp: number;     // When the message was generated
+      status: 'completed';   // System messages are immediately completed
+    }
+  | {
       type: 'error';
       error: string;
       status: 'completed';  // Errors are immediately completed

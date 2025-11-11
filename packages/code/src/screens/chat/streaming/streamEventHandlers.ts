@@ -350,7 +350,27 @@ function handleSystemMessageCreated(event: Extract<StreamEvent, { type: 'system-
 // ============================================================================
 
 function handleStepStart(event: Extract<StreamEvent, { type: 'step-start' }>, context: EventHandlerContext) {
-  logMessage('Step started:', event.stepId, 'index:', event.stepIndex);
+  const currentSessionId = getCurrentSessionId();
+
+  logMessage('Step started:', event.stepId, 'index:', event.stepIndex, 'systemMessages:', event.systemMessages?.length || 0);
+
+  // If there are system messages, add them to the active message content
+  if (event.systemMessages && event.systemMessages.length > 0) {
+    logMessage('Adding', event.systemMessages.length, 'system messages to active message');
+
+    updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
+      // Add each system message as a 'system-message' part
+      const systemMessageParts = event.systemMessages!.map(sm => ({
+        type: 'system-message' as const,
+        content: sm.content,
+        messageType: sm.type,
+        timestamp: sm.timestamp,
+        status: 'completed' as const,
+      } as MessagePart));
+
+      return [...prev, ...systemMessageParts];
+    });
+  }
 }
 
 function handleStepComplete(event: Extract<StreamEvent, { type: 'step-complete' }>, context: EventHandlerContext) {

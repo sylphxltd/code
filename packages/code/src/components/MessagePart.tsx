@@ -198,5 +198,22 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
     );
   }
 
+  // System message part
+  if (part.type === 'system-message') {
+    // Parse the XML content to extract the message text
+    // Format: <system_message type="...">content</system_message>
+    const content = part.content
+      .replace(/<system_message[^>]*>/, '')
+      .replace(/<\/system_message>/, '')
+      .trim();
+
+    return (
+      <Box flexDirection="column" marginLeft={2} marginBottom={1} borderStyle="round" borderColor="yellow" paddingX={1}>
+        <Text color="yellow" bold>⚠️  System Message</Text>
+        <Text dimColor>{content}</Text>
+      </Box>
+    );
+  }
+
   return null;
 });
