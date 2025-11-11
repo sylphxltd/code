@@ -208,7 +208,7 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
 
     return (
       <Box marginLeft={2} marginBottom={1}>
-        <Text dimColor>⚠️  System: {humanizedType}</Text>
+        <Text dimColor>System: {humanizedType}</Text>
       </Box>
     );
   }
