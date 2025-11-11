@@ -342,12 +342,23 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
       // Set streaming flag immediately after mutation triggers
       setIsStreaming(true);
 
-      // Handle abort (client-side state management only)
-      // TODO: Add abort mutation to notify server to stop generation
-      abortControllerRef.current.signal.addEventListener('abort', () => {
+      // Handle abort: Notify server and update client state
+      abortControllerRef.current.signal.addEventListener('abort', async () => {
         try {
           logSession('Stream aborted by user');
           addLog('[Mutation] Aborted by user');
+
+          // Call server to abort the stream
+          const abortSessionId = result.sessionId;
+          if (abortSessionId) {
+            try {
+              await caller.message.abortStream.mutate({ sessionId: abortSessionId });
+              logSession('Server notified of abort');
+            } catch (abortError) {
+              console.error('[subscriptionAdapter] Failed to notify server of abort:', abortError);
+              // Continue with client-side cleanup even if server notification fails
+            }
+          }
 
           // Mark active parts as aborted
           updateActiveMessageContent(sessionId, streamingMessageIdRef.current, (prev) =>
@@ -356,7 +367,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
             )
           );
 
-          // Reset streaming state (client-side only)
+          // Reset streaming state
           setIsStreaming(false);
           streamingMessageIdRef.current = null;
         } catch (handlerError) {

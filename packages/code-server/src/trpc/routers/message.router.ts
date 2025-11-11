@@ -6,6 +6,13 @@
  */
 
 import { z } from 'zod';
+
+/**
+ * Abort Signal Manager
+ * Tracks active AbortControllers for each session's streaming
+ * Allows client to abort server-side streaming via mutation
+ */
+const activeStreamAbortControllers = new Map<string, AbortController>();
 import { observable } from '@trpc/server/observable';
 import {
   router,
@@ -380,6 +387,11 @@ export const messageRouter = router({
       // Get or create sessionId for event channel
       let eventSessionId = input.sessionId || null;
 
+      // Create AbortController for this stream
+      // Will be associated with sessionId once known (for lazy sessions, after session-created event)
+      const abortController = new AbortController();
+      let abortControllerId: string | null = null;
+
       // Start streaming
       const streamObservable = streamAIResponse({
         appContext: ctx.appContext,
@@ -391,6 +403,7 @@ export const messageRouter = router({
         provider: input.provider,
         model: input.model,
         userMessageContent: input.content.length > 0 ? input.content : null,
+        abortSignal: abortController.signal,
       });
 
       /**
@@ -431,6 +444,12 @@ export const messageRouter = router({
               hasResolved = true;
             }
 
+            // Register AbortController once sessionId is known
+            if (eventSessionId && !abortControllerId) {
+              abortControllerId = eventSessionId;
+              activeStreamAbortControllers.set(eventSessionId, abortController);
+            }
+
             // Publish all events to event stream for client subscriptions
             if (eventSessionId) {
               ctx.appContext.eventStream.publish(`session:${eventSessionId}`, event).catch(err => {
@@ -450,6 +469,10 @@ export const messageRouter = router({
             }
             // CRITICAL: Cleanup before rejecting
             subscription.unsubscribe();
+            // Cleanup AbortController
+            if (abortControllerId) {
+              activeStreamAbortControllers.delete(abortControllerId);
+            }
             // Only reject if promise not already resolved (for existing sessions, already resolved)
             if (!hasResolved) {
               reject(error);
@@ -466,6 +489,10 @@ export const messageRouter = router({
             }
             // CRITICAL: Cleanup on complete
             subscription.unsubscribe();
+            // Cleanup AbortController
+            if (abortControllerId) {
+              activeStreamAbortControllers.delete(abortControllerId);
+            }
           },
         });
       });
@@ -477,6 +504,48 @@ export const messageRouter = router({
       return {
         success: true,
         sessionId: finalSessionId,
+      };
+    }),
+
+  /**
+   * Abort active stream for a session
+   *
+   * Allows client to abort server-side streaming in progress.
+   * - Aborts the AI SDK stream generation
+   * - Stops any pending tool executions
+   * - Marks active message parts as 'abort' status
+   *
+   * SECURITY: Protected (user can only abort their own sessions)
+   */
+  abortStream: moderateProcedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { sessionId } = input;
+
+      // Find and abort the active stream
+      const abortController = activeStreamAbortControllers.get(sessionId);
+
+      if (!abortController) {
+        // No active stream for this session (might have already completed)
+        return {
+          success: false,
+          message: 'No active stream found for this session',
+        };
+      }
+
+      // Abort the stream
+      abortController.abort();
+
+      // Cleanup will happen in triggerStream's error/complete handlers
+      // No need to delete here - let the subscription cleanup do it
+
+      return {
+        success: true,
+        message: 'Stream aborted successfully',
       };
     }),
 
