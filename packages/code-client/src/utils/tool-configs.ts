@@ -7,13 +7,13 @@
  * 2. Custom component (advanced): complete control over rendering
  */
 
-import type { ArgsFormatter, ResultFormatter } from './tool-formatters.js';
+import type { ArgsFormatter, ResultFormatter } from '@sylphx/code-core';
 import {
   truncateString,
   getRelativePath,
   isDefaultCwd,
   pluralize,
-} from './tool-formatters.js';
+} from '@sylphx/code-core';
 import { createDefaultToolDisplay } from '../components/DefaultToolDisplay.js';
 import type { ToolDisplayProps, ToolConfig } from '../types/tool.types.js';
 

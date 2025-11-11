@@ -5,7 +5,7 @@
 
 import { Box, Text } from 'ink';
 import React from 'react';
-import { calculateScrollViewport } from '@sylphx/code-core/utils/scroll-viewport.js';
+import { calculateScrollViewport } from '@sylphx/code-core';
 import type { Command } from '../commands/types.js';
 import Spinner from './Spinner.js';
 

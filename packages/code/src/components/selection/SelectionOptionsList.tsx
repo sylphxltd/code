@@ -5,7 +5,7 @@
 
 import { Box, Text } from 'ink';
 import type { SelectionOption } from '../../hooks/useSelection.js';
-import { calculateScrollViewport } from '@sylphx/code-core/utils/scroll-viewport.js';
+import { calculateScrollViewport } from '@sylphx/code-core';
 
 interface SelectionOptionsListProps {
   options: SelectionOption[];

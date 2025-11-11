@@ -8,7 +8,7 @@ import React from 'react';
 import { Box, Text } from 'ink';
 import Spinner from './Spinner.js';
 import { useElapsedTime } from '@sylphx/code-client';
-import type { ArgsFormatter, ResultFormatter } from '@sylphx/code-core/utils/tool-formatters.js';
+import type { ArgsFormatter, ResultFormatter } from '@sylphx/code-core';
 import type { ToolDisplayProps } from '@sylphx/code-client';
 
 interface StatusIndicatorProps {

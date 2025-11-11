@@ -99,10 +99,24 @@ export * from './utils/config.js'
 // API functions
 export * from './api/sessions.js'
 
-// Re-export shared utilities from @sylphx/code-core
-export * from '@sylphx/code-core/utils/cursor-utils.js'
-export * from '@sylphx/code-core/utils/scroll-viewport.js'
-export * from '@sylphx/code-core/utils/tool-formatters.js'
+// Re-export shared utilities from @sylphx/code-core (via main export)
+export {
+  getCursorLinePosition,
+  getAbsoluteCursorPosition,
+  moveCursorUp,
+  moveCursorDown,
+  clampCursor,
+  calculateScrollViewport,
+  truncateString,
+  getRelativePath,
+  isDefaultCwd,
+  pluralize,
+  type LinePosition,
+  type ScrollViewportResult,
+  type ArgsFormatter,
+  type ResultFormatter,
+  type FormattedResult,
+} from '@sylphx/code-core'
 
 // Client-specific utilities
 export * from './utils/parse-user-input.js'
