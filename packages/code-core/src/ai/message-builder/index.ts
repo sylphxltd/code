@@ -5,38 +5,13 @@
 
 import type { Message, MessageStep, ModelCapabilities } from '@sylphx/code-core';
 import type { ModelMessage, UserContent, AssistantContent } from 'ai';
-import type { ToolCallPart, ToolResultPart, LanguageModelV2ToolResultOutput } from '@ai-sdk/provider';
+import type { ToolCallPart, ToolResultPart } from '@ai-sdk/provider';
 import { buildSystemStatusFromMetadata, buildTodoContext } from '@sylphx/code-core';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import type { FileRepository } from '@sylphx/code-core';
-
-/**
- * Wrap tool result in LanguageModelV2ToolResultOutput format
- *
- * During streaming, AI SDK gives us unwrapped values in chunk.output
- * When building messages, AI SDK expects wrapped format
- *
- * For objects/arrays: { type: 'json', value: {...} }
- * For strings: { type: 'text', value: '...' }
- */
-function wrapToolResult(result: unknown): LanguageModelV2ToolResultOutput {
-  // String result → text type
-  if (typeof result === 'string') {
-    return {
-      type: 'text',
-      value: result,
-    };
-  }
-
-  // Object/array/other → json type
-  return {
-    type: 'json',
-    value: result,
-  };
-}
 
 /**
  * Convert session messages to AI SDK ModelMessage format
@@ -295,20 +270,17 @@ async function buildAssistantMessage(
 
           // Tool-result goes in separate tool message (if present)
           if (part.result !== undefined) {
-            console.log('[message-builder] part.result from DB:', JSON.stringify(part.result, null, 2));
+            console.log('[message-builder] part.result from DB (AI SDK wrapped format):', JSON.stringify(part.result, null, 2));
             console.log('[message-builder] type:', typeof part.result, 'has .type?', (part.result as any)?.type);
 
-            // Wrap tool result in LanguageModelV2ToolResultOutput format
-            // During streaming, AI SDK gives us unwrapped values in chunk.output
-            // When building messages, AI SDK expects wrapped format: { type: 'json'/'text', value: ... }
-            const wrappedOutput = wrapToolResult(part.result);
-            console.log('[message-builder] wrapped output:', JSON.stringify(wrappedOutput, null, 2));
-
+            // part.result is already in AI SDK's wrapped format
+            // (stored from response.messages in streaming.service)
+            // Example: { type: 'json', value: { command: 'pwd', ... } }
             toolResults.push({
               type: 'tool-result',
               toolCallId: part.toolId,
               toolName: part.name,
-              output: wrappedOutput,
+              output: part.result,  // Already wrapped by AI SDK
             } as ToolResultPart);
           }
           break;

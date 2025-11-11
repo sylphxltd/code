@@ -601,28 +601,20 @@ export async function* createAIStream(
     // Save LLM response messages to history
     const responseMessages = (await response).messages;
 
+    // Push all messages to history (no transformation needed)
     for (const msg of responseMessages) {
-      // Transform tool result output if callback provided
-      if (msg.role === 'tool' && onTransformToolResult) {
-        messageHistory.push({
-          ...msg,
-          content: msg.content.map((part) => ({
-            ...part,
-            output: onTransformToolResult(part.output, part.toolName),
-          })),
-        });
-      } else {
-        messageHistory.push(msg);
-      }
+      messageHistory.push(msg);
     }
 
     const currentFinishReason = await finishReason;
 
-    // Emit step-end event
+    // Emit step-end event with response messages
+    // These messages contain tool results in AI SDK's wrapped format
     yield {
       type: 'step-end' as any,
       stepNumber,
       finishReason: currentFinishReason,
+      responseMessages,  // Include AI SDK's processed messages
     };
 
     // Check if we should continue the loop
@@ -638,4 +630,4 @@ export async function* createAIStream(
 /**
  * Export helper functions
  */
-export { getAISDKTools, getSystemStatus, buildSystemStatusFromMetadata, injectSystemStatusToOutput, buildTodoContext, normalizeMessage };
+export { getAISDKTools, getSystemStatus, buildSystemStatusFromMetadata, buildTodoContext, normalizeMessage };

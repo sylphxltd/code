@@ -576,11 +576,36 @@ export function streamAIResponse(opts: StreamAIResponseOptions) {
             if ((chunk as any).type === 'step-end') {
               const stepNum = (chunk as any).stepNumber;
               const stepId = `${assistantMessageId}-step-${stepNum}`;
+              const responseMessages = (chunk as any).responseMessages;
 
               console.log(`📦 [streamAIResponse] Step ${stepNum} ended, saving ${currentStepParts.length} parts:`, currentStepParts.map(p => p.type));
 
-              // No need to save pending content - all parts created on start events
-              // Just save whatever we have
+              // Update tool results with AI SDK's wrapped format from response.messages
+              if (responseMessages && Array.isArray(responseMessages)) {
+                for (const msg of responseMessages) {
+                  if (msg.role === 'tool') {
+                    // Tool message contains wrapped tool results
+                    for (const part of msg.content) {
+                      if (part.type === 'tool-result') {
+                        // Find matching tool part in currentStepParts
+                        const toolPart = currentStepParts.find(
+                          (p) => p.type === 'tool' && p.toolId === part.toolCallId
+                        );
+
+                        if (toolPart && toolPart.type === 'tool') {
+                          // Update with AI SDK's wrapped format
+                          console.log('[streaming] Updating tool result with AI SDK wrapped format:', {
+                            toolId: part.toolCallId,
+                            toolName: part.toolName,
+                            wrappedOutput: part.output,
+                          });
+                          toolPart.result = part.output;  // ← Store wrapped format: { type: 'json', value: {...} }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
 
               // Update step parts in database
               try {

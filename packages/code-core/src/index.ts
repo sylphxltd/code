@@ -17,7 +17,7 @@
 // ============================================================================
 // AI & Streaming
 // ============================================================================
-export { createAIStream, getSystemStatus, buildSystemStatusFromMetadata, injectSystemStatusToOutput, getSystemPrompt, type SystemStatus } from './ai/ai-sdk.js'
+export { createAIStream, getSystemStatus, buildSystemStatusFromMetadata, getSystemPrompt, type SystemStatus } from './ai/ai-sdk.js'
 export { processStream, type StreamCallbacks } from './ai/stream-handler.js'
 export { buildModelMessages } from './ai/message-builder/index.js'
 
