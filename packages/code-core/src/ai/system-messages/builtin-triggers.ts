@@ -214,10 +214,18 @@ const sessionStartTodoTrigger: TriggerHook = async (context) => {
  * 50% chance to trigger on each step
  */
 const randomTestTrigger: TriggerHook = async (context) => {
+  console.log('🧪 [randomTestTrigger] Called! TEST_MODE is active');
+
+  const randomValue = Math.random();
+  console.log(`🧪 [randomTestTrigger] Random value: ${randomValue.toFixed(3)} (trigger if < 0.5)`);
+
   // 50% chance to trigger
-  if (Math.random() > 0.5) {
+  if (randomValue > 0.5) {
+    console.log('🧪 [randomTestTrigger] Not triggering this time');
     return null;
   }
+
+  console.log('🧪 [randomTestTrigger] TRIGGERING! Creating test message');
 
   // Randomly choose message type
   const random = Math.random();
@@ -267,6 +275,7 @@ export function registerBuiltinTriggers(): void {
 
   // Random test trigger (only in TEST_MODE)
   if (process.env.TEST_MODE) {
+    console.log('🧪 [registerBuiltinTriggers] TEST_MODE detected, registering random test trigger');
     triggerRegistry.register({
       id: 'random-test-trigger',
       name: 'Random Test System Message',
@@ -275,6 +284,8 @@ export function registerBuiltinTriggers(): void {
       enabled: true,
       hook: randomTestTrigger,
     });
+  } else {
+    console.log('🧪 [registerBuiltinTriggers] TEST_MODE not set, skipping random test trigger');
   }
 
   triggerRegistry.register({
