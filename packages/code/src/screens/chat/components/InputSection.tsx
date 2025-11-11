@@ -6,6 +6,7 @@
 import type { FileAttachment } from '@sylphx/code-core';
 import { formatTokenCount } from '@sylphx/code-core';
 import { Box, Text } from 'ink';
+import { useRef, useEffect } from 'react';
 import type { Command, WaitForInputOptions } from '../../../commands/types.js';
 import { CommandAutocomplete } from '../../../components/CommandAutocomplete.js';
 import { FileAutocomplete } from '../../../components/FileAutocomplete.js';
@@ -143,6 +144,16 @@ export function InputSection({
   isStreaming,
   abortControllerRef,
 }: InputSectionProps) {
+  // Debug: Log streaming state on every render
+  console.log('[InputSection] Render - isStreaming:', isStreaming, 'has controller:', !!abortControllerRef.current);
+
+  // Use ref to always have the latest isStreaming value in onEscape callback
+  // This avoids stale closure issues with React.memo
+  const isStreamingRef = useRef(isStreaming);
+  useEffect(() => {
+    isStreamingRef.current = isStreaming;
+  }, [isStreaming]);
+
   // Determine header title based on context
   const getHeaderTitle = (): string => {
     // Custom component with title
@@ -307,12 +318,16 @@ export function InputSection({
                   ? onCommandAutocompleteDownArrow
                   : undefined
               }
-              onEscape={
-                // ESC to abort streaming
-                isStreaming && abortControllerRef.current
-                  ? () => abortControllerRef.current?.abort()
-                  : undefined
-              }
+              onEscape={() => {
+                // ESC to abort streaming - use ref to get latest isStreaming value
+                // This avoids stale closure from React.memo
+                const currentlyStreaming = isStreamingRef.current;
+                console.log('[InputSection] onEscape called, isStreaming:', currentlyStreaming, 'has controller:', !!abortControllerRef.current);
+                if (currentlyStreaming && abortControllerRef.current) {
+                  console.log('[InputSection] Aborting stream...');
+                  abortControllerRef.current.abort();
+                }
+              }}
             />
           </Box>
 
