@@ -6,10 +6,46 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { z } from "zod";
 import type { ProviderId } from "../config/ai-config.js";
 import type { Session } from "../types/session.types.js";
 
 export type { Session } from "../types/session.types.js";
+
+/**
+ * Zod schema for validating session data from disk
+ * Handles both current and legacy formats with migration
+ */
+const MessagePartSchema = z.union([
+	z.object({
+		type: z.literal("text"),
+		text: z.string(),
+	}),
+	z.object({
+		type: z.literal("text"),
+		content: z.string(),
+	}),
+]);
+
+const SessionMessageSchema = z.object({
+	role: z.enum(["user", "assistant"]),
+	content: z.union([
+		z.string(), // Legacy format
+		z.array(MessagePartSchema), // Current format
+	]),
+	timestamp: z.number(),
+});
+
+const SessionSchema = z.object({
+	id: z.string(),
+	provider: z.string(), // ProviderId but stored as string
+	model: z.string(),
+	messages: z.array(SessionMessageSchema),
+	todos: z.array(z.any()).optional(), // Optional for migration
+	nextTodoId: z.number().optional(), // Optional for migration
+	created: z.number(),
+	updated: z.number(),
+});
 
 const SESSION_DIR = join(homedir(), ".sylphx", "sessions");
 const LAST_SESSION_FILE = join(SESSION_DIR, ".last-session");
@@ -74,33 +110,35 @@ export async function loadSession(sessionId: string): Promise<Session | null> {
 	try {
 		const path = getSessionPath(sessionId);
 		const content = await readFile(path, "utf8");
-		const rawSession = JSON.parse(content) as any;
+
+		// Parse and validate with Zod
+		const parsed = SessionSchema.parse(JSON.parse(content));
 
 		// Migration: Add todos/nextTodoId if missing
-		if (!rawSession.todos) {
-			rawSession.todos = [];
-		}
-		if (typeof rawSession.nextTodoId !== "number") {
-			rawSession.nextTodoId = 1;
-		}
+		const todos = parsed.todos ?? [];
+		const nextTodoId = parsed.nextTodoId ?? 1;
 
 		// Migration: Normalize message content format
 		// Old: { content: string }
 		// New: { content: MessagePart[] }
-		if (Array.isArray(rawSession.messages)) {
-			rawSession.messages = rawSession.messages.map((msg: any) => {
-				if (typeof msg.content === "string") {
-					return {
-						...msg,
-						content: [{ type: "text", text: msg.content }], // FIX: Use 'text' field
-					};
-				}
-				return msg;
-			});
-		}
+		const messages = parsed.messages.map((msg) => {
+			if (typeof msg.content === "string") {
+				return {
+					...msg,
+					content: [{ type: "text", text: msg.content }],
+				};
+			}
+			return msg;
+		});
 
-		return rawSession as Session;
-	} catch {
+		return {
+			...parsed,
+			todos,
+			nextTodoId,
+			messages,
+		} as Session;
+	} catch (error) {
+		// Return null for any error (file not found, invalid JSON, validation failure)
 		return null;
 	}
 }
