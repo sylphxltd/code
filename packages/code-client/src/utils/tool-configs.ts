@@ -279,8 +279,8 @@ export const toolConfigs: Record<string, ToolConfig> = {
 	glob: createDefaultToolDisplay(
 		"Search",
 		(args) => {
-			const pattern = args.pattern ? String(args.pattern) : "";
-			const path = args.path ? String(args.path) : "";
+			const pattern = args?.pattern ? String(args.pattern) : "";
+			const path = args?.path ? String(args.path) : "";
 
 			return path && !isDefaultCwd(path) ? `${pattern} in ${getRelativePath(path)}` : pattern;
 		},

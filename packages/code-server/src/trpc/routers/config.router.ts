@@ -291,11 +291,29 @@ export const configRouter = router({
 				};
 			}
 
-			// Update the secret field
+			// Create or update credential in registry
+			const { createCredential, getDefaultCredential } = await import("@sylphx/code-core");
+			const credential = getDefaultCredential(input.providerId) ||
+				createCredential({
+					providerId: input.providerId,
+					label: `${input.providerId} API key`,
+					apiKey: input.value,
+					scope: "global",
+					isDefault: true,
+				});
+
+			// Update credential with new API key if it already exists
+			if (!credential.isDefault) {
+				const { updateCredential } = await import("@sylphx/code-core");
+				updateCredential(credential.id, { apiKey: input.value });
+			}
+
+			// Update provider config to reference the credential (remove apiKey directly)
 			const currentProviderConfig = result.data.providers?.[input.providerId] || {};
+			const { apiKey: _removed, ...configWithoutApiKey } = currentProviderConfig;
 			const updatedProviderConfig = {
-				...currentProviderConfig,
-				[input.fieldName]: input.value,
+				...configWithoutApiKey,
+				credentialId: credential.id, // Reference to credential in registry
 			};
 
 			const updated = {
