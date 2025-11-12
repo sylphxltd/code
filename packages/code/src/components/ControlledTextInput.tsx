@@ -60,13 +60,9 @@ function ControlledTextInput({
 	const terminalWidth = stdout.columns || 80;
 	const availableWidth = Math.max(40, terminalWidth - 10);
 
-	console.log("[ControlledTextInput] Render - focus:", focus, "value:", value.substring(0, 20));
-
 	// Memoize input handler to prevent recreating on every render
 	const handleInput = useCallback(
 		(input: string, key: any) => {
-			console.log("[ControlledTextInput] handleInput called - key:", Object.keys(key).filter(k => key[k]), "focus:", focus);
-
 			// DEBUG: Log all key presses to understand Mac delete behavior
 			if (process.env.DEBUG_INPUT) {
 				console.log("[INPUT]", {

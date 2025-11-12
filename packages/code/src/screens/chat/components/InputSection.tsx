@@ -144,7 +144,6 @@ export function InputSection({
 	isStreaming,
 	abortControllerRef,
 }: InputSectionProps) {
-	console.log("[InputSection] Render - pendingInput:", !!pendingInput, "type:", pendingInput?.type, "pendingCommand:", !!pendingCommand);
 	// Use ref to always have the latest isStreaming value in onEscape callback
 	// This avoids stale closure issues with React.memo
 	const isStreamingRef = useRef(isStreaming);

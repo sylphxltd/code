@@ -78,8 +78,6 @@ export function useSelectionMode(options: UseSelectionModeOptions) {
 		getAIConfig,
 	} = options;
 
-	console.log("[useSelectionMode] Hook render - pendingInput:", !!pendingInput, "type:", pendingInput?.type);
-
 	// Track initialized questions to avoid re-initialization
 	const initializedQuestionsRef = useRef<Set<string>>(new Set());
 
@@ -114,17 +112,8 @@ export function useSelectionMode(options: UseSelectionModeOptions) {
 
 	useInput(
 		async (char, key) => {
-			// DEBUG: Log every keystroke to verify hook is executing
-			console.log("[useSelectionMode] Key pressed:", { char, key: Object.keys(key).filter(k => key[k]) });
-			console.log("[useSelectionMode] State:", {
-				hasPendingInput: !!pendingInput,
-				type: pendingInput?.type,
-				hasResolver: !!inputResolver.current
-			});
-
 			// Only handle when pendingInput is selection mode
 			if (!pendingInput || pendingInput.type !== "selection" || !inputResolver.current) {
-				console.log("[useSelectionMode] Guard failed, returning false");
 				return false;
 			}
 

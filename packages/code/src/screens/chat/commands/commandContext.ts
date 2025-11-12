@@ -145,14 +145,11 @@ export function createCommandContext(args: string[], params: CommandContextParam
 		waitForInput: (options) => {
 			return new Promise((resolve) => {
 				addLog(`[waitForInput] Waiting for ${options.type} input`);
-				console.log("[waitForInput] Setting inputResolver and pendingInput");
 
 				// Both text and selection use pendingInput for now
 				// The Chat component handles rendering based on input type
 				inputResolver.current = resolve;
-				console.log("[waitForInput] inputResolver set:", !!inputResolver.current);
 				setPendingInput(options);
-				console.log("[waitForInput] setPendingInput called");
 			});
 		},
 
