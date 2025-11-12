@@ -69,8 +69,12 @@ export async function getModelCompletions(partial = ""): Promise<CompletionOptio
 			return [];
 		}
 
+		// Resolve API key from credential registry (secrets not in config)
+		const { getProviderConfigWithApiKey } = await import("@sylphx/code-core");
+		const providerConfigWithKey = await getProviderConfigWithApiKey(config, currentProviderId);
+
 		// Fetch models from provider API
-		const models = await fetchModels(currentProviderId as ProviderId, providerConfig);
+		const models = await fetchModels(currentProviderId as ProviderId, providerConfigWithKey || providerConfig);
 
 		// Filter by partial match
 		const filtered = partial
