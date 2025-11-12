@@ -14,17 +14,14 @@ import path from "node:path";
 import os from "node:os";
 import { z } from "zod";
 import { type Result, success, tryCatchAsync, isErr, isOk } from "../ai/result.js";
-import { getAllProviders } from "../ai/providers/index.js";
-import type {
-	ProviderId,
-	ProviderConfigValue as ProviderConfigValueType,
-} from "../types/provider.types.js";
+import { getAllProviders, type ProviderId } from "../ai/providers/index.js";
+import type { ProviderConfigValue as ProviderConfigValueType } from "../types/provider.types.js";
 import { createLogger } from "../utils/logger.js";
 
 const logger = createLogger("AIConfig");
 
 // Re-export types for backward compatibility
-export type { ProviderId } from "../types/provider.types.js";
+export type { ProviderId } from "../ai/providers/index.js";
 
 /**
  * AI_PROVIDERS - Provider metadata from registry

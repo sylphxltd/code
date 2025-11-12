@@ -7,12 +7,6 @@
  */
 
 /**
- * Provider IDs
- * All supported AI providers
- */
-export type ProviderId = "anthropic" | "openai" | "google" | "openrouter" | "claude-code" | "zai" | "kimi";
-
-/**
  * Provider configuration value
  * Generic provider config interface
  */

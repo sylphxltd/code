@@ -72,13 +72,15 @@ export { loadAllRules } from "./ai/rule-loader.js";
 // ============================================================================
 // Providers
 // ============================================================================
-export { getProvider } from "./ai/providers/index.js";
+export { getProvider, PROVIDER_REGISTRY } from "./ai/providers/index.js";
+export type { ProviderId } from "./ai/providers/index.js";
 export { AnthropicProvider } from "./ai/providers/anthropic-provider.js";
 export { OpenAIProvider } from "./ai/providers/openai-provider.js";
 export { GoogleProvider } from "./ai/providers/google-provider.js";
 export { OpenRouterProvider } from "./ai/providers/openrouter-provider.js";
 export { ClaudeCodeProvider } from "./ai/providers/claude-code-provider.js";
 export { ZaiProvider } from "./ai/providers/zai-provider.js";
+export { KimiProvider } from "./ai/providers/kimi-provider.js";
 
 // ============================================================================
 // Database & Repositories (Pure Functions)
@@ -112,7 +114,7 @@ export {
 	getProviderApiKey,
 	getProviderConfigWithApiKey,
 } from "./config/ai-config.js";
-export type { AIConfig, ProviderId } from "./config/ai-config.js";
+export type { AIConfig } from "./config/ai-config.js";
 export type { ProviderConfig } from "./ai/providers/base-provider.js";
 
 // ============================================================================

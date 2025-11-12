@@ -3,7 +3,6 @@
  * Central registry for all AI providers
  */
 
-import type { ProviderId } from "../types/provider.types.js";
 import type { AIProvider } from "./base-provider.js";
 import { AnthropicProvider } from "./anthropic-provider.js";
 import { OpenAIProvider } from "./openai-provider.js";
@@ -15,8 +14,9 @@ import { KimiProvider } from "./kimi-provider.js";
 
 /**
  * Registry of all available providers
+ * SINGLE SOURCE OF TRUTH: Add new providers here only
  */
-export const PROVIDER_REGISTRY: Record<ProviderId, AIProvider> = {
+export const PROVIDER_REGISTRY = {
 	anthropic: new AnthropicProvider(),
 	openai: new OpenAIProvider(),
 	google: new GoogleProvider(),
@@ -24,7 +24,13 @@ export const PROVIDER_REGISTRY: Record<ProviderId, AIProvider> = {
 	"claude-code": new ClaudeCodeProvider(),
 	zai: new ZaiProvider(),
 	kimi: new KimiProvider(),
-};
+} as const;
+
+/**
+ * Provider IDs - derived from PROVIDER_REGISTRY
+ * This is the ONLY place provider IDs are defined
+ */
+export type ProviderId = keyof typeof PROVIDER_REGISTRY;
 
 /**
  * Get provider instance by ID

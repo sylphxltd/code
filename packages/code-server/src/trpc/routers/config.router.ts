@@ -17,13 +17,19 @@ import {
 	getTokenizerInfo,
 	countTokens,
 	scanProjectFiles,
+	PROVIDER_REGISTRY,
 } from "@sylphx/code-core";
 import type { AIConfig, ProviderId } from "@sylphx/code-core";
 
+/**
+ * Provider ID schema - derived from PROVIDER_REGISTRY
+ * Automatically updates when new providers are added to PROVIDER_REGISTRY
+ */
+const PROVIDER_IDS = Object.keys(PROVIDER_REGISTRY) as [ProviderId, ...ProviderId[]];
+const providerIdSchema = z.enum(PROVIDER_IDS);
+
 const AIConfigSchema = z.object({
-	defaultProvider: z
-		.enum(["anthropic", "openai", "google", "openrouter", "claude-code", "zai"])
-		.optional(),
+	defaultProvider: providerIdSchema.optional(),
 	defaultEnabledRuleIds: z.array(z.string()).optional(), // Global default rules
 	defaultAgentId: z.string().optional(), // Remember last selected agent
 	providers: z
@@ -472,7 +478,7 @@ export const configRouter = router({
 	getProviderSchema: publicProcedure
 		.input(
 			z.object({
-				providerId: z.enum(["anthropic", "openai", "google", "openrouter", "claude-code", "zai", "kimi"]),
+				providerId: providerIdSchema,
 			}),
 		)
 		.query(({ input }) => {
@@ -495,7 +501,7 @@ export const configRouter = router({
 	fetchModels: publicProcedure
 		.input(
 			z.object({
-				providerId: z.enum(["anthropic", "openai", "google", "openrouter", "claude-code", "zai", "kimi"]),
+				providerId: providerIdSchema,
 				cwd: z.string().default(process.cwd()),
 			}),
 		)
@@ -640,7 +646,7 @@ export const configRouter = router({
 	getModelDetails: publicProcedure
 		.input(
 			z.object({
-				providerId: z.enum(["anthropic", "openai", "google", "openrouter", "claude-code", "zai", "kimi"]),
+				providerId: providerIdSchema,
 				modelId: z.string(),
 				cwd: z.string().default(process.cwd()),
 			}),
