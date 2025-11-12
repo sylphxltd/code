@@ -86,6 +86,21 @@ interface ResultDisplayProps {
 	error?: string;
 }
 
+/**
+ * Detect if a line is a diff line (starts with line number followed by +/-)
+ * Format: "   123 - old line" or "   123 + new line" or "   123   context"
+ */
+function getDiffLineType(line: string): "added" | "removed" | "context" | null {
+	// Check if line matches diff format (6 spaces for line number, then +/- or space)
+	if (line.length > 7) {
+		const marker = line[7]; // Character at position 7 (after 6-digit line number and space)
+		if (marker === "+") return "added";
+		if (marker === "-") return "removed";
+		if (marker === " ") return "context";
+	}
+	return null;
+}
+
 const ResultDisplay: React.FC<ResultDisplayProps> = ({ status, formattedResult, error }) => {
 	// Don't show anything for running tools
 	if (status === "running") {
@@ -113,17 +128,41 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ status, formattedResult, 
 		return (
 			<Box flexDirection="column" marginLeft={2}>
 				{/* Show summary if available */}
-				{hasSummary && (
-					<Text dimColor>{formattedResult.summary}</Text>
-				)}
-				{/* Show lines if available (limit to first 10 for readability) */}
+				{hasSummary && <Text dimColor>{formattedResult.summary}</Text>}
+				{/* Show lines if available (limit to first 20 for diffs) */}
 				{hasLines && (
 					<Box flexDirection="column" marginTop={hasSummary ? 1 : 0}>
-						{formattedResult.lines.slice(0, 10).map((line, i) => (
-							<Text key={i}>{line}</Text>
-						))}
-						{formattedResult.lines.length > 10 && (
-							<Text dimColor>... and {formattedResult.lines.length - 10} more lines</Text>
+						{formattedResult.lines.slice(0, 20).map((line, i) => {
+							const diffType = getDiffLineType(line);
+
+							// Colorize diff lines
+							if (diffType === "added") {
+								return (
+									<Text key={i} color="#00FF88">
+										{line}
+									</Text>
+								);
+							} else if (diffType === "removed") {
+								return (
+									<Text key={i} color="#FF3366">
+										{line}
+									</Text>
+								);
+							} else if (diffType === "context") {
+								return (
+									<Text key={i} dimColor>
+										{line}
+									</Text>
+								);
+							} else {
+								// Regular line (not diff format)
+								return <Text key={i}>{line}</Text>;
+							}
+						})}
+						{formattedResult.lines.length > 20 && (
+							<Text dimColor>
+								... and {formattedResult.lines.length - 20} more lines
+							</Text>
 						)}
 					</Box>
 				)}
