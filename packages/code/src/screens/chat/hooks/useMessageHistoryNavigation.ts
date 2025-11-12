@@ -135,7 +135,7 @@ export function useMessageHistoryNavigation(options: UseMessageHistoryNavigation
 			exitHistoryMode();
 			return false; // Don't consume - let other handlers process the key
 		},
-		{ isActive: !isStreaming },
+		{ isActive: !isStreaming && !pendingInput && !pendingCommand }, // Disable when in selection mode, streaming, or pending command
 	);
 
 	return {
