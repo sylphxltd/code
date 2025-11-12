@@ -52,6 +52,8 @@ function ControlledTextInput({
 	onDownArrow,
 	onEscape,
 }: ControlledTextInputProps) {
+	console.log("[ControlledTextInput] Rendered with focus:", focus, "value length:", value.length);
+
 	// Kill buffer for Ctrl+K, Ctrl+U, Ctrl+W → Ctrl+Y
 	const killBufferRef = useRef("");
 
