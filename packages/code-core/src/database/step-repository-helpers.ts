@@ -150,9 +150,10 @@ export async function completeMessageStep(
 			if (options.usage) {
 				await tx.insert(stepUsage).values({
 					stepId,
-					promptTokens: options.usage.promptTokens,
-					completionTokens: options.usage.completionTokens,
-					totalTokens: options.usage.totalTokens,
+					// Ensure all token fields have valid numbers (default to 0 if null/undefined)
+					promptTokens: options.usage.promptTokens ?? 0,
+					completionTokens: options.usage.completionTokens ?? 0,
+					totalTokens: options.usage.totalTokens ?? 0,
 				});
 			}
 		}),
