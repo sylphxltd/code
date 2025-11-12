@@ -108,18 +108,18 @@ export const toolConfigs = {
 				return { lines: resultToLines(result) };
 			}
 
-			// Add line numbers to match Read tool format
+			// Add line numbers using diff format (matches edit tool style)
 			const formattedLines = displayLines.map((line, i) => {
 				// For long files with omitted section, handle the omitted message specially
 				if (line.startsWith("...") && line.includes("omitted")) {
-					return `      ${line}`; // No line number for omitted message
+					return `       ${line}`; // Indent to align with content
 				}
 				// Calculate actual line number (for truncated files, second half starts at lineCount - 4)
 				const lineNum =
 					"previewFirst" in res && i > res.previewFirst.length
 						? lineCount - (displayLines.length - i - 1)
 						: i + 1;
-				return `${lineNum.toString().padStart(6)}→ ${line}`;
+				return `${lineNum.toString().padStart(6)}   ${line}`;
 			});
 
 			return {
