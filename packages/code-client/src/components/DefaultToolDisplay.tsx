@@ -125,12 +125,16 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ status, formattedResult, 
 			return null;
 		}
 
+		// Smart auto-collapse: only show details for small outputs (≤5 lines) or if no summary
+		const lineCount = formattedResult.lines?.length || 0;
+		const shouldShowDetails = !hasSummary || (lineCount <= 5 && lineCount > 0);
+
 		return (
 			<Box flexDirection="column" marginLeft={2}>
-				{/* Show summary if available */}
+				{/* Always show summary */}
 				{hasSummary && <Text dimColor>{formattedResult.summary}</Text>}
-				{/* Show lines if available (limit to first 20 for diffs) */}
-				{hasLines && (
+				{/* Show details for small outputs or when there's no summary */}
+				{hasLines && shouldShowDetails && (
 					<Box flexDirection="column" marginTop={hasSummary ? 1 : 0}>
 						{formattedResult.lines.slice(0, 20).map((line, i) => {
 							// Check for truncation messages (e.g., "... 10 lines omitted ...", "... 5 more lines")
