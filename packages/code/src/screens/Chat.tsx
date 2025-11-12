@@ -694,6 +694,15 @@ export default function Chat(_props: ChatProps) {
 		setSelectedFileIndex((prev) => (prev === filteredFileInfo.files.length - 1 ? 0 : prev + 1));
 	};
 
+	// TEST: Direct useInput in Chat.tsx to verify Ink is working
+	useInput((char, key) => {
+		if (pendingInput && pendingInput.type === "selection") {
+			console.log("[Chat.tsx TEST useInput] Key received:", Object.keys(key).filter(k => key[k]), "char:", char);
+			return false; // Don't consume, just log
+		}
+		return false;
+	}, { isActive: true });
+
 	// Message history navigation hook (like bash)
 	useMessageHistoryNavigation({
 		isStreaming,
