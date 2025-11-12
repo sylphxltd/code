@@ -133,8 +133,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ status, formattedResult, 
 				{hasLines && (
 					<Box flexDirection="column" marginTop={hasSummary ? 1 : 0}>
 						{formattedResult.lines.slice(0, 20).map((line, i) => {
-							// Check for omitted message (e.g., "... 10 lines omitted ...")
-							if (line.includes("...") && line.includes("omitted")) {
+							// Check for truncation messages (e.g., "... 10 lines omitted ...", "... 5 more lines")
+							if (line.includes("...") && (line.includes("omitted") || line.includes("more"))) {
 								return (
 									<Text key={i} dimColor>
 										{line}

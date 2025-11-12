@@ -77,9 +77,37 @@ export const toolConfigs = {
 						: JSON.stringify(result);
 
 			const lines = content.split("\n").filter((line) => line.trim());
+			const lineCount = lines.length;
+			const fileName = typeof result === "object" && "path" in result
+				? String((result as any).path).split("/").pop()
+				: "";
+
+			// Smart preview: show ~20 lines, or first/last 10 if too long
+			let displayLines: string[];
+			if (lineCount <= 20) {
+				displayLines = lines;
+			} else {
+				displayLines = [
+					...lines.slice(0, 10),
+					`... ${lineCount - 20} ${pluralize(lineCount - 20, "line")} omitted ...`,
+					...lines.slice(-10),
+				];
+			}
+
+			// Format with diff-style line numbers (space marker for context)
+			const formattedLines = displayLines.map((line, i) => {
+				if (line.includes("...") && line.includes("omitted")) {
+					return `       ${line}`;
+				}
+				const lineNum = i > 10 && lineCount > 20 ? lineCount - (displayLines.length - i - 1) : i + 1;
+				return formatDiffLine(lineNum, " ", line);
+			});
+
 			return {
-				lines,
-				summary: `Read ${lines.length} ${pluralize(lines.length, "line")}`,
+				lines: formattedLines,
+				summary: fileName
+					? `Read ${fileName} (${lineCount} ${pluralize(lineCount, "line")})`
+					: `Read ${lineCount} ${pluralize(lineCount, "line")}`,
 			};
 		},
 	),
@@ -196,9 +224,26 @@ export const toolConfigs = {
 				const { stdout, stderr, exitCode } = result as any;
 				const output = stderr && exitCode !== 0 ? stderr : stdout;
 				const lines = output ? output.split("\n").filter((line: string) => line.trim()) : [];
+				const lineCount = lines.length;
+
+				// Format with line numbers and separator
+				let formattedLines = lines.map((line, i) =>
+					`${(i + 1).toString().padStart(6)} │ ${line}`
+				);
+
+				// Truncate to 20 lines
+				if (lineCount > 20) {
+					formattedLines = [
+						...formattedLines.slice(0, 20),
+						`       ... ${lineCount - 20} more ${pluralize(lineCount - 20, "line")}`,
+					];
+				}
+
 				return {
-					lines,
-					summary: lines.length > 0 ? undefined : "Command completed",
+					lines: formattedLines,
+					summary: lineCount > 0
+						? `Completed (exit: ${exitCode})`
+						: "Command completed",
 				};
 			}
 
@@ -219,12 +264,26 @@ export const toolConfigs = {
 				const { stdout, stderr, exitCode, isRunning, duration } = result as any;
 				const output = stderr && exitCode !== 0 ? stderr : stdout;
 				const lines = output ? output.split("\n").filter((line: string) => line.trim()) : [];
+				const lineCount = lines.length;
+
+				// Format with line numbers and separator
+				let formattedLines = lines.map((line, i) =>
+					`${(i + 1).toString().padStart(6)} │ ${line}`
+				);
+
+				// Truncate to 20 lines
+				if (lineCount > 20) {
+					formattedLines = [
+						...formattedLines.slice(0, 20),
+						`       ... ${lineCount - 20} more ${pluralize(lineCount - 20, "line")}`,
+					];
+				}
 
 				const status = isRunning ? "Still running" : `Completed (exit: ${exitCode})`;
 				const durationSec = Math.floor((duration as number) / 1000);
 
 				return {
-					lines,
+					lines: formattedLines,
 					summary: `${status} - ${durationSec}s`,
 				};
 			}
@@ -252,7 +311,7 @@ export const toolConfigs = {
 
 	// Grep tool
 	grep: createDefaultToolDisplay(
-		"Search",
+		"Search Content",
 		(input) => {
 			const pattern = input?.pattern ? String(input.pattern) : "";
 			const globPattern = input?.glob ? String(input.glob) : "";
@@ -287,19 +346,44 @@ export const toolConfigs = {
 					line: number;
 					content: string;
 				}>;
-				const lines = matches.map((m) => `${m.file}:${m.line}: ${m.content}`);
+				const matchCount = matches.length;
+
+				// Format with aligned line numbers
+				let lines = matches.map((m) =>
+					`${getRelativePath(m.file)}:${m.line.toString().padStart(4)}: ${m.content}`
+				);
+
+				// Truncate to 15 results
+				if (matchCount > 15) {
+					lines = [
+						...lines.slice(0, 15),
+						`... ${matchCount - 15} more ${pluralize(matchCount - 15, "match", "matches")}`,
+					];
+				}
+
 				return {
 					lines,
-					summary: `Found ${matches.length} ${pluralize(matches.length, "match", "matches")}`,
+					summary: `Found ${matchCount} ${pluralize(matchCount, "match", "matches")}`,
 				};
 			}
 
 			// Files mode
 			if ("files" in res) {
 				const files = res.files as string[];
+				const fileCount = files.length;
+
+				// Truncate to 15 results
+				let displayFiles = files.map(f => getRelativePath(f));
+				if (fileCount > 15) {
+					displayFiles = [
+						...displayFiles.slice(0, 15),
+						`... ${fileCount - 15} more ${pluralize(fileCount - 15, "file")}`,
+					];
+				}
+
 				return {
-					lines: files,
-					summary: `Found ${files.length} ${pluralize(files.length, "file")}`,
+					lines: displayFiles,
+					summary: `Found ${fileCount} ${pluralize(fileCount, "file")}`,
 				};
 			}
 
@@ -317,7 +401,7 @@ export const toolConfigs = {
 
 	// Glob tool
 	glob: createDefaultToolDisplay(
-		"Search",
+		"Find Files",
 		(input) => {
 			const pattern = input?.pattern ? String(input.pattern) : "";
 			const path = input?.path ? String(input.path) : "";
@@ -327,9 +411,20 @@ export const toolConfigs = {
 		(result) => {
 			if (typeof result === "object" && result !== null && "files" in result) {
 				const files = (result as any).files as string[];
+				const fileCount = files.length;
+
+				// Truncate to 15 results
+				let displayFiles = files.map(f => getRelativePath(f));
+				if (fileCount > 15) {
+					displayFiles = [
+						...displayFiles.slice(0, 15),
+						`... ${fileCount - 15} more ${pluralize(fileCount - 15, "file")}`,
+					];
+				}
+
 				return {
-					lines: files,
-					summary: `Found ${files.length} ${pluralize(files.length, "file")}`,
+					lines: displayFiles,
+					summary: `Found ${fileCount} ${pluralize(fileCount, "file")}`,
 				};
 			}
 
