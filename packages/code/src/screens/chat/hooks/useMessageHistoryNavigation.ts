@@ -89,18 +89,14 @@ export function useMessageHistoryNavigation(options: UseMessageHistoryNavigation
 	// IMPORTANT: Only handle up/down arrows here, let ControlledTextInput handle Enter
 	useInput(
 		(char, key) => {
-			console.log("[useMessageHistoryNavigation] Key:", Object.keys(key).filter(k => key[k]), "pendingInput:", !!pendingInput, "pendingCommand:", !!pendingCommand);
-
 			// inputComponent has its own keyboard handling (e.g. ProviderManagement)
 			// Don't interfere with it
 			if (inputComponent) {
-				console.log("[useMessageHistoryNavigation] inputComponent active, returning false");
 				return false; // Don't consume - let other handlers process
 			}
 
 			const isNormalMode = !pendingInput && !pendingCommand;
 			if (!isNormalMode) {
-				console.log("[useMessageHistoryNavigation] Not normal mode, returning false");
 				return false; // Don't consume - let selection/command mode handlers process
 			}
 

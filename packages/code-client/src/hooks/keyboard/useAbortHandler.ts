@@ -23,16 +23,11 @@ export interface UseAbortHandlerOptions {
  * - Takes priority over other ESC actions
  */
 export function useAbortHandler(options: UseAbortHandlerOptions) {
-	console.log("[useAbortHandler] Hook called");
-
 	const { isStreaming, abortControllerRef, addLog } = options;
 
 	useInput(
 		(char, key) => {
-			console.log("[useAbortHandler] Key:", Object.keys(key).filter(k => key[k]));
-
 			if (!key.escape) {
-				console.log("[useAbortHandler] Not escape, returning false");
 				return false;
 			}
 

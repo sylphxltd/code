@@ -23,17 +23,12 @@ export interface UseKeyboardShortcutsOptions {
  * - Single ESC → show hint (if input exists)
  */
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
-	console.log("[useKeyboardShortcuts] Hook called");
-
 	const { isStreaming, input, lastEscapeTime, setInput, setCursor, setShowEscHint } = options;
 
 	useInput(
 		(char, key) => {
-			console.log("[useKeyboardShortcuts] Key:", Object.keys(key).filter(k => key[k]), "isStreaming:", isStreaming);
-
 			// Skip if streaming (abort handler takes priority)
 			if (isStreaming) {
-				console.log("[useKeyboardShortcuts] Streaming, returning false");
 				return false;
 			}
 

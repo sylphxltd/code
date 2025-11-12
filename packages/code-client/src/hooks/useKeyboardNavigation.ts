@@ -101,8 +101,6 @@ export interface KeyboardNavigationProps {
  * Each hook handles a specific mode and returns boolean to indicate if it consumed the event
  */
 export function useKeyboardNavigation(props: KeyboardNavigationProps) {
-	console.log("[useKeyboardNavigation] Called with pendingInput:", !!props.pendingInput, "type:", props.pendingInput?.type);
-
 	const {
 		input,
 		isStreaming,
@@ -149,16 +147,13 @@ export function useKeyboardNavigation(props: KeyboardNavigationProps) {
 		currentSession,
 	} = props;
 
-	console.log("[useKeyboardNavigation] About to call useAbortHandler");
 	// 1. Abort handler - ESC to abort streaming (highest priority)
 	useAbortHandler({
 		isStreaming,
 		abortControllerRef,
 		addLog,
 	});
-	console.log("[useKeyboardNavigation] useAbortHandler returned");
 
-	console.log("[useKeyboardNavigation] About to call useKeyboardShortcuts");
 	// 2. Keyboard shortcuts - Double-ESC to clear input
 	useKeyboardShortcuts({
 		isStreaming,
@@ -169,7 +164,6 @@ export function useKeyboardNavigation(props: KeyboardNavigationProps) {
 		setShowEscHint,
 	});
 
-	console.log("[useKeyboardNavigation] About to call useSelectionMode");
 	// 3. Selection mode - Question/option selection with filter/multi-select
 	useSelectionMode({
 		pendingInput,
