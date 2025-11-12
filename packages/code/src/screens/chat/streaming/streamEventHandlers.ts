@@ -599,6 +599,8 @@ function handleToolCall(
 ) {
 	const currentSessionId = getCurrentSessionId();
 
+	console.log("[handleToolCall] event.input:", event.input, "toolName:", event.toolName);
+
 	updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
 		// Check if tool part already exists (from tool-input-start)
 		const existingToolPart = prev.find(
@@ -607,6 +609,7 @@ function handleToolCall(
 
 		if (existingToolPart && existingToolPart.type === "tool") {
 			// Update existing tool part with name (input already set by tool-input-end)
+			console.log("[handleToolCall] Updating existing tool part");
 			return prev.map((p) =>
 				p.type === "tool" && p.toolId === event.toolCallId
 					? { ...p, name: event.toolName }
@@ -614,6 +617,7 @@ function handleToolCall(
 			);
 		} else {
 			// No streaming - create new tool part with complete input
+			console.log("[handleToolCall] Creating new tool part with input:", event.input);
 			return [
 				...prev,
 				{

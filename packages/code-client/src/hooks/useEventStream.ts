@@ -60,7 +60,7 @@ export interface EventStreamCallbacks {
 	onReasoningEnd?: (duration: number) => void;
 
 	// Tool streaming
-	onToolCall?: (toolCallId: string, toolName: string, args: unknown) => void;
+	onToolCall?: (toolCallId: string, toolName: string, input: unknown) => void;
 	onToolResult?: (toolCallId: string, toolName: string, result: unknown, duration: number) => void;
 	onToolError?: (toolCallId: string, toolName: string, error: string, duration: number) => void;
 
@@ -245,7 +245,7 @@ export function useEventStream(options: UseEventStreamOptions = {}) {
 							break;
 
 						case "tool-call":
-							callbacksRef.current.onToolCall?.(event.toolCallId, event.toolName, event.args);
+							callbacksRef.current.onToolCall?.(event.toolCallId, event.toolName, event.input);
 							break;
 
 						case "tool-result":

@@ -636,7 +636,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 					},
 					onToolCall: (toolCallId, toolName, args) => {
 						hasEmittedAnyEvent = true;
-						observer.next({ type: "tool-call", toolCallId, toolName, input: args });
+						const event = { type: "tool-call" as const, toolCallId, toolName, input: args };
+						console.log("[onToolCall] Emitting event:", JSON.stringify(event));
+						observer.next(event);
 					},
 					onToolResult: (toolCallId, toolName, result, duration) => {
 						hasEmittedAnyEvent = true;
@@ -775,6 +777,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 							}
 
 							case "tool-call": {
+								console.log("[streaming.service] tool-call chunk:", JSON.stringify(chunk));
+
 								// Check if tool part already exists (from tool-input-start)
 								const existingToolPart = currentStepParts.find(
 									(p) => p.type === "tool" && p.toolId === chunk.toolCallId,
