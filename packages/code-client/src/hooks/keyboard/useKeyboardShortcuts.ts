@@ -27,8 +27,13 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
 
 	useInput(
 		(char, key) => {
+			console.log("[useKeyboardShortcuts] Key:", Object.keys(key).filter(k => key[k]), "isStreaming:", isStreaming);
+
 			// Skip if streaming (abort handler takes priority)
-			if (isStreaming) return false;
+			if (isStreaming) {
+				console.log("[useKeyboardShortcuts] Streaming, returning false");
+				return false;
+			}
 
 			// Double ESC to clear input (works in any mode)
 			if (key.escape) {

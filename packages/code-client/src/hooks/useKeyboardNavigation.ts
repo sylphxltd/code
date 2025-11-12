@@ -101,6 +101,8 @@ export interface KeyboardNavigationProps {
  * Each hook handles a specific mode and returns boolean to indicate if it consumed the event
  */
 export function useKeyboardNavigation(props: KeyboardNavigationProps) {
+	console.log("[useKeyboardNavigation] Called with pendingInput:", !!props.pendingInput, "type:", props.pendingInput?.type);
+
 	const {
 		input,
 		isStreaming,

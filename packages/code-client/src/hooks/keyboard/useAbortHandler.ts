@@ -27,7 +27,10 @@ export function useAbortHandler(options: UseAbortHandlerOptions) {
 
 	useInput(
 		(char, key) => {
+			console.log("[useAbortHandler] Key:", Object.keys(key).filter(k => key[k]));
+
 			if (!key.escape) {
+				console.log("[useAbortHandler] Not escape, returning false");
 				return false;
 			}
 
