@@ -231,7 +231,56 @@ Settings have different meanings BEFORE vs AFTER first message, but UI doesn't c
 
 ---
 
-## 🎯 Proposed Solutions
+---
+
+## ✅ IMPLEMENTATION COMPLETE
+
+### Unified Architecture Implemented
+
+All settings commands now follow the unified architecture:
+
+**Principle**: "每次設計都會一次過影響晒 session and global"
+
+**Behavior**:
+1. ALWAYS update global config (to predict future defaults)
+2. IF current session exists, also update session
+3. Old sessions are NEVER affected
+
+### What Was Fixed
+
+| Command | Status | Changes Made |
+|---------|--------|--------------|
+| `/agent` | ✅ Complete | Added `updateSessionAgent()` function, updated command to call both `setSelectedAgent()` and `updateSessionAgent()` |
+| `/rules` | ✅ Complete | Created `setGlobalEnabledRules()` function, updated `setEnabledRules()` to call both global and session updates |
+| `/model` | ✅ Already Good | Already was updating both global and session correctly |
+| `/provider` | ✅ Complete | Updated both direct and UI callbacks to call `updateSessionProvider()` when session exists |
+
+### Implementation Details
+
+**Server-Side (code-server)**:
+- Added `updateAgent` mutation to `session.router.ts`
+- Updated `event-bus.service.ts` to include "agentId" in session-updated events
+- Session creation now reads all global defaults: `defaultAgentId`, `defaultEnabledRuleIds`
+
+**Client-Side (code-client)**:
+- Added `updateSessionAgent()` function to session signals
+- Created `setGlobalEnabledRules()` function to settings signals
+- Deprecated ambiguous `setEnabledRuleIds()` function
+
+**TUI Commands (code)**:
+- Updated `/agent` command to update both global and session
+- Updated `/rules` and `toggleRule()` in embedded-context to update both
+- Updated `/provider` command to update both global and session
+
+### Remaining Issues (Low Priority)
+
+1. **Model ID Migration Incomplete** - Legacy `provider` + `model` fields still exist
+2. **UI Indicators** - No visual indication of what scope settings are saved to
+3. **Deprecated Function** - `setEnabledRuleIds()` still exists but should be removed
+
+---
+
+## 🎯 Proposed Solutions (ARCHIVED - For Reference Only)
 
 ### Solution 1: Make All Commands Consistent
 
