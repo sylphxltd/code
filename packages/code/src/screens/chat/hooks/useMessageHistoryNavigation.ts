@@ -92,12 +92,12 @@ export function useMessageHistoryNavigation(options: UseMessageHistoryNavigation
 			// inputComponent has its own keyboard handling (e.g. ProviderManagement)
 			// Don't interfere with it
 			if (inputComponent) {
-				return;
+				return false; // Don't consume - let other handlers process
 			}
 
 			const isNormalMode = !pendingInput && !pendingCommand;
 			if (!isNormalMode) {
-				return;
+				return false; // Don't consume - let selection/command mode handlers process
 			}
 
 			// Don't handle arrow keys when autocomplete is active
@@ -107,28 +107,29 @@ export function useMessageHistoryNavigation(options: UseMessageHistoryNavigation
 
 			// If autocomplete is active, don't handle ANY keys (let useKeyboardNavigation handle)
 			if (hasAutocomplete && (key.upArrow || key.downArrow || key.tab || key.return)) {
-				return; // Let useKeyboardNavigation handle all navigation when autocomplete is active
+				return false; // Don't consume - let useKeyboardNavigation handle all navigation when autocomplete is active
 			}
 
 			// Up arrow - navigate to previous message in history
 			if (key.upArrow) {
 				// Skip if autocomplete is showing - let autocomplete handle navigation
-				if (hasAutocomplete) return;
+				if (hasAutocomplete) return false;
 				navigateUp();
-				return;
+				return true; // Consumed
 			}
 
 			// Down arrow - navigate to next message in history
 			if (key.downArrow) {
 				// Skip if autocomplete is showing - let autocomplete handle navigation
-				if (hasAutocomplete) return;
+				if (hasAutocomplete) return false;
 				navigateDown();
-				return;
+				return true; // Consumed
 			}
 
 			// Exit history browsing mode on ANY other key (including Enter, typing, etc.)
 			// Don't consume the event - let ControlledTextInput handle it
 			exitHistoryMode();
+			return false; // Don't consume - let other handlers process the key
 		},
 		{ isActive: !isStreaming },
 	);
