@@ -24,7 +24,7 @@ export const PROVIDER_REGISTRY = {
 	"claude-code": new ClaudeCodeProvider(),
 	zai: new ZaiProvider(),
 	kimi: new KimiProvider(),
-} as const;
+} satisfies Record<string, AIProvider>;
 
 /**
  * Provider IDs - derived from PROVIDER_REGISTRY
