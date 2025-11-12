@@ -127,15 +127,6 @@ export function handleToolResult(
 ) {
 	const currentSessionId = getCurrentSessionId();
 
-	// DEBUG: Log the event to see what result we're receiving
-	console.log("[handleToolResult] event:", {
-		toolCallId: event.toolCallId,
-		toolName: event.toolName,
-		resultType: typeof event.result,
-		resultKeys: event.result && typeof event.result === "object" ? Object.keys(event.result) : null,
-		hasResult: event.result !== undefined && event.result !== null,
-	});
-
 	updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) =>
 		prev.map((part) =>
 			part.type === "tool" && part.toolId === event.toolCallId

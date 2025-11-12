@@ -55,12 +55,8 @@ export const toolConfigs = {
 		"Read",
 		(input) => (input?.file_path ? getRelativePath(String(input.file_path)) : ""),
 		(result) => {
-			// DEBUG: Log the actual result to see what we're getting
-			console.log("[Read Tool Formatter] result:", JSON.stringify(result, null, 2));
-
 			// Handle undefined/null results
 			if (result === null || result === undefined) {
-				console.log("[Read Tool Formatter] result is null/undefined");
 				return {
 					lines: [],
 					summary: "Read 0 lines",
@@ -74,10 +70,7 @@ export const toolConfigs = {
 						? result
 						: JSON.stringify(result);
 
-			console.log("[Read Tool Formatter] content length:", content.length);
-
 			const lines = content.split("\n").filter((line) => line.trim());
-			console.log("[Read Tool Formatter] lines count:", lines.length);
 			return {
 				lines,
 				summary: `Read ${lines.length} ${pluralize(lines.length, "line")}`,

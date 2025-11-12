@@ -19,48 +19,56 @@ export const readFileTool = tool({
 		limit: z.number().optional().describe("Number of lines to read"),
 	}),
 	execute: async ({ file_path, offset, limit }) => {
-		// Check file size before reading to prevent memory exhaustion
-		const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
 		try {
-			const { stat } = await import("node:fs/promises");
-			const stats = await stat(file_path);
+			// Check file size before reading to prevent memory exhaustion
+			const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+			try {
+				const { stat } = await import("node:fs/promises");
+				const stats = await stat(file_path);
 
-			if (stats.size > MAX_FILE_SIZE) {
+				if (stats.size > MAX_FILE_SIZE) {
+					return {
+						path: file_path,
+						error: `File too large (${Math.round(stats.size / 1024 / 1024)}MB). Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB. Use offset and limit parameters to read specific sections.`,
+						encoding: "utf8",
+					};
+				}
+			} catch (error) {
 				return {
 					path: file_path,
-					error: `File too large (${Math.round(stats.size / 1024 / 1024)}MB). Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB. Use offset and limit parameters to read specific sections.`,
+					error: `Failed to check file size: ${error instanceof Error ? error.message : String(error)}`,
 					encoding: "utf8",
 				};
 			}
+
+			const content = await readFile(file_path, "utf8");
+
+			// Apply line filtering if offset/limit specified
+			if (offset !== undefined || limit !== undefined) {
+				const lines = content.split("\n");
+				const start = offset ? offset - 1 : 0; // Convert to 0-based index
+				const end = limit ? start + limit : lines.length;
+				const filteredLines = lines.slice(start, end);
+
+				return {
+					path: file_path,
+					content: filteredLines.join("\n"),
+					encoding: "utf8",
+				};
+			}
+
+			return {
+				path: file_path,
+				content,
+				encoding: "utf8",
+			};
 		} catch (error) {
 			return {
 				path: file_path,
-				error: `Failed to check file size: ${error instanceof Error ? error.message : String(error)}`,
+				error: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`,
 				encoding: "utf8",
 			};
 		}
-
-		const content = await readFile(file_path, "utf8");
-
-		// Apply line filtering if offset/limit specified
-		if (offset !== undefined || limit !== undefined) {
-			const lines = content.split("\n");
-			const start = offset ? offset - 1 : 0; // Convert to 0-based index
-			const end = limit ? start + limit : lines.length;
-			const filteredLines = lines.slice(start, end);
-
-			return {
-				path: file_path,
-				content: filteredLines.join("\n"),
-				encoding: "utf8",
-			};
-		}
-
-		return {
-			path: file_path,
-			content,
-			encoding: "utf8",
-		};
 	},
 });
 

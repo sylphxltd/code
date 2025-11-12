@@ -419,7 +419,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				const streamStartTime = Date.now();
 				let hasEmittedAnyEvent = false;
 
-				const { fullStream } = streamText({
+				const { fullStream, response: responsePromise } = streamText({
 					model,
 					messages,
 					system: systemPrompt, // AI SDK uses 'system' not 'systemPrompt'
@@ -434,7 +434,32 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 								const prevStepId = `${assistantMessageId}-step-${stepNumber - 1}`;
 								const prevStep = steps[steps.length - 1];
 
-								// Update step parts
+								// ⭐ Update tool results with AI SDK's wrapped format from prevStep.messages
+								// Note: chunk.output provides unwrapped results during streaming
+								// We update with wrapped format here for proper database storage
+								if (prevStep && (prevStep as any).messages) {
+									const prevStepMessages = (prevStep as any).messages;
+									for (const msg of prevStepMessages) {
+										if (msg.role === "tool") {
+											// Tool message contains wrapped tool results
+											for (const content of msg.content) {
+												if (content.type === "tool-result") {
+													// Find matching tool part in currentStepParts
+													const toolPart = currentStepParts.find(
+														(p) => p.type === "tool" && p.toolId === content.toolCallId,
+													);
+
+													if (toolPart && toolPart.type === "tool") {
+														// Update with AI SDK's wrapped format
+														toolPart.result = content.result; // Store wrapped format
+													}
+												}
+											}
+										}
+									}
+								}
+
+								// Update step parts (now with wrapped tool results)
 								try {
 									await updateStepParts(sessionRepository.db, prevStepId, currentStepParts);
 								} catch (dbError) {
@@ -903,18 +928,6 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 									const duration = Date.now() - tool.startTime;
 									activeTools.delete(chunk.toolCallId);
 
-									// DEBUG: Log the chunk.result to see what AI SDK returned
-									console.log("[streaming.service] tool-result chunk:", {
-										toolCallId: chunk.toolCallId,
-										toolName: chunk.toolName,
-										resultType: typeof chunk.result,
-										resultKeys:
-											chunk.result && typeof chunk.result === "object"
-												? Object.keys(chunk.result)
-												: null,
-										hasResult: chunk.result !== undefined && chunk.result !== null,
-									});
-
 									const toolPart = currentStepParts.find(
 										(p) => p.type === "tool" && p.name === chunk.toolName && p.status === "active",
 									);
@@ -922,13 +935,13 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 									if (toolPart && toolPart.type === "tool") {
 										toolPart.status = "completed";
 										toolPart.duration = duration;
-										toolPart.result = chunk.result;
+										toolPart.result = (chunk as any).output;
 									}
 
 									callbacks.onToolResult?.(
 										chunk.toolCallId,
 										chunk.toolName,
-										chunk.result,
+										(chunk as any).output,
 										duration,
 									);
 								}
@@ -1087,7 +1100,37 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 					const finalStepNumber = lastCompletedStepNumber + 1;
 					const finalStepId = `${assistantMessageId}-step-${finalStepNumber}`;
 
-					// Update final step parts
+					// ⭐ Update tool results with AI SDK's wrapped format from final response.messages
+					// Note: chunk.output provides unwrapped results during streaming
+					// We update with wrapped format here for proper database storage
+					try {
+						const response = await responsePromise;
+						if (response && response.messages) {
+							for (const msg of response.messages) {
+								if (msg.role === "tool") {
+									// Tool message contains wrapped tool results
+									for (const content of msg.content) {
+										if (content.type === "tool-result") {
+											// Find matching tool part in currentStepParts
+											const toolPart = currentStepParts.find(
+												(p) => p.type === "tool" && p.toolId === content.toolCallId,
+											);
+
+											if (toolPart && toolPart.type === "tool") {
+												// Update with AI SDK's wrapped format
+												toolPart.result = content.result; // Store wrapped format
+											}
+										}
+									}
+								}
+							}
+						}
+					} catch (responseError) {
+						console.error("[streamAIResponse] Failed to extract final tool results from response:", responseError);
+						// Continue - not critical, we have unwrapped results at least
+					}
+
+					// Update final step parts (now with wrapped tool results)
 					try {
 						await updateStepParts(sessionRepository.db, finalStepId, currentStepParts);
 					} catch (dbError) {
