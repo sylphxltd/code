@@ -903,6 +903,18 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 									const duration = Date.now() - tool.startTime;
 									activeTools.delete(chunk.toolCallId);
 
+									// DEBUG: Log the chunk.result to see what AI SDK returned
+									console.log("[streaming.service] tool-result chunk:", {
+										toolCallId: chunk.toolCallId,
+										toolName: chunk.toolName,
+										resultType: typeof chunk.result,
+										resultKeys:
+											chunk.result && typeof chunk.result === "object"
+												? Object.keys(chunk.result)
+												: null,
+										hasResult: chunk.result !== undefined && chunk.result !== null,
+									});
+
 									const toolPart = currentStepParts.find(
 										(p) => p.type === "tool" && p.name === chunk.toolName && p.status === "active",
 									);
