@@ -372,10 +372,12 @@ export function ProviderManagement({
 												maxLines={1}
 											/>
 										) : (
-											<Text color={isSelected ? "cyan" : isProviderConfigured ? "green" : "gray"}>
-												{isProviderConfigured
-													? "✓ Configured (press Enter to replace)"
-													: "(not set - press Enter to configure)"}
+											<Text color={isSelected ? "cyan" : value ? "green" : "gray"}>
+												{value
+													? "••••••••••••••• (press Enter to replace)"
+													: isProviderConfigured
+														? "✓ Configured (press Enter to replace)"
+														: "(not set - press Enter to configure)"}
 											</Text>
 										)
 									) : // NON-SECRET FIELD: Normal display/edit
