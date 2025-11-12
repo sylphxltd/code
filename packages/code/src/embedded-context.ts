@@ -8,7 +8,7 @@
 
 import type { CodeServer } from "@sylphx/code-server";
 import type { Agent, Rule } from "@sylphx/code-core";
-import { $enabledRuleIds, get, getCurrentSessionId } from "@sylphx/code-client";
+import { $enabledRuleIds, get } from "@sylphx/code-client";
 
 let embeddedServerInstance: CodeServer | null = null;
 
@@ -71,18 +71,21 @@ export function getEnabledRuleIds(): string[] {
 }
 
 /**
- * Set enabled rules in zen signals and persist to session
+ * Set enabled rules in zen signals and persist
+ * - If session exists: persist to session
+ * - If no session: persist to global default
  */
 export async function setEnabledRules(ruleIds: string[]): Promise<boolean> {
-	const { setEnabledRuleIds } = require("@sylphx/code-client");
+	const { setEnabledRuleIds, getCurrentSessionId } = require("@sylphx/code-client");
 	const currentSessionId = getCurrentSessionId();
+	// Pass sessionId (or null for global) - server decides where to persist
 	await setEnabledRuleIds(ruleIds, currentSessionId);
 	return true;
 }
 
 /**
  * Toggle a rule on/off
- * Updates zen signals and persists to session
+ * Updates zen signals and persists (session or global)
  */
 export async function toggleRule(ruleId: string): Promise<boolean> {
 	const rule = getRuleById(ruleId);
@@ -90,7 +93,7 @@ export async function toggleRule(ruleId: string): Promise<boolean> {
 		return false;
 	}
 
-	const { setEnabledRuleIds } = require("@sylphx/code-client");
+	const { setEnabledRuleIds, getCurrentSessionId } = require("@sylphx/code-client");
 	const currentEnabled = getEnabledRuleIds();
 	const currentSessionId = getCurrentSessionId();
 

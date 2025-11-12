@@ -120,18 +120,28 @@ export const sessionRouter = router({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			// If no enabledRuleIds provided, use rules with enabled: true in metadata
+			// Priority for enabledRuleIds:
+			// 1. Explicitly provided (from caller)
+			// 2. Global config defaultEnabledRuleIds
+			// 3. Rules with metadata.enabled = true
 			let enabledRuleIds = input.enabledRuleIds;
 
 			if (!enabledRuleIds) {
-				// Load all rules and filter by enabled: true
-				const { loadAllRules } = await import("@sylphx/code-core");
 				const cwd = process.cwd();
-				const allRules = await loadAllRules(cwd);
+				const { loadAIConfig } = await import("@sylphx/code-core");
+				const configResult = await loadAIConfig(cwd);
 
-				enabledRuleIds = allRules
-					.filter((rule) => rule.metadata.enabled === true)
-					.map((rule) => rule.id);
+				// Try global config first
+				if (configResult.success && configResult.data.defaultEnabledRuleIds) {
+					enabledRuleIds = configResult.data.defaultEnabledRuleIds;
+				} else {
+					// Fallback: rules with metadata.enabled = true
+					const { loadAllRules } = await import("@sylphx/code-core");
+					const allRules = await loadAllRules(cwd);
+					enabledRuleIds = allRules
+						.filter((rule) => rule.metadata.enabled === true)
+						.map((rule) => rule.id);
+				}
 			}
 
 			const session = await ctx.sessionRepository.createSession(
