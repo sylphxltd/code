@@ -41,7 +41,6 @@ export const setAIConfig = (config: AIConfig | null) => {
 	// Update selected provider and model when config loads
 	if (config) {
 		if (config.defaultProvider) {
-			console.log("[setAIConfig] Setting selectedProvider:", config.defaultProvider);
 			set($selectedProvider, config.defaultProvider);
 		}
 
@@ -49,18 +48,10 @@ export const setAIConfig = (config: AIConfig | null) => {
 		if (config.defaultProvider && config.providers?.[config.defaultProvider]) {
 			const providerConfig = config.providers[config.defaultProvider];
 			if (providerConfig.defaultModel) {
-				console.log("[setAIConfig] Setting selectedModel:", providerConfig.defaultModel);
 				set($selectedModel, providerConfig.defaultModel);
-			} else {
-				console.log("[setAIConfig] No defaultModel for provider:", config.defaultProvider);
 			}
 		}
 	}
-
-	console.log("[setAIConfig] Final state:", {
-		provider: get($selectedProvider),
-		model: get($selectedModel),
-	});
 };
 
 export const updateProvider = (providerId: string, data: any) => {

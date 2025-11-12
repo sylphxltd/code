@@ -62,8 +62,6 @@ export const providerCommand: Command = {
 		const key = context.args[3];
 		const value = context.args[4];
 
-		console.log("[provider.command] Execute called:", { action, providerId, subaction, key });
-
 		// Validate action
 		if (action && action !== "use" && action !== "configure") {
 			await context.sendMessage(
@@ -219,58 +217,44 @@ export const providerCommand: Command = {
 		}
 
 		// Show UI for interactive selection
-		console.log("[provider.command] Rendering ProviderManagement UI:", { action, providerId });
 		context.setInputComponent(
 			<ProviderManagement
 				initialAction={action}
 				initialProviderId={providerId}
 				aiConfig={aiConfig}
 				onComplete={() => {
-					console.log("[provider.command] onComplete called");
 					context.setInputComponent(null);
 					context.addLog("[provider] Provider management closed");
 				}}
 				onSelectProvider={async (providerId) => {
-					console.log("[provider.command] onSelectProvider called:", providerId);
 					// Get fresh zen signal values
 					const { get } = await import("@sylphx/code-client");
-					const { $aiConfig, updateProvider, setAIConfig, setSelectedProvider, setSelectedModel } = await import("@sylphx/code-client");
+					const { $aiConfig, updateProvider, setAIConfig, setSelectedModel } = await import("@sylphx/code-client");
 					const { getTRPCClient } = await import("@sylphx/code-client");
 					const freshAiConfig = get($aiConfig);
-					console.log("[provider.command] Current aiConfig:", freshAiConfig);
 
 					// Update zen signal state
 					updateProvider(providerId as any, {});
 					const updatedConfig = {
 						...freshAiConfig,
 						defaultProvider: providerId,
-						// ❌ Don't set top-level defaultModel
-						// Model should come from provider's default-model
 					} as any;
 					setAIConfig(updatedConfig);
-					console.log("[provider.command] Updated config:", updatedConfig);
 
 					// CRITICAL: Save to server!
-					try {
-						await context.saveConfig(updatedConfig);
-						console.log("[provider.command] Config saved successfully");
-					} catch (error) {
-						console.error("[provider.command] Failed to save config:", error);
-					}
+					await context.saveConfig(updatedConfig);
 
 					const providerConfig = freshAiConfig?.providers?.[providerId] || {};
 					const providerDefaultModel = providerConfig.defaultModel as string;
 
 					// If provider has no default model, fetch models and set first one as default
 					if (!providerDefaultModel) {
-						console.log("[provider.command] No defaultModel, fetching models...");
 						try {
 							const trpc = getTRPCClient();
 							const result = await trpc.config.fetchModels.query({ providerId: providerId as any });
 
 							if (result.success && result.models && result.models.length > 0) {
 								const firstModel = result.models[0];
-								console.log("[provider.command] Setting first model as default:", firstModel.id);
 
 								// Update provider config with default model
 								const updatedProviderConfig = {
@@ -294,13 +278,11 @@ export const providerCommand: Command = {
 									`[provider] Switched to provider: ${providerId} (model: ${firstModel.id}) and saved config`,
 								);
 							} else {
-								console.warn("[provider.command] No models available for provider:", providerId);
 								context.addLog(
 									`[provider] Switched to provider: ${providerId} (no models available - configure API key first)`,
 								);
 							}
 						} catch (error) {
-							console.error("[provider.command] Failed to fetch models:", error);
 							context.addLog(
 								`[provider] Switched to provider: ${providerId} (configure API key to see models)`,
 							);
