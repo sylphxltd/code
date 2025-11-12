@@ -100,11 +100,33 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ status, formattedResult, 
 		);
 	}
 
-	// For completed tools, show summary if available
-	if (status === "completed" && formattedResult.summary) {
+	// For completed tools, show summary and/or lines
+	if (status === "completed") {
+		const hasLines = formattedResult.lines && formattedResult.lines.length > 0;
+		const hasSummary = formattedResult.summary;
+
+		// Show nothing if neither summary nor lines exist
+		if (!hasLines && !hasSummary) {
+			return null;
+		}
+
 		return (
-			<Box marginLeft={2}>
-				<Text>{formattedResult.summary}</Text>
+			<Box flexDirection="column" marginLeft={2}>
+				{/* Show summary if available */}
+				{hasSummary && (
+					<Text dimColor>{formattedResult.summary}</Text>
+				)}
+				{/* Show lines if available (limit to first 10 for readability) */}
+				{hasLines && (
+					<Box flexDirection="column" marginTop={hasSummary ? 1 : 0}>
+						{formattedResult.lines.slice(0, 10).map((line, i) => (
+							<Text key={i}>{line}</Text>
+						))}
+						{formattedResult.lines.length > 10 && (
+							<Text dimColor>... and {formattedResult.lines.length - 10} more lines</Text>
+						)}
+					</Box>
+				)}
 			</Box>
 		);
 	}
