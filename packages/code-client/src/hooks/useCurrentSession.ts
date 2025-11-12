@@ -9,7 +9,7 @@
  * - Simple, focused responsibility: fetch data and emit events
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { Session } from "@sylphx/code-core";
 import { getTRPCClient } from "../trpc-provider.js";
 import {
@@ -32,9 +32,16 @@ export function useCurrentSession() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
+	// Track previous session ID to detect temp-session → real session transition
+	const prevSessionIdRef = useRef<string | null>(null);
+
 	// Fetch session data from server when currentSessionId changes
 	useEffect(() => {
-		console.log("[useCurrentSession] Effect triggered, currentSessionId:", currentSessionId);
+		console.log("[useCurrentSession] Effect triggered, currentSessionId:", currentSessionId, "prev:", prevSessionIdRef.current);
+
+		const prevSessionId = prevSessionIdRef.current;
+		prevSessionIdRef.current = currentSessionId;
+
 		if (!currentSessionId) {
 			setServerSession(null);
 			setIsLoading(false);
@@ -48,17 +55,12 @@ export function useCurrentSession() {
 			return;
 		}
 
-		// RACE CONDITION FIX: If we just transitioned from temp-session and have optimistic data,
-		// don't fetch from server immediately (would overwrite optimistic messages with empty array)
-		// The session-created event handler already set up the session. Let the streaming flow complete first.
-		const currentOptimistic = get($currentSession);
-		if (
-			currentOptimistic &&
-			currentOptimistic.id === currentSessionId &&
-			currentOptimistic.messages &&
-			currentOptimistic.messages.length > 0
-		) {
-			console.log("[useCurrentSession] Skipping server fetch, using optimistic data:", currentOptimistic.messages.length, "messages");
+		// RACE CONDITION FIX: If we just transitioned from temp-session,
+		// don't fetch from server immediately (would overwrite optimistic messages)
+		// The session-created event handler will set up the session with preserved messages.
+		// Let the streaming flow complete first, then session will be synced via events.
+		if (prevSessionId === "temp-session" && currentSessionId !== "temp-session") {
+			console.log("[useCurrentSession] Just transitioned from temp-session, skipping immediate fetch");
 			setIsLoading(false);
 			return;
 		}
