@@ -43,7 +43,7 @@ export interface MCPServerDefinition {
  * Central registry of all available MCP servers
  * This replaces all hardcoded server lists throughout the codebase
  */
-export const MCP_SERVER_REGISTRY: Record<string, MCPServerDefinition> = {
+export const MCP_SERVER_REGISTRY = {
 	"sylphx-flow": {
 		id: "sylphx-flow",
 		name: "sylphx-flow",
@@ -219,7 +219,7 @@ export const MCP_SERVER_REGISTRY: Record<string, MCPServerDefinition> = {
 		category: "external",
 		defaultInInit: true,
 	},
-};
+} as const satisfies Record<string, MCPServerDefinition>;
 
 /**
  * Type for valid MCP server IDs

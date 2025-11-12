@@ -39,7 +39,7 @@ const resultToLines = (result: unknown): string[] => {
  * - Default display: createDefaultToolDisplay('Name', formatArgs, formatResult)
  * - Custom component: MyCustomComponent
  */
-export const toolConfigs: Record<string, ToolConfig> = {
+export const toolConfigs = {
 	// Ask tool
 	ask: createDefaultToolDisplay(
 		"Ask",
@@ -329,7 +329,7 @@ export const toolConfigs: Record<string, ToolConfig> = {
 			return { lines: resultToLines(result) };
 		},
 	),
-};
+} as const satisfies Record<string, ToolConfig>;
 
 /**
  * Get tool display component

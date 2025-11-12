@@ -10,7 +10,7 @@ import type { Tool, ToolCategoryInfo } from "../types/tool.types.js";
 /**
  * Tool category metadata
  */
-export const TOOL_CATEGORIES: Record<string, ToolCategoryInfo> = {
+export const TOOL_CATEGORIES = {
 	filesystem: {
 		id: "filesystem",
 		name: "Filesystem",
@@ -47,12 +47,12 @@ export const TOOL_CATEGORIES: Record<string, ToolCategoryInfo> = {
 		description: "Model Context Protocol tools",
 		icon: "🔌",
 	},
-};
+} as const satisfies Record<string, ToolCategoryInfo>;
 
 /**
  * All registered tools
  */
-export const TOOLS: Record<string, Tool> = {
+export const TOOLS = {
 	// ============================================================================
 	// Filesystem Tools
 	// ============================================================================
@@ -218,7 +218,7 @@ export const TOOLS: Record<string, Tool> = {
 		unsupportedByModels: ["o1", "o1-mini"],
 		examples: ['updateTodos({ todos: [{ content: "Fix bug", status: "in_progress" }] })'],
 	},
-};
+} as const satisfies Record<string, Tool>;
 
 /**
  * Get all tools

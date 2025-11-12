@@ -12,7 +12,7 @@
  * This service is called by message.streamResponse subscription procedure
  */
 
-import { streamText, type TextStreamPart, type LanguageModelUsage } from "ai";
+import { streamText, type TextStreamPart, type LanguageModelUsage, stepCountIs } from "ai";
 import { observable, type Observable } from "@trpc/server/observable";
 import type {
 	SessionRepository,
@@ -425,7 +425,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 					system: systemPrompt, // AI SDK uses 'system' not 'systemPrompt'
 					tools,
 					...(abortSignal ? { abortSignal } : {}),
-					maxSteps: 10, // Reasonable limit for multi-step tool calling
+					stopWhen: stepCountIs(1000), // Reasonable limit for multi-step tool calling
 					// ⭐ AI SDK's native prepareStep hook - called before each step
 					prepareStep: async ({ steps, stepNumber }) => {
 						try {

@@ -10,7 +10,7 @@ import type { Model, Provider } from "../types/model.types.js";
 /**
  * All supported providers
  */
-export const PROVIDERS: Record<string, Provider> = {
+export const PROVIDERS = {
 	openai: {
 		id: "openai",
 		name: "OpenAI",
@@ -43,12 +43,12 @@ export const PROVIDERS: Record<string, Provider> = {
 		description: "Unified API for multiple AI providers",
 		website: "https://openrouter.ai",
 	},
-};
+} as const satisfies Record<string, Provider>;
 
 /**
  * All supported models
  */
-export const MODELS: Record<string, Model> = {
+export const MODELS = {
 	// OpenAI Models
 	"gpt-4o": {
 		id: "gpt-4o",
@@ -407,7 +407,7 @@ export const MODELS: Record<string, Model> = {
 		},
 		description: "Free experimental multimodal model",
 	},
-};
+} as const satisfies Record<string, Model>;
 
 /**
  * Get all providers
