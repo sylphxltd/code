@@ -94,21 +94,28 @@ export function ProviderManagement({
 
 	// Get provider options from all available providers (not just configured ones)
 	// Use providerMetadata which contains ALL providers from the registry
-	const providerOptions: SelectionOption[] = Object.entries(providerMetadata).map(
-		([id, metadata]) => {
-			return {
-				label: metadata.name,
-				value: id,
-				description: metadata.description,
-				...(metadata.isConfigured && {
-					badge: {
-						text: "✓",
-						color: "green",
-					},
-				}),
-			};
-		},
-	);
+	// Sort: configured providers first, then by name
+	const providerOptions: SelectionOption[] = Object.entries(providerMetadata)
+		.map(([id, metadata]) => ({
+			label: metadata.name,
+			value: id,
+			description: metadata.description,
+			isConfigured: metadata.isConfigured, // Temporary for sorting
+			...(metadata.isConfigured && {
+				badge: {
+					text: "✓",
+					color: "green",
+				},
+			}),
+		}))
+		.sort((a, b) => {
+			// Configured providers first
+			if (a.isConfigured && !b.isConfigured) return -1;
+			if (!a.isConfigured && b.isConfigured) return 1;
+			// Within same group, sort by name
+			return a.label.localeCompare(b.label);
+		})
+		.map(({ isConfigured, ...option }) => option); // Remove temporary property
 
 	// Action options for step 1
 	const actionOptions: SelectionOption[] = [
