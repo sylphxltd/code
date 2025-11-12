@@ -363,13 +363,6 @@ export const configRouter = router({
 			}),
 		)
 		.mutation(async ({ input }) => {
-			console.log("[config.save] Received config:", {
-				defaultProvider: input.config.defaultProvider,
-				defaultAgentId: input.config.defaultAgentId,
-				defaultEnabledRuleIds: input.config.defaultEnabledRuleIds,
-				providers: input.config.providers ? Object.keys(input.config.providers) : [],
-			});
-
 			// Load current config from disk to get secrets
 			const currentResult = await loadAIConfig(input.cwd);
 			const currentConfig = currentResult.success ? currentResult.data : { providers: {} };
@@ -413,20 +406,11 @@ export const configRouter = router({
 				mergedConfig.providers = mergedProviders;
 			}
 
-			console.log("[config.save] Merged config to save:", {
-				defaultProvider: mergedConfig.defaultProvider,
-				defaultAgentId: mergedConfig.defaultAgentId,
-				defaultEnabledRuleIds: mergedConfig.defaultEnabledRuleIds,
-				providers: mergedConfig.providers ? Object.keys(mergedConfig.providers) : [],
-			});
-
 			const result = await saveAIConfig(mergedConfig, input.cwd);
 			if (result.success) {
-				console.log("[config.save] Save successful");
 				// Note: Config changes are persisted in database
 				return { success: true as const };
 			}
-			console.error("[config.save] Save failed:", result.error.message);
 			return { success: false as const, error: result.error.message };
 		}),
 

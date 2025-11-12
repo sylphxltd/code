@@ -37,27 +37,17 @@ export function useAIConfig() {
 
 	const saveConfig = useCallback(
 		async (config: AIConfig) => {
-			console.log("[useAIConfig.saveConfig] Saving config:", {
-				defaultProvider: config.defaultProvider,
-				defaultAgentId: config.defaultAgentId,
-				defaultEnabledRuleIds: config.defaultEnabledRuleIds,
-				providers: config.providers ? Object.keys(config.providers) : [],
-			});
-
 			setLoading(true);
 			try {
 				const result = await client.config.save.mutate({ config });
 
 				if (result.success) {
-					console.log("[useAIConfig.saveConfig] Save successful, updating local state");
 					setAIConfig(config);
 					return true;
 				}
-				console.error("[useAIConfig.saveConfig] Save failed:", result.error);
 				setError(result.error || "Failed to save AI config");
 				return false;
 			} catch (err) {
-				console.error("[useAIConfig.saveConfig] Exception:", err);
 				setError(err instanceof Error ? err.message : "Failed to save AI config");
 				return false;
 			} finally {
