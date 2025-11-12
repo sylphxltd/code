@@ -11,6 +11,7 @@ import { GoogleProvider } from "./google-provider.js";
 import { OpenRouterProvider } from "./openrouter-provider.js";
 import { ClaudeCodeProvider } from "./claude-code-provider.js";
 import { ZaiProvider } from "./zai-provider.js";
+import { KimiProvider } from "./kimi-provider.js";
 
 /**
  * Registry of all available providers
@@ -22,6 +23,7 @@ export const PROVIDER_REGISTRY: Record<ProviderId, AIProvider> = {
 	openrouter: new OpenRouterProvider(),
 	"claude-code": new ClaudeCodeProvider(),
 	zai: new ZaiProvider(),
+	kimi: new KimiProvider(),
 };
 
 /**
