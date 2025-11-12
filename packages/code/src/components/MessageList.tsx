@@ -65,7 +65,9 @@ export function MessageList({ messages, attachmentTokens }: MessageListProps) {
 											fullText += `@${part.relativePath}`;
 											fileMap.set(part.relativePath, true);
 										} else if (part.type === "error") {
-											fullText += `[Error: ${part.error}]`;
+											// Ensure error is converted to string to prevent React rendering issues
+											const errorStr = typeof part.error === 'string' ? part.error : part.error instanceof Error ? part.error.message : String(part.error);
+											fullText += `[Error: ${errorStr}]`;
 										}
 									}
 
@@ -166,7 +168,9 @@ export function MessageList({ messages, attachmentTokens }: MessageListProps) {
 											fullText += `@${part.relativePath}`;
 											fileMap.set(part.relativePath, true);
 										} else if (part.type === "error") {
-											fullText += `[Error: ${part.error}]`;
+											// Ensure error is converted to string to prevent React rendering issues
+											const errorStr = typeof part.error === 'string' ? part.error : part.error instanceof Error ? part.error.message : String(part.error);
+											fullText += `[Error: ${errorStr}]`;
 										}
 									}
 

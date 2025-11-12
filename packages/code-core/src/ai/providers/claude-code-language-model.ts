@@ -126,6 +126,7 @@ export class ClaudeCodeLanguageModel implements LanguageModelV2 {
 		options: LanguageModelV2CallOptions,
 	): Promise<Awaited<ReturnType<LanguageModelV2["doGenerate"]>>> {
 		try {
+			console.log("[ClaudeCode] Starting doGenerate with model:", this.modelId);
 			// Convert tools and build query options
 			const tools = convertTools(options.tools || []);
 			const { queryOptions } = buildQueryOptions(this.modelId, options, tools);
@@ -257,7 +258,7 @@ export class ClaudeCodeLanguageModel implements LanguageModelV2 {
 			};
 		} catch (error) {
 			// Log detailed error information
-			console.error("Claude Code error details:", {
+			console.error("[ClaudeCode] Execution failed:", {
 				message: error instanceof Error ? error.message : String(error),
 				stack: error instanceof Error ? error.stack : undefined,
 				modelId: this.modelId,
@@ -272,6 +273,7 @@ export class ClaudeCodeLanguageModel implements LanguageModelV2 {
 		options: LanguageModelV2CallOptions,
 	): Promise<Awaited<ReturnType<LanguageModelV2["doStream"]>>> {
 		try {
+			console.log("[ClaudeCode] Starting doStream with model:", this.modelId);
 			// Convert tools and build query options
 			const tools = convertTools(options.tools || []);
 			const { queryOptions } = buildQueryOptions(this.modelId, options, tools, true);

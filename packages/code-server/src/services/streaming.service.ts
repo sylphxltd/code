@@ -643,7 +643,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 						// Note: Abort notification now handled by message-status-updated event
 					},
 					onError: (error) => {
-						observer.next({ type: "error", error });
+						// Ensure error is converted to string for the event
+						const errorMessage = error instanceof Error ? error.message : String(error);
+						observer.next({ type: "error", error: errorMessage });
 					},
 				};
 
