@@ -5,7 +5,7 @@
 
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { tool, type CoreTool } from "ai";
+import { tool } from "ai";
 import { z } from "zod";
 
 /**
@@ -67,7 +67,7 @@ async function searchFiles(
 /**
  * Glob file search tool
  */
-export const globTool: CoreTool<any, any> = tool({
+export const globTool = tool({
 	description: "Search for files matching a glob pattern",
 	inputSchema: z.object({
 		pattern: z
@@ -93,7 +93,7 @@ export const globTool: CoreTool<any, any> = tool({
 /**
  * Grep content search tool
  */
-export const grepTool: CoreTool<any, any> = tool({
+export const grepTool = tool({
 	description: "Search for text content within files using regex patterns",
 	inputSchema: z.object({
 		pattern: z.string().describe("Regex pattern to search"),
@@ -253,7 +253,7 @@ export const grepTool: CoreTool<any, any> = tool({
 /**
  * All search tools
  */
-export const searchTools: Record<string, CoreTool<any, any>> = {
+export const searchTools = {
 	glob: globTool,
 	grep: grepTool,
 };

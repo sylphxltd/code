@@ -3,7 +3,7 @@
  * Tools for the AI to ask questions and get user input
  */
 
-import { tool, type CoreTool } from "ai";
+import { tool } from "ai";
 import { z } from "zod";
 import type { Question, SelectOption } from "../types/interaction.types.js";
 
@@ -145,7 +145,7 @@ async function processNextAsk() {
 /**
  * Ask user a multiple choice question
  */
-export const askUserSelectionTool: CoreTool<any, any> = tool({
+export const askUserSelectionTool = tool({
 	description:
 		"Ask the user a multiple choice question and wait for their selection. Supports predefined options, free text input, and default selections.",
 	inputSchema: z.object({
@@ -225,6 +225,6 @@ export const askUserSelectionTool: CoreTool<any, any> = tool({
 /**
  * Export all interaction tools
  */
-export const interactionTools: Record<string, CoreTool<any, any>> = {
+export const interactionTools = {
 	ask: askUserSelectionTool,
 };
