@@ -236,6 +236,7 @@ export const providerCommand: Command = {
 					const { get } = await import("@sylphx/code-client");
 					const { $aiConfig, updateProvider, setAIConfig } = await import("@sylphx/code-client");
 					const freshAiConfig = get($aiConfig);
+					console.log("[provider.command] Current aiConfig:", freshAiConfig);
 
 					// Update zen signal state
 					updateProvider(providerId as any, {});
@@ -246,9 +247,15 @@ export const providerCommand: Command = {
 						// Model should come from provider's default-model
 					} as any;
 					setAIConfig(updatedConfig);
+					console.log("[provider.command] Updated config:", updatedConfig);
 
 					// CRITICAL: Save to server!
-					await context.saveConfig(updatedConfig);
+					try {
+						await context.saveConfig(updatedConfig);
+						console.log("[provider.command] Config saved successfully");
+					} catch (error) {
+						console.error("[provider.command] Failed to save config:", error);
+					}
 
 					const providerConfig = freshAiConfig?.providers?.[providerId] || {};
 					const providerDefaultModel = providerConfig.defaultModel as string;
