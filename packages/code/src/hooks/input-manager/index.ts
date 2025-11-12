@@ -69,3 +69,7 @@ export type { FileNavigationModeHandlerDeps } from "./handlers/FileNavigationMod
 
 export { MessageHistoryModeHandler } from "./handlers/MessageHistoryModeHandler.js";
 export type { MessageHistoryModeHandlerDeps } from "./handlers/MessageHistoryModeHandler.js";
+
+// Convenience hook for creating all handlers
+export { useInputHandlers } from "./useInputHandlers.js";
+export type { InputHandlerDeps } from "./useInputHandlers.js";

@@ -70,11 +70,7 @@ import { useKeyboardShortcuts } from "../hooks/keyboard/useKeyboardShortcuts.js"
 import {
 	useInputMode,
 	useInputModeManager,
-	SelectionModeHandler,
-	CommandAutocompleteModeHandler,
-	PendingCommandModeHandler,
-	FileNavigationModeHandler,
-	MessageHistoryModeHandler,
+	useInputHandlers,
 } from "../hooks/input-manager/index.js";
 // Streaming utilities
 import { createSubscriptionSendUserMessageToAI } from "./chat/streaming/subscriptionAdapter.js";
@@ -623,187 +619,64 @@ export default function Chat(_props: ChatProps) {
 		debug: DEBUG_INPUT_MANAGER,
 	});
 
-	// Create all input handlers
-	const selectionHandler = useMemo(
-		() =>
-			new SelectionModeHandler({
-				inputResolver,
-				multiSelectionPage,
-				multiSelectionAnswers,
-				multiSelectChoices,
-				selectionFilter,
-				isFilterMode,
-				freeTextInput,
-				isFreeTextMode,
-				selectedCommandIndex,
-				commandSessionRef,
-				currentSessionId,
-				setSelectedCommandIndex,
-				setMultiSelectionPage,
-				setMultiSelectionAnswers,
-				setMultiSelectChoices,
-				setSelectionFilter,
-				setIsFilterMode,
-				setFreeTextInput,
-				setIsFreeTextMode,
-				setPendingInput,
-				addLog,
-				addMessage,
-				getAIConfig,
-			}),
-		[
-			inputResolver,
-			multiSelectionPage,
-			multiSelectionAnswers,
-			multiSelectChoices,
-			selectionFilter,
-			isFilterMode,
-			freeTextInput,
-			isFreeTextMode,
-			selectedCommandIndex,
-			commandSessionRef,
-			currentSessionId,
-			setSelectedCommandIndex,
-			setMultiSelectionPage,
-			setMultiSelectionAnswers,
-			setMultiSelectChoices,
-			setSelectionFilter,
-			setIsFilterMode,
-			setFreeTextInput,
-			setIsFreeTextMode,
-			setPendingInput,
-			addLog,
-			addMessage,
-			getAIConfig,
-		],
-	);
-
-	const pendingCommandHandler = useMemo(
-		() =>
-			new PendingCommandModeHandler({
-				pendingCommand,
-				cachedOptions,
-				selectedCommandIndex,
-				currentSessionId,
-				setSelectedCommandIndex,
-				setPendingCommand,
-				createCommandContext: createCommandContextForArgs,
-				addMessage,
-			}),
-		[
-			pendingCommand,
-			cachedOptions,
-			selectedCommandIndex,
-			currentSessionId,
-			setSelectedCommandIndex,
-			setPendingCommand,
-			createCommandContextForArgs,
-			addMessage,
-		],
-	);
-
-	const fileNavigationHandler = useMemo(
-		() =>
-			new FileNavigationModeHandler({
-				filteredFileInfo,
-				selectedFileIndex,
-				currentSession,
-				input,
-				setInput,
-				setCursor,
-				setSelectedFileIndex,
-				addAttachment,
-				setAttachmentTokenCount,
-			}),
-		[
-			filteredFileInfo,
-			selectedFileIndex,
-			currentSession,
-			input,
-			setInput,
-			setCursor,
-			setSelectedFileIndex,
-			addAttachment,
-			setAttachmentTokenCount,
-		],
-	);
-
-	const commandAutocompleteHandler = useMemo(
-		() =>
-			new CommandAutocompleteModeHandler({
-				filteredCommands,
-				selectedCommandIndex,
-				skipNextSubmit,
-				commandSessionRef,
-				currentSessionId,
-				setInput,
-				setCursor,
-				setSelectedCommandIndex,
-				addLog,
-				addMessage,
-				getAIConfig,
-				createCommandContext: createCommandContextForArgs,
-			}),
-		[
-			filteredCommands,
-			selectedCommandIndex,
-			skipNextSubmit,
-			commandSessionRef,
-			currentSessionId,
-			setInput,
-			setCursor,
-			setSelectedCommandIndex,
-			addLog,
-			addMessage,
-			getAIConfig,
-			createCommandContextForArgs,
-		],
-	);
-
-	const messageHistoryHandler = useMemo(
-		() =>
-			new MessageHistoryModeHandler({
-				messageHistory,
-				historyIndex,
-				tempInput,
-				input,
-				isStreaming,
-				inputComponent,
-				filteredCommands,
-				filteredFileInfo,
-				setInput,
-				setCursor,
-				setHistoryIndex,
-				setTempInput,
-			}),
-		[
-			messageHistory,
-			historyIndex,
-			tempInput,
-			input,
-			isStreaming,
-			inputComponent,
-			filteredCommands,
-			filteredFileInfo,
-			setInput,
-			setCursor,
-			setHistoryIndex,
-			setTempInput,
-		],
-	);
+	// Create all input handlers using consolidated hook
+	const handlers = useInputHandlers({
+		// Selection mode
+		inputResolver,
+		multiSelectionPage,
+		multiSelectionAnswers,
+		multiSelectChoices,
+		selectionFilter,
+		isFilterMode,
+		freeTextInput,
+		isFreeTextMode,
+		selectedCommandIndex,
+		commandSessionRef,
+		currentSessionId,
+		setSelectedCommandIndex,
+		setMultiSelectionPage,
+		setMultiSelectionAnswers,
+		setMultiSelectChoices,
+		setSelectionFilter,
+		setIsFilterMode,
+		setFreeTextInput,
+		setIsFreeTextMode,
+		setPendingInput,
+		addLog,
+		addMessage,
+		getAIConfig,
+		// Pending command mode
+		pendingCommand,
+		cachedOptions,
+		setPendingCommand,
+		createCommandContext: createCommandContextForArgs,
+		// File navigation mode
+		filteredFileInfo,
+		selectedFileIndex,
+		currentSession,
+		input,
+		setInput,
+		setCursor,
+		setSelectedFileIndex,
+		addAttachment,
+		setAttachmentTokenCount,
+		// Command autocomplete mode
+		filteredCommands,
+		skipNextSubmit,
+		// Message history mode
+		messageHistory,
+		historyIndex,
+		tempInput,
+		isStreaming,
+		inputComponent,
+		setHistoryIndex,
+		setTempInput,
+	});
 
 	// Setup input mode manager (only active when feature flag is enabled)
 	useInputModeManager({
 		context: inputModeContext,
-		handlers: USE_NEW_INPUT_MANAGER
-			? [
-					selectionHandler,
-					pendingCommandHandler,
-					fileNavigationHandler,
-					commandAutocompleteHandler,
-					messageHistoryHandler,
-				]
-			: [],
+		handlers: USE_NEW_INPUT_MANAGER ? handlers : [],
 		config: { debug: DEBUG_INPUT_MANAGER },
 	});
 
