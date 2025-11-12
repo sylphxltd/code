@@ -120,34 +120,41 @@ export const sessionRouter = router({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			// Priority for enabledRuleIds:
-			// 1. Explicitly provided (from caller)
-			// 2. Global config defaultEnabledRuleIds
-			// 3. Rules with metadata.enabled = true
+			// Load global config for all defaults
+			const cwd = process.cwd();
+			const { loadAIConfig } = await import("@sylphx/code-core");
+			const configResult = await loadAIConfig(cwd);
+			const config = configResult.success ? configResult.data : null;
+
+			// Priority for all settings: explicit input > global config > hardcoded fallback
+
+			// 1. Agent ID
+			let agentId = input.agentId;
+			if (!agentId && config?.defaultAgentId) {
+				agentId = config.defaultAgentId;
+			}
+			if (!agentId) {
+				agentId = "coder"; // Final fallback
+			}
+
+			// 2. Enabled Rule IDs
 			let enabledRuleIds = input.enabledRuleIds;
-
+			if (!enabledRuleIds && config?.defaultEnabledRuleIds) {
+				enabledRuleIds = config.defaultEnabledRuleIds;
+			}
 			if (!enabledRuleIds) {
-				const cwd = process.cwd();
-				const { loadAIConfig } = await import("@sylphx/code-core");
-				const configResult = await loadAIConfig(cwd);
-
-				// Try global config first
-				if (configResult.success && configResult.data.defaultEnabledRuleIds) {
-					enabledRuleIds = configResult.data.defaultEnabledRuleIds;
-				} else {
-					// Fallback: rules with metadata.enabled = true
-					const { loadAllRules } = await import("@sylphx/code-core");
-					const allRules = await loadAllRules(cwd);
-					enabledRuleIds = allRules
-						.filter((rule) => rule.metadata.enabled === true)
-						.map((rule) => rule.id);
-				}
+				// Fallback: rules with metadata.enabled = true
+				const { loadAllRules } = await import("@sylphx/code-core");
+				const allRules = await loadAllRules(cwd);
+				enabledRuleIds = allRules
+					.filter((rule) => rule.metadata.enabled === true)
+					.map((rule) => rule.id);
 			}
 
 			const session = await ctx.sessionRepository.createSession(
 				input.provider,
 				input.model,
-				input.agentId || "coder",
+				agentId,
 				enabledRuleIds,
 			);
 
