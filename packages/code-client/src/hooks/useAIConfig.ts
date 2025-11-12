@@ -13,10 +13,10 @@ export function useAIConfig() {
 	const client = useTRPCClient();
 
 	const loadConfig = useCallback(
-		async (cwd: string = process.cwd()) => {
+		async () => {
 			setLoading(true);
 			try {
-				const result = await client.config.load.query({ cwd });
+				const result = await client.config.load.query();
 
 				if (result.success) {
 					// Use setAIConfig to trigger logic for loading defaultEnabledRuleIds and defaultAgentId
@@ -36,10 +36,10 @@ export function useAIConfig() {
 	);
 
 	const saveConfig = useCallback(
-		async (config: AIConfig, cwd: string = process.cwd()) => {
+		async (config: AIConfig) => {
 			setLoading(true);
 			try {
-				const result = await client.config.save.mutate({ config, cwd });
+				const result = await client.config.save.mutate({ config });
 
 				if (result.success) {
 					setAIConfig(config);
