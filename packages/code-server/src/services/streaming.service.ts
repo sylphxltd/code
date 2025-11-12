@@ -237,51 +237,56 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				// 2. Validate provider configuration
 				const validationError = validateProvider(aiConfig, session);
 				if (validationError) {
-					// Create assistant message to display error
-					const assistantMessageId = await messageRepository.addMessage({
-						sessionId,
-						role: "assistant",
-						content: [],
-						status: "error",
-					});
+					try {
+						// Create assistant message to display error
+						const assistantMessageId = await messageRepository.addMessage({
+							sessionId,
+							role: "assistant",
+							content: [],
+							status: "error",
+						});
 
-					// Emit assistant message created event
-					observer.next({
-						type: "assistant-message-created",
-						messageId: assistantMessageId,
-					});
+						// Emit assistant message created event
+						observer.next({
+							type: "assistant-message-created",
+							messageId: assistantMessageId,
+						});
 
-					// Create step with error content
-					const db = sessionRepository.getDatabase();
-					const stepId = await createMessageStep(
-						db,
-						assistantMessageId,
-						0,
-					);
+						// Create step with error content
+						const db = sessionRepository.getDatabase();
+						const stepId = await createMessageStep(
+							db,
+							assistantMessageId,
+							0,
+						);
 
-					// Add error content to step
-					await updateStepParts(db, stepId, [
-						{
-							type: "error",
-							error: validationError.message,
-							status: "completed",
-						},
-					]);
+						// Add error content to step
+						await updateStepParts(db, stepId, [
+							{
+								type: "error",
+								error: validationError.message,
+								status: "completed",
+							},
+						]);
 
-					// Complete the step
-					await completeMessageStep(db, stepId, "error");
+						// Complete the step
+						await completeMessageStep(db, stepId, "error");
+
+						// Emit message status updated
+						observer.next({
+							type: "message-status-updated",
+							messageId: assistantMessageId,
+							status: "error",
+						});
+					} catch (dbError) {
+						console.error("[streamAIResponse] Failed to save validation error to database:", dbError);
+						// Even if database save fails, still emit the error event
+					}
 
 					// Emit error event
 					observer.next({
 						type: "error",
 						error: validationError.message,
-					});
-
-					// Emit message status updated
-					observer.next({
-						type: "message-status-updated",
-						messageId: assistantMessageId,
-						status: "error",
 					});
 
 					// Complete
