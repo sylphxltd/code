@@ -256,7 +256,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				const provider = session.provider;
 				const modelName = session.model;
 				const providerConfig = aiConfig?.providers?.[provider]!;
+				console.log(`[streamAIResponse] Provider: ${provider}, Model: ${modelName}`);
 				const providerInstance = getProvider(provider);
+				console.log(`[streamAIResponse] Provider instance created: ${providerInstance.name}`);
 
 				// 3. Read and freeze file content (immutable history)
 				// Only if userMessageContent is provided
@@ -374,7 +376,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				const systemPrompt = buildSystemPrompt(agentId, agents, enabledRules);
 
 				// 8. Create AI model
+				console.log(`[streamAIResponse] Creating model client for ${provider} with model: ${modelName}`);
 				const model = providerInstance.createClient(providerConfig, modelName);
+				console.log(`[streamAIResponse] Model client created successfully:`, model.constructor.name);
 
 				// 9. Determine tool support from capabilities and load tools if supported
 				const supportsTools = modelCapabilities.has("tools");
@@ -408,6 +412,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				let currentStepParts: MessagePart[] = [];
 				let lastCompletedStepNumber = -1;
 
+				console.log(`[streamAIResponse] Starting streamText with provider: ${provider}, model: ${modelName}`);
 				const { fullStream } = streamText({
 					model,
 					messages,
