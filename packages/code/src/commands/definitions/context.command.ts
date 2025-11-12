@@ -10,10 +10,8 @@ export const contextCommand: Command = {
 	label: "/context",
 	description: "Display context window usage and token breakdown",
 	execute: async (context) => {
-		const { countTokens, formatTokenCount } = await import("@sylphx/code-core");
-		const { getSystemPrompt } = await import("@sylphx/code-core");
-		const { getAISDKTools } = await import("@sylphx/code-core");
-		const { get } = await import("@sylphx/code-client");
+		const { formatTokenCount } = await import("@sylphx/code-core");
+		const { get, getTRPCClient } = await import("@sylphx/code-client");
 		const { $currentSession } = await import("@sylphx/code-client");
 
 		const currentSession = get($currentSession);
@@ -47,91 +45,28 @@ export const contextCommand: Command = {
 
 		const contextLimit = getContextLimit(modelName);
 
-		// Calculate token counts
+		// Calculate token counts (SERVER HANDLES ALL FILE I/O AND BUSINESS LOGIC)
 		context.addLog(
 			`[Context] Calculating token counts for ${modelName} (limit: ${formatTokenCount(contextLimit)})...`,
 		);
 
-		// System prompt tokens - use the actual system prompt that gets sent
-		const systemPrompt = getSystemPrompt();
-		const systemPromptTokens = await countTokens(systemPrompt, modelName);
+		const trpc = getTRPCClient();
+		const result = await trpc.session.getContextInfo.query({
+			sessionId: currentSession.id,
+		});
 
-		// Also calculate breakdown of system prompt components for debugging
-		const { getEnabledRulesContent } = await import("@sylphx/code-core");
-		const { getCurrentSystemPrompt } = await import("@sylphx/code-core");
-		const BASE_SYSTEM_PROMPT = `You are Sylphx, an AI development assistant.`;
-
-		const systemPromptBreakdown: Record<string, number> = {};
-		try {
-			systemPromptBreakdown["Base prompt"] = await countTokens(BASE_SYSTEM_PROMPT, modelName);
-
-			const rulesContent = getEnabledRulesContent();
-			if (rulesContent) {
-				systemPromptBreakdown["Rules"] = await countTokens(rulesContent, modelName);
-			}
-
-			const agentPrompt = getCurrentSystemPrompt();
-			systemPromptBreakdown["Agent prompt"] = await countTokens(agentPrompt, modelName);
-		} catch (error) {
-			context.addLog(`[Context] Failed to calculate system prompt breakdown: ${error}`);
+		if (!result.success) {
+			return `Error: ${result.error}`;
 		}
 
-		// System tools tokens (calculate individual tool tokens)
-		const tools = getAISDKTools();
-		const toolTokens: Record<string, number> = {};
-		let toolsTokensTotal = 0;
-
-		for (const [toolName, toolDef] of Object.entries(tools)) {
-			// Create a more accurate representation of how tools are sent to the AI
-			// Tools are typically sent as function definitions with name, description, and parameters
-			const toolRepresentation = {
-				name: toolName,
-				description: toolDef.description || "",
-				parameters: toolDef.parameters || {},
-			};
-			const toolJson = JSON.stringify(toolRepresentation, null, 0); // No spaces for compact representation
-			const tokens = await countTokens(toolJson, modelName);
-			toolTokens[toolName] = tokens;
-			toolsTokensTotal += tokens;
-		}
-
-		// Messages tokens - include attachments and parts for accurate calculation
-		let messagesTokens = 0;
-		for (const msg of currentSession.messages) {
-			let msgText = msg.content;
-
-			// Add attachment content if present (as it would be sent to AI)
-			if (msg.attachments && msg.attachments.length > 0) {
-				try {
-					const { readFile } = await import("node:fs/promises");
-					const fileContents = await Promise.all(
-						msg.attachments.map(async (att) => {
-							try {
-								const content = await readFile(att.path, "utf8");
-								return { path: att.relativePath, content };
-							} catch {
-								return {
-									path: att.relativePath,
-									content: "[Error reading file]",
-								};
-							}
-						}),
-					);
-
-					const fileContentsText = fileContents
-						.map((f) => `\n\n<file path="${f.path}">\n${f.content}\n</file>`)
-						.join("");
-
-					msgText += fileContentsText;
-				} catch (error) {
-					// If we can't read attachments, just count the content we have
-					console.warn("[Context] Failed to read attachments for token count:", error);
-				}
-			}
-
-			const msgTokens = await countTokens(msgText, modelName);
-			messagesTokens += msgTokens;
-		}
+		const {
+			systemPromptTokens,
+			systemPromptBreakdown,
+			toolsTokensTotal,
+			toolTokens,
+			messagesTokens,
+			toolCount,
+		} = result;
 
 		// Calculate totals and percentages
 		const usedTokens = systemPromptTokens + toolsTokensTotal + messagesTokens;
@@ -182,9 +117,11 @@ export const contextCommand: Command = {
 			.join("\n");
 
 		// Format system prompt breakdown
-		const systemPromptBreakdownText = Object.entries(systemPromptBreakdown)
-			.map(([name, tokens]) => `    ${name}: ${formatTokenCount(tokens)} tokens`)
-			.join("\n");
+		const systemPromptBreakdownText = systemPromptBreakdown
+			? Object.entries(systemPromptBreakdown)
+					.map(([name, tokens]) => `    ${name}: ${formatTokenCount(tokens)} tokens`)
+					.join("\n")
+			: "    (breakdown unavailable)";
 
 		// Format output with clean visual hierarchy
 		const output = `
@@ -203,7 +140,7 @@ Available Space:
 System Prompt Breakdown:
 ${systemPromptBreakdownText}
 
-System Tools (${Object.keys(tools).length} total):
+System Tools (${toolCount} total):
 ${toolList}
 `.trim();
 

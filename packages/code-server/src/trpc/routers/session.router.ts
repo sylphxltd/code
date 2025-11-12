@@ -356,6 +356,117 @@ export const sessionRouter = router({
 			};
 		}),
 
+	/**
+	 * Get context information for a session
+	 * ARCHITECTURE: Server handles all file I/O and business logic
+	 * Calculates complete token breakdown including message attachments
+	 */
+	getContextInfo: publicProcedure
+		.input(z.object({ sessionId: z.string() }))
+		.query(async ({ ctx, input }) => {
+			const session = await ctx.sessionRepository.getSessionById(input.sessionId);
+			if (!session) {
+				return { success: false as const, error: "Session not found" };
+			}
+
+			const {
+				countTokens,
+				getSystemPrompt,
+				getAISDKTools,
+				getEnabledRulesContent,
+				getCurrentSystemPrompt,
+			} = await import("@sylphx/code-core");
+			const { readFile } = await import("node:fs/promises");
+
+			const modelName = session.model;
+
+			// System prompt tokens
+			const systemPrompt = getSystemPrompt();
+			const systemPromptTokens = await countTokens(systemPrompt, modelName);
+
+			// System prompt breakdown
+			const BASE_SYSTEM_PROMPT = `You are Sylphx, an AI development assistant.`;
+			const systemPromptBreakdown: Record<string, number> = {};
+
+			try {
+				systemPromptBreakdown["Base prompt"] = await countTokens(BASE_SYSTEM_PROMPT, modelName);
+
+				const rulesContent = getEnabledRulesContent();
+				if (rulesContent) {
+					systemPromptBreakdown["Rules"] = await countTokens(rulesContent, modelName);
+				}
+
+				const agentPrompt = getCurrentSystemPrompt();
+				systemPromptBreakdown["Agent prompt"] = await countTokens(agentPrompt, modelName);
+			} catch (error) {
+				// Non-critical, continue
+			}
+
+			// Tools tokens
+			const tools = getAISDKTools();
+			const toolTokens: Record<string, number> = {};
+			let toolsTokensTotal = 0;
+
+			for (const [toolName, toolDef] of Object.entries(tools)) {
+				const toolRepresentation = {
+					name: toolName,
+					description: toolDef.description || "",
+					parameters: toolDef.parameters || {},
+				};
+				const toolJson = JSON.stringify(toolRepresentation, null, 0);
+				const tokens = await countTokens(toolJson, modelName);
+				toolTokens[toolName] = tokens;
+				toolsTokensTotal += tokens;
+			}
+
+			// Messages tokens - include attachments (SERVER READS FILES)
+			let messagesTokens = 0;
+			for (const msg of session.messages) {
+				let msgText = msg.content;
+
+				// Add attachment content if present
+				if (msg.attachments && msg.attachments.length > 0) {
+					try {
+						const fileContents = await Promise.all(
+							msg.attachments.map(async (att) => {
+								try {
+									const content = await readFile(att.path, "utf8");
+									return { path: att.relativePath, content };
+								} catch {
+									return {
+										path: att.relativePath,
+										content: "[Error reading file]",
+									};
+								}
+							}),
+						);
+
+						const fileContentsText = fileContents
+							.map((f) => `\n\n<file path="${f.path}">\n${f.content}\n</file>`)
+							.join("");
+
+						msgText += fileContentsText;
+					} catch (error) {
+						// Continue with content we have
+					}
+				}
+
+				const msgTokens = await countTokens(msgText, modelName);
+				messagesTokens += msgTokens;
+			}
+
+			return {
+				success: true as const,
+				model: modelName,
+				systemPromptTokens,
+				systemPromptBreakdown,
+				toolsTokensTotal,
+				toolTokens,
+				messagesTokens,
+				toolCount: Object.keys(tools).length,
+			};
+		}),
+
 	// Note: Session events are now delivered via events.subscribeToAllSessions
 	// which subscribes to the 'session-events' channel
 });
