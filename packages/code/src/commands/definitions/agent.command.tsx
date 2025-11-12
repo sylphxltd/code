@@ -24,7 +24,12 @@ export const agentCommand: Command = {
 	execute: async (context) => {
 		const { getAllAgents, getAgentById } = await import("../../embedded-context.js");
 		const { get } = await import("@sylphx/code-client");
-		const { $selectedAgentId, setSelectedAgent } = await import("@sylphx/code-client");
+		const {
+			$selectedAgentId,
+			$currentSessionId,
+			setSelectedAgent,
+			updateSessionAgent,
+		} = await import("@sylphx/code-client");
 
 		// If arg provided, switch directly
 		if (context.args.length > 0) {
@@ -35,7 +40,15 @@ export const agentCommand: Command = {
 				return `Agent not found: ${agentId}. Use /agent to see available agents.`;
 			}
 
+			// Update global default (always)
 			await setSelectedAgent(agentId);
+
+			// Update current session if exists
+			const currentSessionId = get($currentSessionId);
+			if (currentSessionId) {
+				await updateSessionAgent(currentSessionId, agentId);
+			}
+
 			return `Switched to agent: ${agent.metadata.name}\n${agent.metadata.description}`;
 		}
 
@@ -64,7 +77,12 @@ export const agentCommand: Command = {
 				agents={agentsList}
 				currentAgentId={currentAgent.id}
 				onSelect={async (agentId) => {
-					const { setSelectedAgent } = await import("@sylphx/code-client");
+					const { get } = await import("@sylphx/code-client");
+					const {
+						$currentSessionId,
+						setSelectedAgent,
+						updateSessionAgent,
+					} = await import("@sylphx/code-client");
 					const selectedAgent = getAgentById(agentId);
 
 					if (!selectedAgent) {
@@ -73,7 +91,15 @@ export const agentCommand: Command = {
 						return;
 					}
 
+					// Update global default (always)
 					await setSelectedAgent(agentId);
+
+					// Update current session if exists
+					const currentSessionId = get($currentSessionId);
+					if (currentSessionId) {
+						await updateSessionAgent(currentSessionId, agentId);
+					}
+
 					context.addLog(`[agent] Switched to agent: ${selectedAgent.metadata.name}`);
 					context.setInputComponent(null);
 				}}

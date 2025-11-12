@@ -72,20 +72,33 @@ export function getEnabledRuleIds(): string[] {
 
 /**
  * Set enabled rules in zen signals and persist
- * - If session exists: persist to session
- * - If no session: persist to global default
+ * UNIFIED ARCHITECTURE: Always updates both global AND session (if exists)
+ * - Global: To predict user's future preferences
+ * - Session: To apply immediately to current conversation
+ * - Old sessions: Never affected
  */
 export async function setEnabledRules(ruleIds: string[]): Promise<boolean> {
-	const { setEnabledRuleIds, getCurrentSessionId } = require("@sylphx/code-client");
+	const {
+		setGlobalEnabledRules,
+		updateSessionRules,
+		getCurrentSessionId,
+	} = require("@sylphx/code-client");
+
+	// 1. Update global default (always)
+	await setGlobalEnabledRules(ruleIds);
+
+	// 2. Update current session if exists
 	const currentSessionId = getCurrentSessionId();
-	// Pass sessionId (or null for global) - server decides where to persist
-	await setEnabledRuleIds(ruleIds, currentSessionId);
+	if (currentSessionId) {
+		await updateSessionRules(currentSessionId, ruleIds);
+	}
+
 	return true;
 }
 
 /**
  * Toggle a rule on/off
- * Updates zen signals and persists (session or global)
+ * UNIFIED ARCHITECTURE: Always updates both global AND session (if exists)
  */
 export async function toggleRule(ruleId: string): Promise<boolean> {
 	const rule = getRuleById(ruleId);
@@ -93,16 +106,24 @@ export async function toggleRule(ruleId: string): Promise<boolean> {
 		return false;
 	}
 
-	const { setEnabledRuleIds, getCurrentSessionId } = require("@sylphx/code-client");
+	const {
+		setGlobalEnabledRules,
+		updateSessionRules,
+		getCurrentSessionId,
+	} = require("@sylphx/code-client");
 	const currentEnabled = getEnabledRuleIds();
-	const currentSessionId = getCurrentSessionId();
 
-	if (currentEnabled.includes(ruleId)) {
-		// Disable: remove from list
-		await setEnabledRuleIds(currentEnabled.filter((id) => id !== ruleId), currentSessionId);
-	} else {
-		// Enable: add to list
-		await setEnabledRuleIds([...currentEnabled, ruleId], currentSessionId);
+	const newRuleIds = currentEnabled.includes(ruleId)
+		? currentEnabled.filter((id) => id !== ruleId) // Disable: remove from list
+		: [...currentEnabled, ruleId]; // Enable: add to list
+
+	// 1. Update global default (always)
+	await setGlobalEnabledRules(newRuleIds);
+
+	// 2. Update current session if exists
+	const currentSessionId = getCurrentSessionId();
+	if (currentSessionId) {
+		await updateSessionRules(currentSessionId, newRuleIds);
 	}
 
 	return true;

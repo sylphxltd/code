@@ -122,6 +122,11 @@ export const updateSessionProvider = async (
 	await client.session.updateProvider.mutate({ sessionId, provider, model });
 };
 
+export const updateSessionAgent = async (sessionId: string, agentId: string) => {
+	const client = getTRPCClient();
+	await client.session.updateAgent.mutate({ sessionId, agentId });
+};
+
 export const updateSessionTitle = async (sessionId: string, title: string) => {
 	const client = getTRPCClient();
 	await client.session.updateTitle.mutate({ sessionId, title });

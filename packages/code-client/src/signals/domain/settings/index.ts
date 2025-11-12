@@ -38,6 +38,22 @@ export const setSelectedAgent = async (agentId: string) => {
 	}
 };
 
+export const setGlobalEnabledRules = async (ruleIds: string[]) => {
+	// Update client state immediately (optimistic)
+	set($enabledRuleIds, ruleIds);
+
+	// Persist to global config (always)
+	const client = getTRPCClient();
+	await client.config.updateRules.mutate({
+		ruleIds,
+		// No sessionId - always saves to global config
+	});
+};
+
+/**
+ * @deprecated Use setGlobalEnabledRules + updateSessionRules instead
+ * This function has ambiguous behavior (server decides where to save)
+ */
 export const setEnabledRuleIds = async (ruleIds: string[], sessionId?: string | null) => {
 	// Update client state immediately (optimistic)
 	set($enabledRuleIds, ruleIds);

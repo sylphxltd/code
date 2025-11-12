@@ -261,6 +261,32 @@ export const sessionRouter = router({
 		}),
 
 	/**
+	 * Update session agent
+	 * REACTIVE: Emits session-updated event
+	 * SECURITY: Protected + moderate rate limiting (30 req/min)
+	 */
+	updateAgent: moderateProcedure
+		.input(
+			z.object({
+				sessionId: z.string(),
+				agentId: z.string(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			await ctx.sessionRepository.updateSession(input.sessionId, {
+				agentId: input.agentId,
+			});
+
+			// Publish to event stream for multi-client sync
+			await ctx.appContext.eventStream.publish("session-events", {
+				type: "session-updated" as const,
+				sessionId: input.sessionId,
+				field: "agentId" as const,
+				value: input.agentId,
+			});
+		}),
+
+	/**
 	 * Delete session
 	 * CASCADE: Automatically deletes all messages, todos, attachments
 	 * REACTIVE: Emits session-deleted event
