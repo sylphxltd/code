@@ -215,14 +215,17 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 		});
 
 		try {
+			console.log("[subscriptionAdapter] Starting send user message flow");
 			logSession("Getting tRPC client");
 			// Get tRPC caller (in-process client)
 			const caller = await getTRPCClient();
+			console.log("[subscriptionAdapter] Got tRPC client");
 			logSession("tRPC client obtained");
 
 			// Parse user input into ordered content parts
 			const { parts: content } = parseUserInput(userMessage, attachments || []);
 
+			console.log("[subscriptionAdapter] Parsed content, parts:", content.length);
 			logSession("Parsed content:", JSON.stringify(content, null, 2));
 
 			/**
@@ -373,6 +376,13 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 				contentParts: content.length,
 			});
 
+			console.log("[subscriptionAdapter] Calling triggerStream mutation:", {
+				sessionId,
+				provider: sessionId ? undefined : provider,
+				model: sessionId ? undefined : model,
+				contentLength: content.length,
+			});
+
 			// MUTATION ARCHITECTURE: Trigger streaming via mutation, receive via event stream
 			// - Mutation triggers server to start streaming in background
 			// - Server publishes all events to event bus
@@ -385,6 +395,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 				content, // Empty array = use existing messages, non-empty = add new user message
 			});
 
+			console.log("[subscriptionAdapter] Mutation completed:", result);
 			logSession("Mutation completed:", result);
 
 			// Store sessionId for abort handler (registered earlier)
@@ -422,6 +433,7 @@ export function createSubscriptionSendUserMessageToAI(params: SubscriptionAdapte
 			// Set streaming flag immediately after mutation triggers
 			setIsStreaming(true);
 		} catch (error) {
+			console.error("[subscriptionAdapter] Mutation call error:", error);
 			logSession("Mutation call error:", {
 				error: error instanceof Error ? error.message : String(error),
 				stack: error instanceof Error ? error.stack : undefined,
