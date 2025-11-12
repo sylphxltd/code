@@ -619,15 +619,19 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 						observer.next({ type: "text-delta", text });
 					},
 					onTextEnd: () => {
+						hasEmittedAnyEvent = true;
 						observer.next({ type: "text-end" });
 					},
 					onReasoningStart: () => {
+						hasEmittedAnyEvent = true;
 						observer.next({ type: "reasoning-start" });
 					},
 					onReasoningDelta: (text) => {
+						hasEmittedAnyEvent = true;
 						observer.next({ type: "reasoning-delta", text });
 					},
 					onReasoningEnd: (duration) => {
+						hasEmittedAnyEvent = true;
 						observer.next({ type: "reasoning-end", duration });
 					},
 					onToolCall: (toolCallId, toolName, args) =>
