@@ -10,6 +10,7 @@ import { useInput } from "ink";
 import { useEffect, useRef } from "react";
 import type React from "react";
 import type { WaitForInputOptions } from "../../commands/types.js";
+import { USE_NEW_INPUT_MANAGER } from "../../config/features.js";
 
 export interface UseSelectionModeOptions {
 	pendingInput: WaitForInputOptions | null;
@@ -590,6 +591,9 @@ export function useSelectionMode(options: UseSelectionModeOptions) {
 
 			return false; // Not our concern
 		},
-		{ isActive: !!pendingInput && pendingInput.type === "selection" },
+		{
+			// Only active when new input manager is disabled AND we're in selection mode
+			isActive: !USE_NEW_INPUT_MANAGER && !!pendingInput && pendingInput.type === "selection",
+		},
 	);
 }

@@ -63,6 +63,8 @@ import { useInputState } from "./chat/hooks/useInputState.js";
 import { useMessageHistoryNavigation } from "./chat/hooks/useMessageHistoryNavigation.js";
 import { useSelectionState } from "./chat/hooks/useSelectionState.js";
 import { useStreamingState } from "./chat/hooks/useStreamingState.js";
+// Feature flags
+import { USE_NEW_INPUT_MANAGER, DEBUG_INPUT_MANAGER } from "../config/features.js";
 // Keyboard hooks (local to code package to work with Ink)
 import { useAbortHandler } from "../hooks/keyboard/useAbortHandler.js";
 import { useKeyboardShortcuts } from "../hooks/keyboard/useKeyboardShortcuts.js";
@@ -70,6 +72,8 @@ import { useSelectionMode } from "../hooks/keyboard/useSelectionMode.js";
 import { usePendingCommand } from "../hooks/keyboard/usePendingCommand.js";
 import { useFileNavigation } from "../hooks/keyboard/useFileNavigation.js";
 import { useCommandNavigation } from "../hooks/keyboard/useCommandNavigation.js";
+// Input Mode Manager (new system)
+import { useInputMode, useInputModeManager, SelectionModeHandler } from "../hooks/input-manager/index.js";
 // Streaming utilities
 import { createSubscriptionSendUserMessageToAI } from "./chat/streaming/subscriptionAdapter.js";
 import { handleStreamEvent } from "./chat/streaming/streamEventHandlers.js";
@@ -609,6 +613,76 @@ export default function Chat(_props: ChatProps) {
 	});
 
 	// 3. Selection mode - Question/option selection with filter/multi-select
+	// New centralized input management system (when feature flag enabled)
+	const inputModeContext = useInputMode({
+		pendingInput,
+		input,
+		pendingCommand,
+		debug: DEBUG_INPUT_MANAGER,
+	});
+
+	const selectionHandler = useMemo(
+		() =>
+			new SelectionModeHandler({
+				inputResolver,
+				multiSelectionPage,
+				multiSelectionAnswers,
+				multiSelectChoices,
+				selectionFilter,
+				isFilterMode,
+				freeTextInput,
+				isFreeTextMode,
+				selectedCommandIndex,
+				commandSessionRef,
+				currentSessionId,
+				setSelectedCommandIndex,
+				setMultiSelectionPage,
+				setMultiSelectionAnswers,
+				setMultiSelectChoices,
+				setSelectionFilter,
+				setIsFilterMode,
+				setFreeTextInput,
+				setIsFreeTextMode,
+				setPendingInput,
+				addLog,
+				addMessage,
+				getAIConfig,
+			}),
+		[
+			inputResolver,
+			multiSelectionPage,
+			multiSelectionAnswers,
+			multiSelectChoices,
+			selectionFilter,
+			isFilterMode,
+			freeTextInput,
+			isFreeTextMode,
+			selectedCommandIndex,
+			commandSessionRef,
+			currentSessionId,
+			setSelectedCommandIndex,
+			setMultiSelectionPage,
+			setMultiSelectionAnswers,
+			setMultiSelectChoices,
+			setSelectionFilter,
+			setIsFilterMode,
+			setFreeTextInput,
+			setIsFreeTextMode,
+			setPendingInput,
+			addLog,
+			addMessage,
+			getAIConfig,
+		],
+	);
+
+	// Setup input mode manager (only active when feature flag is enabled)
+	useInputModeManager({
+		context: inputModeContext,
+		handlers: USE_NEW_INPUT_MANAGER ? [selectionHandler] : [],
+		config: { debug: DEBUG_INPUT_MANAGER },
+	});
+
+	// Legacy individual hook (only active when feature flag is disabled)
 	useSelectionMode({
 		pendingInput,
 		inputResolver,
