@@ -413,6 +413,12 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				let lastCompletedStepNumber = -1;
 
 				console.log(`[streamAIResponse] Starting streamText with provider: ${provider}, model: ${modelName}`);
+
+				// Add timeout safeguard to prevent UI from hanging
+				const STREAM_TIMEOUT_MS = 45000; // 45 seconds - generous timeout for slow providers
+				const streamStartTime = Date.now();
+				let hasEmittedAnyEvent = false;
+
 				const { fullStream } = streamText({
 					model,
 					messages,
@@ -605,9 +611,11 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				// 11. Process stream and emit events
 				const callbacks: StreamCallbacks = {
 					onTextStart: () => {
+						hasEmittedAnyEvent = true;
 						observer.next({ type: "text-start" });
 					},
 					onTextDelta: (text) => {
+						hasEmittedAnyEvent = true;
 						observer.next({ type: "text-delta", text });
 					},
 					onTextEnd: () => {
@@ -930,6 +938,22 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 						hasError = true;
 						callbacks.onError?.(errorMessage);
 					}
+				}
+
+				// 12.5. Check for timeout (if no events were emitted at all)
+				const elapsedMs = Date.now() - streamStartTime;
+				if (!hasEmittedAnyEvent && elapsedMs > STREAM_TIMEOUT_MS) {
+					console.error(`[streamAIResponse] TIMEOUT after ${elapsedMs}ms with no events emitted`);
+					const timeoutError = `Request to ${provider} (${modelName}) timed out after ${Math.round(elapsedMs / 1000)}s with no response. This may indicate a network issue, authentication problem, or the provider is unreachable.`;
+					hasError = true;
+					currentStepParts.push({
+						type: "error",
+						error: timeoutError,
+						status: "completed",
+					});
+					observer.next({ type: "error", error: timeoutError });
+				} else if (!hasEmittedAnyEvent) {
+					console.log(`[streamAIResponse] WARNING: No events emitted but stream completed within ${elapsedMs}ms`);
 				}
 
 				// 13. Complete final step (if there is one)
