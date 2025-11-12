@@ -133,6 +133,15 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ status, formattedResult, 
 				{hasLines && (
 					<Box flexDirection="column" marginTop={hasSummary ? 1 : 0}>
 						{formattedResult.lines.slice(0, 20).map((line, i) => {
+							// Check for omitted message (e.g., "... 10 lines omitted ...")
+							if (line.includes("...") && line.includes("omitted")) {
+								return (
+									<Text key={i} dimColor>
+										{line}
+									</Text>
+								);
+							}
+
 							const diffType = getDiffLineType(line);
 
 							// Colorize diff lines
