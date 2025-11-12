@@ -107,7 +107,7 @@ export async function* processStream(
 									type: "tool-call",
 									toolCallId: xmlEvent.toolCallId,
 									toolName: xmlEvent.toolName,
-									input: JSON.stringify(xmlEvent.arguments),
+									args: xmlEvent.arguments,
 								};
 								finishReason = "tool-calls";
 							}
@@ -170,7 +170,7 @@ export async function* processStream(
 									type: "tool-call",
 									toolCallId: xmlEvent.toolCallId,
 									toolName: xmlEvent.toolName,
-									input: JSON.stringify(xmlEvent.arguments),
+									args: xmlEvent.arguments,
 								};
 								finishReason = "tool-calls";
 							}

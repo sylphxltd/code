@@ -155,23 +155,23 @@ export async function processStream(
 						currentTextContent = "";
 					}
 
-					// Add tool part (may not have complete args yet if streaming)
+					// Add tool part (may not have complete input yet if streaming)
 					messageParts.push({
 						type: "tool",
 						toolId: chunk.toolCallId,
 						name: chunk.toolName,
 						status: "active", // Match MessagePart type
-						args: chunk.args,
+						input: chunk.input,
 					});
 
 					// Track tool start time
 					activeTools.set(chunk.toolCallId, {
 						name: chunk.toolName,
 						startTime: Date.now(),
-						args: chunk.args,
+						input: chunk.input,
 					});
 
-					onToolCall?.(chunk.toolCallId, chunk.toolName, chunk.args);
+					onToolCall?.(chunk.toolCallId, chunk.toolName, chunk.input);
 					break;
 				}
 
@@ -182,16 +182,16 @@ export async function processStream(
 				}
 
 				case "tool-input-delta": {
-					// Update tool args as they stream in
-					// Find the active tool part and update its args
+					// Update tool input as it streams in
+					// Find the active tool part and update its input
 					const toolPart = messageParts.find(
 						(p) => p.type === "tool" && p.name === chunk.toolName && p.status === "active",
 					);
 
 					if (toolPart && toolPart.type === "tool") {
-						// Append args delta (args are streaming as JSON text)
-						const currentArgsText = typeof toolPart.args === "string" ? toolPart.args : "";
-						toolPart.args = currentArgsText + chunk.argsTextDelta;
+						// Append input delta (input is streaming as JSON text)
+						const currentInputText = typeof toolPart.input === "string" ? toolPart.input : "";
+						toolPart.input = currentInputText + chunk.argsTextDelta;
 					}
 
 					// Notify callback for real-time UI update
@@ -200,14 +200,14 @@ export async function processStream(
 				}
 
 				case "tool-input-end": {
-					// Tool input streaming complete - args are ready
-					// Find tool part to get final args
+					// Tool input streaming complete - input is ready
+					// Find tool part to get final input
 					const toolPart = messageParts.find(
 						(p) => p.type === "tool" && p.name === chunk.toolName && p.status === "active",
 					);
 
 					if (toolPart && toolPart.type === "tool") {
-						onToolInputEnd?.(chunk.toolCallId, chunk.toolName, toolPart.args);
+						onToolInputEnd?.(chunk.toolCallId, chunk.toolName, toolPart.input);
 					}
 					break;
 				}

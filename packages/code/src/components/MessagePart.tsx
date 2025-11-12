@@ -42,7 +42,7 @@ type StreamingPart =
 			name: string;
 			status: "active" | "completed" | "error" | "abort";
 			duration?: number;
-			args?: unknown;
+			input?: unknown;
 			result?: unknown;
 			error?: string;
 			startTime?: number;
@@ -192,7 +192,7 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
 		if (part.duration !== undefined) toolProps.duration = part.duration;
 		// Pass startTime for running tools (ToolDisplay will calculate elapsed time)
 		if (part.startTime !== undefined) toolProps.startTime = part.startTime;
-		if (part.args !== undefined) toolProps.args = part.args;
+		if (part.input !== undefined) toolProps.input = part.input;
 		if (part.result !== undefined) toolProps.result = part.result;
 		if (part.error !== undefined) toolProps.error = part.error;
 

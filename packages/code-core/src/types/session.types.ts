@@ -42,7 +42,7 @@ export type MessagePart =
 			name: string; // Preserved for historical messages (even if tool is removed from registry)
 			mcpServerId?: string; // NEW: If this is an MCP tool, references MCPServer.id
 			status: "active" | "completed" | "error" | "abort";
-			args?: unknown;
+			input?: unknown;
 			result?: unknown;
 			error?: string;
 			duration?: number;

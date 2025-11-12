@@ -262,7 +262,7 @@ async function buildAssistantMessage(
 						type: "tool-call",
 						toolCallId: part.toolId,
 						toolName: part.name,
-						input: part.args || {}, // ← AI SDK uses 'input', not 'args'
+						input: part.input || {}, // ← AI SDK uses 'input'
 					} as ToolCallPart);
 
 					// Tool-result goes in separate tool message (if present)

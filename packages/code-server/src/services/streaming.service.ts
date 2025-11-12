@@ -109,7 +109,7 @@ export type StreamEvent =
 	| { type: "reasoning-start" }
 	| { type: "reasoning-delta"; text: string }
 	| { type: "reasoning-end"; duration: number }
-	| { type: "tool-call"; toolCallId: string; toolName: string; args: any }
+	| { type: "tool-call"; toolCallId: string; toolName: string; input: any }
 	| { type: "tool-input-start"; toolCallId: string }
 	| { type: "tool-input-delta"; toolCallId: string; argsTextDelta: string }
 	| { type: "tool-input-end"; toolCallId: string }
@@ -769,22 +769,125 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 							}
 
 							case "tool-call": {
-								// Create tool part (position determined by when tool-call event arrives)
+								// Check if tool part already exists (from tool-input-start)
+								const existingToolPart = currentStepParts.find(
+									(p) => p.type === "tool" && p.toolId === chunk.toolCallId,
+								);
+
+								if (existingToolPart && existingToolPart.type === "tool") {
+									// Update existing tool part with name (input already set by tool-input-end)
+									existingToolPart.name = chunk.toolName;
+								} else {
+									// No streaming - create tool part with complete input
+									currentStepParts.push({
+										type: "tool",
+										toolId: chunk.toolCallId,
+										name: chunk.toolName,
+										status: "active",
+										input: chunk.input,
+									});
+
+									activeTools.set(chunk.toolCallId, {
+										name: chunk.toolName,
+										startTime: Date.now(),
+										input: chunk.input,
+									});
+								}
+
+								callbacks.onToolCall?.(chunk.toolCallId, chunk.toolName, chunk.input);
+								break;
+							}
+
+							case "tool-input-start": {
+								// Tool input streaming started - create tool part with empty input
+								// Name will be set later by tool-call event
 								currentStepParts.push({
 									type: "tool",
 									toolId: chunk.toolCallId,
-									name: chunk.toolName,
+									name: "", // Will be set by tool-call event
 									status: "active",
-									args: chunk.args,
+									input: "", // Will be populated by deltas as JSON string
 								});
 
 								activeTools.set(chunk.toolCallId, {
-									name: chunk.toolName,
+									name: "",
 									startTime: Date.now(),
-									args: chunk.args,
+									input: "",
 								});
 
-								callbacks.onToolCall?.(chunk.toolCallId, chunk.toolName, chunk.args);
+								// Emit tool-input-start event
+								observer.next({
+									type: "tool-input-start",
+									toolCallId: chunk.toolCallId,
+								});
+								break;
+							}
+
+							case "tool-input-delta": {
+								// Update tool input as it streams in
+								const tool = activeTools.get(chunk.toolCallId);
+								if (tool) {
+									// Accumulate input as JSON text
+									const currentInput = typeof tool.input === "string" ? tool.input : "";
+									tool.input = currentInput + chunk.argsTextDelta;
+								}
+
+								// Update tool part
+								const toolPart = currentStepParts.find(
+									(p) => p.type === "tool" && p.toolId === chunk.toolCallId && p.status === "active",
+								);
+								if (toolPart && toolPart.type === "tool") {
+									// Keep as string during streaming, will be parsed at end
+									const currentInput =
+										typeof toolPart.input === "string" ? toolPart.input : "";
+									toolPart.input = currentInput + chunk.argsTextDelta;
+								}
+
+								// Emit tool-input-delta event
+								observer.next({
+									type: "tool-input-delta",
+									toolCallId: chunk.toolCallId,
+									argsTextDelta: chunk.argsTextDelta,
+								});
+								break;
+							}
+
+							case "tool-input-end": {
+								// Tool input streaming complete - parse accumulated JSON
+								const tool = activeTools.get(chunk.toolCallId);
+								if (tool) {
+									try {
+										// Parse accumulated JSON string
+										const inputText = typeof tool.input === "string" ? tool.input : "";
+										tool.input = inputText ? JSON.parse(inputText) : {};
+									} catch (e) {
+										console.error(
+											"[streamAIResponse] Failed to parse tool input:",
+											tool.input,
+										);
+										tool.input = {};
+									}
+								}
+
+								// Update tool part with parsed input
+								const toolPart = currentStepParts.find(
+									(p) => p.type === "tool" && p.toolId === chunk.toolCallId && p.status === "active",
+								);
+								if (toolPart && toolPart.type === "tool") {
+									try {
+										const inputText =
+											typeof toolPart.input === "string" ? toolPart.input : "";
+										toolPart.input = inputText ? JSON.parse(inputText) : {};
+									} catch (e) {
+										toolPart.input = {};
+									}
+								}
+
+								// Emit tool-input-end event
+								observer.next({
+									type: "tool-input-end",
+									toolCallId: chunk.toolCallId,
+								});
 								break;
 							}
 

@@ -105,7 +105,7 @@ export function createDefaultToolDisplay(
 	formatResult: ResultFormatter,
 ): React.FC<ToolDisplayProps> {
 	return function DefaultToolDisplay(props: ToolDisplayProps) {
-		const { status, duration, args, result, error, startTime } = props;
+		const { status, duration, input, result, error, startTime } = props;
 
 		// Calculate real-time elapsed time for running tools
 		const { display: durationDisplay } = useElapsedTime({
@@ -114,7 +114,7 @@ export function createDefaultToolDisplay(
 			isRunning: status === "running",
 		});
 
-		const formattedArgs = formatArgs(args as Record<string, unknown>);
+		const formattedArgs = formatArgs(input as Record<string, unknown>);
 		const formattedResult = formatResult(result);
 
 		return (
