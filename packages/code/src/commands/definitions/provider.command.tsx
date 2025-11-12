@@ -154,7 +154,6 @@ export const providerCommand: Command = {
 						providerId,
 						fieldName: key,
 						value: String(value),
-						cwd: process.cwd(),
 					});
 
 					if (!result.success) {
@@ -288,7 +287,6 @@ export const providerCommand: Command = {
 							providerId,
 							fieldName,
 							value,
-							cwd: process.cwd(),
 						});
 
 						if (!result.success) {

@@ -31,7 +31,7 @@ async function getAIConfig(): Promise<AIConfig | null> {
 	// First access - lazy load from server
 	try {
 		const trpc = getTRPCClient();
-		const config = await trpc.config.load.query({ cwd: process.cwd() });
+		const config = await trpc.config.load.query();
 
 		// Cache in zen signal (stays until explicitly updated)
 		setAIConfig(config);
@@ -50,7 +50,7 @@ async function getAIConfig(): Promise<AIConfig | null> {
 export async function getProviderCompletions(partial = ""): Promise<CompletionOption[]> {
 	try {
 		const trpc = getTRPCClient();
-		const result = await trpc.config.getProviders.query({ cwd: process.cwd() });
+		const result = await trpc.config.getProviders.query();
 
 		const providers = Object.keys(result);
 		const filtered = partial

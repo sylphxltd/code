@@ -17,9 +17,7 @@ export function useProjectFiles() {
 			setFilesLoading(true);
 			try {
 				const client = getTRPCClient();
-				const result = await client.config.scanProjectFiles.query({
-					cwd: process.cwd(),
-				});
+				const result = await client.config.scanProjectFiles.query({});
 				setProjectFiles(result.files);
 			} catch (error) {
 				console.error("Failed to load project files:", error);
