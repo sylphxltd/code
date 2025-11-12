@@ -193,6 +193,7 @@ export const providerCommand: Command = {
 		// If both action and providerId are provided (without subaction), handle directly
 		if (action && providerId && !subaction) {
 			if (action === "use") {
+				// UNIFIED ARCHITECTURE: Update both global AND session (if exists)
 				// Direct provider switch
 				updateProvider(providerId as any, {});
 				const updatedConfig = {
@@ -206,6 +207,14 @@ export const providerCommand: Command = {
 
 				const providerConfig = aiConfig?.providers?.[providerId] || {};
 				const providerDefaultModel = providerConfig.defaultModel as string;
+
+				// Update current session's provider + model (if exists)
+				const { $currentSessionId, updateSessionProvider } = await import("@sylphx/code-client");
+				const currentSessionId = get($currentSessionId);
+				if (currentSessionId && providerDefaultModel) {
+					await updateSessionProvider(currentSessionId, providerId as any, providerDefaultModel);
+				}
+
 				context.addLog(
 					`[provider] Switched to provider: ${providerId} (model: ${providerDefaultModel || "default"}) and saved config`,
 				);
@@ -227,9 +236,17 @@ export const providerCommand: Command = {
 					context.addLog("[provider] Provider management closed");
 				}}
 				onSelectProvider={async (providerId) => {
+					// UNIFIED ARCHITECTURE: Update both global AND session (if exists)
 					// Get fresh zen signal values
 					const { get } = await import("@sylphx/code-client");
-					const { $aiConfig, updateProvider, setAIConfig, setSelectedModel } = await import("@sylphx/code-client");
+					const {
+						$aiConfig,
+						$currentSessionId,
+						updateProvider,
+						setAIConfig,
+						setSelectedModel,
+						updateSessionProvider,
+					} = await import("@sylphx/code-client");
 					const { getTRPCClient } = await import("@sylphx/code-client");
 					const freshAiConfig = get($aiConfig);
 
@@ -245,7 +262,7 @@ export const providerCommand: Command = {
 					await context.saveConfig(updatedConfig);
 
 					const providerConfig = freshAiConfig?.providers?.[providerId] || {};
-					const providerDefaultModel = providerConfig.defaultModel as string;
+					let providerDefaultModel = providerConfig.defaultModel as string;
 
 					// If provider has no default model, fetch models and set first one as default
 					if (!providerDefaultModel) {
@@ -255,6 +272,7 @@ export const providerCommand: Command = {
 
 							if (result.success && result.models && result.models.length > 0) {
 								const firstModel = result.models[0];
+								providerDefaultModel = firstModel.id;
 
 								// Update provider config with default model
 								const updatedProviderConfig = {
@@ -291,6 +309,12 @@ export const providerCommand: Command = {
 						context.addLog(
 							`[provider] Switched to provider: ${providerId} (model: ${providerDefaultModel}) and saved config`,
 						);
+					}
+
+					// Update current session's provider + model (if exists)
+					const currentSessionId = get($currentSessionId);
+					if (currentSessionId && providerDefaultModel) {
+						await updateSessionProvider(currentSessionId, providerId as any, providerDefaultModel);
 					}
 				}}
 				onConfigureProvider={async (providerId, config) => {
