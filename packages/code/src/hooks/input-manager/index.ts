@@ -57,3 +57,12 @@ export { BaseInputHandler } from "./handlers/BaseHandler.js";
 // Concrete handlers
 export { SelectionModeHandler } from "./handlers/SelectionModeHandler.js";
 export type { SelectionModeHandlerDeps } from "./handlers/SelectionModeHandler.js";
+
+export { CommandAutocompleteModeHandler } from "./handlers/CommandAutocompleteModeHandler.js";
+export type { CommandAutocompleteModeHandlerDeps } from "./handlers/CommandAutocompleteModeHandler.js";
+
+export { PendingCommandModeHandler } from "./handlers/PendingCommandModeHandler.js";
+export type { PendingCommandModeHandlerDeps } from "./handlers/PendingCommandModeHandler.js";
+
+export { FileNavigationModeHandler } from "./handlers/FileNavigationModeHandler.js";
+export type { FileNavigationModeHandlerDeps } from "./handlers/FileNavigationModeHandler.js";

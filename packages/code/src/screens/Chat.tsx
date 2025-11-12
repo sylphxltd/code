@@ -73,7 +73,14 @@ import { usePendingCommand } from "../hooks/keyboard/usePendingCommand.js";
 import { useFileNavigation } from "../hooks/keyboard/useFileNavigation.js";
 import { useCommandNavigation } from "../hooks/keyboard/useCommandNavigation.js";
 // Input Mode Manager (new system)
-import { useInputMode, useInputModeManager, SelectionModeHandler } from "../hooks/input-manager/index.js";
+import {
+	useInputMode,
+	useInputModeManager,
+	SelectionModeHandler,
+	CommandAutocompleteModeHandler,
+	PendingCommandModeHandler,
+	FileNavigationModeHandler,
+} from "../hooks/input-manager/index.js";
 // Streaming utilities
 import { createSubscriptionSendUserMessageToAI } from "./chat/streaming/subscriptionAdapter.js";
 import { handleStreamEvent } from "./chat/streaming/streamEventHandlers.js";
@@ -621,6 +628,7 @@ export default function Chat(_props: ChatProps) {
 		debug: DEBUG_INPUT_MANAGER,
 	});
 
+	// Create all input handlers
 	const selectionHandler = useMemo(
 		() =>
 			new SelectionModeHandler({
@@ -675,10 +683,99 @@ export default function Chat(_props: ChatProps) {
 		],
 	);
 
+	const pendingCommandHandler = useMemo(
+		() =>
+			new PendingCommandModeHandler({
+				pendingCommand,
+				cachedOptions,
+				selectedCommandIndex,
+				currentSessionId,
+				setSelectedCommandIndex,
+				setPendingCommand,
+				createCommandContext: createCommandContextForArgs,
+				addMessage,
+			}),
+		[
+			pendingCommand,
+			cachedOptions,
+			selectedCommandIndex,
+			currentSessionId,
+			setSelectedCommandIndex,
+			setPendingCommand,
+			createCommandContextForArgs,
+			addMessage,
+		],
+	);
+
+	const fileNavigationHandler = useMemo(
+		() =>
+			new FileNavigationModeHandler({
+				filteredFileInfo,
+				selectedFileIndex,
+				currentSession,
+				input,
+				setInput,
+				setCursor,
+				setSelectedFileIndex,
+				addAttachment,
+				setAttachmentTokenCount,
+			}),
+		[
+			filteredFileInfo,
+			selectedFileIndex,
+			currentSession,
+			input,
+			setInput,
+			setCursor,
+			setSelectedFileIndex,
+			addAttachment,
+			setAttachmentTokenCount,
+		],
+	);
+
+	const commandAutocompleteHandler = useMemo(
+		() =>
+			new CommandAutocompleteModeHandler({
+				filteredCommands,
+				selectedCommandIndex,
+				skipNextSubmit,
+				commandSessionRef,
+				currentSessionId,
+				setInput,
+				setCursor,
+				setSelectedCommandIndex,
+				addLog,
+				addMessage,
+				getAIConfig,
+				createCommandContext: createCommandContextForArgs,
+			}),
+		[
+			filteredCommands,
+			selectedCommandIndex,
+			skipNextSubmit,
+			commandSessionRef,
+			currentSessionId,
+			setInput,
+			setCursor,
+			setSelectedCommandIndex,
+			addLog,
+			addMessage,
+			getAIConfig,
+			createCommandContextForArgs,
+		],
+	);
+
 	// Setup input mode manager (only active when feature flag is enabled)
 	useInputModeManager({
 		context: inputModeContext,
-		handlers: USE_NEW_INPUT_MANAGER ? [selectionHandler] : [],
+		handlers: USE_NEW_INPUT_MANAGER
+			? [
+					selectionHandler,
+					pendingCommandHandler,
+					fileNavigationHandler,
+					commandAutocompleteHandler,
+				]
+			: [],
 		config: { debug: DEBUG_INPUT_MANAGER },
 	});
 

@@ -8,6 +8,7 @@
 import { useInput } from "ink";
 import type React from "react";
 import type { Command, CommandContext } from "../../commands/types.js";
+import { USE_NEW_INPUT_MANAGER } from "../../config/features.js";
 
 export interface UseCommandNavigationOptions {
 	input: string;
@@ -142,6 +143,9 @@ export function useCommandNavigation(options: UseCommandNavigationOptions) {
 
 			return false; // Not our concern
 		},
-		{ isActive: !pendingInput }, // Disable when in selection/text input mode
+		{
+			// Only active when new input manager is disabled AND not in pending input mode
+			isActive: !USE_NEW_INPUT_MANAGER && !pendingInput,
+		},
 	);
 }
