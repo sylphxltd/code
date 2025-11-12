@@ -590,6 +590,6 @@ export function useSelectionMode(options: UseSelectionModeOptions) {
 
 			return false; // Not our concern
 		},
-		{ isActive: true },
+		{ isActive: !!pendingInput && pendingInput.type === "selection" },
 	);
 }
