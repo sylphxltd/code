@@ -58,7 +58,6 @@ import { createCommandContext } from "./chat/commands/commandContext.js";
 import { createHandleSubmit } from "./chat/handlers/messageHandler.js";
 import { useCommandState } from "./chat/hooks/useCommandState.js";
 // Custom hooks
-import { useCommandAutocompleteHandlers } from "./chat/hooks/useCommandAutocompleteHandlers.js";
 import { useInputState } from "./chat/hooks/useInputState.js";
 import { useMessageHistoryNavigation } from "./chat/hooks/useMessageHistoryNavigation.js";
 import { useSelectionState } from "./chat/hooks/useSelectionState.js";
@@ -68,10 +67,6 @@ import { USE_NEW_INPUT_MANAGER, DEBUG_INPUT_MANAGER } from "../config/features.j
 // Keyboard hooks (local to code package to work with Ink)
 import { useAbortHandler } from "../hooks/keyboard/useAbortHandler.js";
 import { useKeyboardShortcuts } from "../hooks/keyboard/useKeyboardShortcuts.js";
-import { useSelectionMode } from "../hooks/keyboard/useSelectionMode.js";
-import { usePendingCommand } from "../hooks/keyboard/usePendingCommand.js";
-import { useFileNavigation } from "../hooks/keyboard/useFileNavigation.js";
-import { useCommandNavigation } from "../hooks/keyboard/useCommandNavigation.js";
 // Input Mode Manager (new system)
 import {
 	useInputMode,
@@ -779,100 +774,12 @@ export default function Chat(_props: ChatProps) {
 		config: { debug: DEBUG_INPUT_MANAGER },
 	});
 
-	// Legacy individual hook (only active when feature flag is disabled)
-	useSelectionMode({
-		pendingInput,
-		inputResolver,
-		multiSelectionPage,
-		multiSelectionAnswers,
-		multiSelectChoices,
-		selectionFilter,
-		isFilterMode,
-		freeTextInput,
-		isFreeTextMode,
-		selectedCommandIndex,
-		commandSessionRef,
-		currentSessionId,
-		setSelectedCommandIndex,
-		setMultiSelectionPage,
-		setMultiSelectionAnswers,
-		setMultiSelectChoices,
-		setSelectionFilter,
-		setIsFilterMode,
-		setFreeTextInput,
-		setIsFreeTextMode,
-		setPendingInput,
-		addLog,
-		addMessage,
-		getAIConfig,
-	});
-
-	// 4. Pending command - Pending command option selection
-	usePendingCommand({
-		pendingInput,
-		pendingCommand,
-		cachedOptions,
-		selectedCommandIndex,
-		currentSessionId,
-		setSelectedCommandIndex,
-		setPendingCommand,
-		createCommandContext: createCommandContextForArgs,
-		addMessage,
-	});
-
-	// 5. File navigation - @-mention file autocomplete
-	useFileNavigation({
-		input,
-		pendingInput,
-		filteredFileInfo,
-		selectedFileIndex,
-		currentSession,
-		setInput,
-		setCursor,
-		setSelectedFileIndex,
-		addAttachment,
-		setAttachmentTokenCount,
-	});
-
-	// 6. Command navigation - Slash command autocomplete
-	useCommandNavigation({
-		input,
-		pendingInput,
-		filteredCommands,
-		selectedCommandIndex,
-		skipNextSubmit,
-		commandSessionRef,
-		currentSessionId,
-		setInput,
-		setCursor,
-		setSelectedCommandIndex,
-		addLog,
-		addMessage,
-		getAIConfig,
-		createCommandContext: createCommandContextForArgs,
-	});
-
-	// Command autocomplete handlers hook
-	const {
-		handleTab: handleCommandAutocompleteTab,
-		handleEnter: handleCommandAutocompleteEnter,
-		handleUpArrow: handleCommandAutocompleteUpArrow,
-		handleDownArrow: handleCommandAutocompleteDownArrow,
-	} = useCommandAutocompleteHandlers({
-		filteredCommands,
-		selectedCommandIndex,
-		pendingInput,
-		skipNextSubmit,
-		currentSessionId,
-		commandSessionRef,
-		setInput,
-		setCursor,
-		setSelectedCommandIndex,
-		addLog,
-		addMessage,
-		getAIConfig,
-		createCommandContext: createCommandContextForArgs,
-	});
+	// Legacy hooks removed - all input handling now managed by InputModeManager
+	// Command/file autocomplete callbacks no longer needed (handled by InputModeManager)
+	const handleCommandAutocompleteTab = undefined;
+	const handleCommandAutocompleteEnter = undefined;
+	const handleCommandAutocompleteUpArrow = undefined;
+	const handleCommandAutocompleteDownArrow = undefined;
 
 	// File autocomplete handlers
 	const handleFileAutocompleteSelect = () => {

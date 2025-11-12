@@ -28,7 +28,7 @@ export const USE_NEW_INPUT_MANAGER = true;
  * Debug mode for input management
  * Enables verbose logging of input events and mode transitions
  */
-export const DEBUG_INPUT_MANAGER = true;
+export const DEBUG_INPUT_MANAGER = false;
 
 /**
  * Track input mode history
