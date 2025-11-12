@@ -75,61 +75,15 @@ export class KimiProvider implements AIProvider {
 		modelId: string,
 		_config?: ProviderConfig,
 	): Promise<ProviderModelDetails | null> {
-		// Known specs for Kimi models
-		const specs: Record<string, ProviderModelDetails> = {
-			"moonshot-v1-8k": {
-				contextLength: 8000,
-				maxOutput: 4096,
-				inputPrice: 0,
-				outputPrice: 0,
-			},
-			"moonshot-v1-32k": {
-				contextLength: 32000,
-				maxOutput: 4096,
-				inputPrice: 0,
-				outputPrice: 0,
-			},
-			"moonshot-v1-128k": {
-				contextLength: 128000,
-				maxOutput: 4096,
-				inputPrice: 0,
-				outputPrice: 0,
-			},
-			"kimi-k2": {
-				contextLength: 128000,
-				maxOutput: 4096,
-				inputPrice: 0,
-				outputPrice: 0,
-			},
-			"kimi-k2-thinking": {
-				contextLength: 128000,
-				maxOutput: 4096,
-				inputPrice: 0,
-				outputPrice: 0,
-			},
-		};
-
-		return specs[modelId] || null;
+		// Kimi API doesn't provide detailed model specs via API
+		// Return null to indicate no details available
+		return null;
 	}
 
 	getModelCapabilities(modelId: string): ModelCapabilities {
-		const modelIdLower = modelId.toLowerCase();
-		const capabilities = new Set<ModelCapability>();
-
-		// All Kimi models support tools
-		capabilities.add("tools");
-
-		// Kimi k2 thinking models support reasoning
-		if (modelIdLower.includes("thinking") || modelIdLower.includes("k2")) {
-			capabilities.add("reasoning");
-		}
-
-		// Moonshot v1 models support structured output
-		if (modelIdLower.includes("moonshot") || modelIdLower.includes("kimi")) {
-			capabilities.add("structured-output");
-		}
-
-		return capabilities;
+		// Return empty set - no assumptions about capabilities
+		// Let the API/model determine what it supports at runtime
+		return new Set<ModelCapability>();
 	}
 
 	createClient(config: ProviderConfig, modelId: string): LanguageModelV1 {
