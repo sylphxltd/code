@@ -3,7 +3,7 @@
  * Extract duplicated provider selection and switching logic
  */
 
-import type { ProviderId } from "../../../types/provider.types.js";
+import type { ProviderId } from "@sylphx/code-core";
 import type { CommandContext } from "../types.js";
 import { configureProvider } from "./provider-config.js";
 import {

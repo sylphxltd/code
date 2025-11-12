@@ -12,7 +12,7 @@
 import type { Session, SessionMetadata, MessagePart } from "../types/session.types.js";
 import type { Todo } from "../types/todo.types.js";
 import type { AIConfig } from "../config/ai-config.js";
-import type { ProviderId } from "../types/provider.types.js";
+import type { ProviderId } from "../ai/providers/index.js";
 import { migrateToModelId, getDefaultModelIdForProvider } from "../registry/model-migration.js";
 import { getTool } from "../registry/tool-registry.js";
 import { getMCPServer } from "../registry/mcp-registry.js";

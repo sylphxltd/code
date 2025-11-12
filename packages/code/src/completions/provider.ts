@@ -3,7 +3,7 @@
  * Lazy loading from zen signals, no extra cache needed
  */
 
-import type { ProviderId } from "../types/provider.types.js";
+import type { ProviderId } from "@sylphx/code-core";
 import { getTRPCClient } from "@sylphx/code-client";
 import { get } from "@sylphx/zen";
 import { $aiConfig, setAIConfig } from "@sylphx/code-client";

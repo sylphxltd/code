@@ -3,7 +3,7 @@
  * Extract duplicated provider configuration setting logic
  */
 
-import type { ProviderId } from "../../../types/provider.types.js";
+import type { ProviderId } from "@sylphx/code-core";
 import type { CommandContext } from "../types.js";
 
 /**

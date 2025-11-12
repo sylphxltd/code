@@ -10,8 +10,7 @@
  */
 
 import { streamText } from "ai";
-import { getProvider } from "./providers/index.js";
-import type { ProviderId } from "../types/provider.types.js";
+import { getProvider, type ProviderId } from "./providers/index.js";
 import type { Session, Message } from "../types/session.types.js";
 import type { SessionRepository } from "../database/session-repository.js";
 import { createLogger } from "../utils/logger.js";

@@ -4,7 +4,6 @@
  */
 
 import type { LanguageModelV2 } from "@ai-sdk/provider";
-import type { ProviderId } from "../types/provider.types.js";
 
 /**
  * Model capability types
@@ -75,7 +74,7 @@ export interface ConfigField {
 export type ProviderConfig = Record<string, string | number | boolean | undefined>;
 
 export interface AIProvider {
-	readonly id: ProviderId;
+	readonly id: string;
 	readonly name: string;
 	readonly description: string;
 
