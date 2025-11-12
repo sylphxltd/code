@@ -18,7 +18,6 @@ import {
 	useCurrentSession,
 	useEventStream,
 	useFileAttachments,
-	useKeyboardNavigation,
 	useProjectFiles,
 	useSessionInitialization,
 	useTokenCalculation,
@@ -64,6 +63,13 @@ import { useInputState } from "./chat/hooks/useInputState.js";
 import { useMessageHistoryNavigation } from "./chat/hooks/useMessageHistoryNavigation.js";
 import { useSelectionState } from "./chat/hooks/useSelectionState.js";
 import { useStreamingState } from "./chat/hooks/useStreamingState.js";
+// Keyboard hooks (local to code package to work with Ink)
+import { useAbortHandler } from "../hooks/keyboard/useAbortHandler.js";
+import { useKeyboardShortcuts } from "../hooks/keyboard/useKeyboardShortcuts.js";
+import { useSelectionMode } from "../hooks/keyboard/useSelectionMode.js";
+import { usePendingCommand } from "../hooks/keyboard/usePendingCommand.js";
+import { useFileNavigation } from "../hooks/keyboard/useFileNavigation.js";
+import { useCommandNavigation } from "../hooks/keyboard/useCommandNavigation.js";
 // Streaming utilities
 import { createSubscriptionSendUserMessageToAI } from "./chat/streaming/subscriptionAdapter.js";
 import { handleStreamEvent } from "./chat/streaming/streamEventHandlers.js";
@@ -582,15 +588,30 @@ export default function Chat(_props: ChatProps) {
 		],
 	);
 
-	// Keyboard navigation hook
-	useKeyboardNavigation({
-		input,
-		cursor: normalizedCursor,
+	// Keyboard navigation hooks (called directly in Chat.tsx for Ink to work)
+	// Order matters: Later hooks execute first in Ink
+
+	// 1. Abort handler - ESC to abort streaming (highest priority)
+	useAbortHandler({
 		isStreaming,
+		abortControllerRef,
+		addLog,
+	});
+
+	// 2. Keyboard shortcuts - Double-ESC to clear input
+	useKeyboardShortcuts({
+		isStreaming,
+		input,
+		lastEscapeTime,
+		setInput,
+		setCursor,
+		setShowEscHint,
+	});
+
+	// 3. Selection mode - Question/option selection with filter/multi-select
+	useSelectionMode({
 		pendingInput,
-		pendingCommand,
-		filteredFileInfo,
-		filteredCommands,
+		inputResolver,
 		multiSelectionPage,
 		multiSelectionAnswers,
 		multiSelectChoices,
@@ -599,35 +620,65 @@ export default function Chat(_props: ChatProps) {
 		freeTextInput,
 		isFreeTextMode,
 		selectedCommandIndex,
-		selectedFileIndex,
-		skipNextSubmit,
-		lastEscapeTime,
-		inputResolver,
 		commandSessionRef,
-		abortControllerRef,
-		cachedOptions,
-		setInput,
-		setCursor,
-		setShowEscHint,
-		setMultiSelectionPage,
+		currentSessionId,
 		setSelectedCommandIndex,
+		setMultiSelectionPage,
 		setMultiSelectionAnswers,
 		setMultiSelectChoices,
 		setSelectionFilter,
 		setIsFilterMode,
 		setFreeTextInput,
 		setIsFreeTextMode,
-		setSelectedFileIndex,
 		setPendingInput,
-		setPendingCommand,
 		addLog,
 		addMessage,
+		getAIConfig,
+	});
+
+	// 4. Pending command - Pending command option selection
+	usePendingCommand({
+		pendingInput,
+		pendingCommand,
+		cachedOptions,
+		selectedCommandIndex,
+		currentSessionId,
+		setSelectedCommandIndex,
+		setPendingCommand,
+		createCommandContext: createCommandContextForArgs,
+		addMessage,
+	});
+
+	// 5. File navigation - @-mention file autocomplete
+	useFileNavigation({
+		input,
+		pendingInput,
+		filteredFileInfo,
+		selectedFileIndex,
+		currentSession,
+		setInput,
+		setCursor,
+		setSelectedFileIndex,
 		addAttachment,
 		setAttachmentTokenCount,
-		createCommandContext: createCommandContextForArgs,
-		getAIConfig,
+	});
+
+	// 6. Command navigation - Slash command autocomplete
+	useCommandNavigation({
+		input,
+		pendingInput,
+		filteredCommands,
+		selectedCommandIndex,
+		skipNextSubmit,
+		commandSessionRef,
 		currentSessionId,
-		currentSession,
+		setInput,
+		setCursor,
+		setSelectedCommandIndex,
+		addLog,
+		addMessage,
+		getAIConfig,
+		createCommandContext: createCommandContextForArgs,
 	});
 
 	// Command autocomplete handlers hook
