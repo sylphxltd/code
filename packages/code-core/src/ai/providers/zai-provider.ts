@@ -47,11 +47,12 @@ export class ZaiProvider implements AIProvider {
 	}
 
 	async fetchModels(config: ProviderConfig): Promise<ModelInfo[]> {
-		const apiKey = config.apiKey as string | undefined;
 		const codingPlan = config.codingPlan as boolean | undefined;
 
+		// Get API key (may be in config.apiKey or resolved from credential)
+		const apiKey = config.apiKey as string | undefined;
 		if (!apiKey) {
-			throw new Error("API key is required to fetch Z.ai models");
+			throw new Error("API key is required to fetch Z.ai models. Please configure it with /provider configure zai set apiKey <your-key>");
 		}
 
 		// Use different base URL for coding plan

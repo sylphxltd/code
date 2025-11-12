@@ -507,11 +507,21 @@ export const configRouter = router({
 			try {
 				// Load config to get provider credentials
 				const configResult = await loadAIConfig(input.cwd);
-				const providerConfig = configResult.success
-					? configResult.data.providers?.[input.providerId] || {}
-					: {};
+				if (!configResult.success) {
+					// No config yet - return empty models list
+					return { success: true as const, models: [] };
+				}
 
-				// Fetch models using provider API
+				// Get provider config WITH API key resolved from credential registry
+				const { getProviderConfigWithApiKey } = await import("@sylphx/code-core");
+				const providerConfig = await getProviderConfigWithApiKey(configResult.data, input.providerId);
+
+				if (!providerConfig) {
+					// Provider not configured
+					return { success: true as const, models: [] };
+				}
+
+				// Fetch models using provider API (now with API key)
 				const models = await fetchModels(input.providerId, providerConfig);
 				return { success: true as const, models };
 			} catch (error) {
