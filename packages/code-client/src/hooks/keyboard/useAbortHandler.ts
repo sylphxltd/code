@@ -23,6 +23,8 @@ export interface UseAbortHandlerOptions {
  * - Takes priority over other ESC actions
  */
 export function useAbortHandler(options: UseAbortHandlerOptions) {
+	console.log("[useAbortHandler] Hook called");
+
 	const { isStreaming, abortControllerRef, addLog } = options;
 
 	useInput(

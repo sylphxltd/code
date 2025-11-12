@@ -51,6 +51,8 @@ export interface UseSelectionModeOptions {
  * - Auto-submit when all answered
  */
 export function useSelectionMode(options: UseSelectionModeOptions) {
+	console.log("[useSelectionMode] Hook called - pendingInput:", !!options.pendingInput, "type:", options.pendingInput?.type);
+
 	const {
 		pendingInput,
 		inputResolver,

@@ -23,6 +23,8 @@ export interface UseKeyboardShortcutsOptions {
  * - Single ESC → show hint (if input exists)
  */
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions) {
+	console.log("[useKeyboardShortcuts] Hook called");
+
 	const { isStreaming, input, lastEscapeTime, setInput, setCursor, setShowEscHint } = options;
 
 	useInput(
