@@ -59,7 +59,6 @@ import { createHandleSubmit } from "./chat/handlers/messageHandler.js";
 import { useCommandState } from "./chat/hooks/useCommandState.js";
 // Custom hooks
 import { useInputState } from "./chat/hooks/useInputState.js";
-import { useMessageHistoryNavigation } from "./chat/hooks/useMessageHistoryNavigation.js";
 import { useSelectionState } from "./chat/hooks/useSelectionState.js";
 import { useStreamingState } from "./chat/hooks/useStreamingState.js";
 // Feature flags
@@ -75,6 +74,7 @@ import {
 	CommandAutocompleteModeHandler,
 	PendingCommandModeHandler,
 	FileNavigationModeHandler,
+	MessageHistoryModeHandler,
 } from "../hooks/input-manager/index.js";
 // Streaming utilities
 import { createSubscriptionSendUserMessageToAI } from "./chat/streaming/subscriptionAdapter.js";
@@ -760,6 +760,38 @@ export default function Chat(_props: ChatProps) {
 		],
 	);
 
+	const messageHistoryHandler = useMemo(
+		() =>
+			new MessageHistoryModeHandler({
+				messageHistory,
+				historyIndex,
+				tempInput,
+				input,
+				isStreaming,
+				inputComponent,
+				filteredCommands,
+				filteredFileInfo,
+				setInput,
+				setCursor,
+				setHistoryIndex,
+				setTempInput,
+			}),
+		[
+			messageHistory,
+			historyIndex,
+			tempInput,
+			input,
+			isStreaming,
+			inputComponent,
+			filteredCommands,
+			filteredFileInfo,
+			setInput,
+			setCursor,
+			setHistoryIndex,
+			setTempInput,
+		],
+	);
+
 	// Setup input mode manager (only active when feature flag is enabled)
 	useInputModeManager({
 		context: inputModeContext,
@@ -769,6 +801,7 @@ export default function Chat(_props: ChatProps) {
 					pendingCommandHandler,
 					fileNavigationHandler,
 					commandAutocompleteHandler,
+					messageHistoryHandler,
 				]
 			: [],
 		config: { debug: DEBUG_INPUT_MANAGER },
@@ -823,23 +856,7 @@ export default function Chat(_props: ChatProps) {
 		setSelectedFileIndex((prev) => (prev === filteredFileInfo.files.length - 1 ? 0 : prev + 1));
 	};
 
-	// Message history navigation hook (like bash)
-	useMessageHistoryNavigation({
-		isStreaming,
-		input,
-		messageHistory,
-		historyIndex,
-		tempInput,
-		inputComponent,
-		pendingInput,
-		pendingCommand,
-		filteredCommands,
-		filteredFileInfo,
-		setInput,
-		setCursor,
-		setHistoryIndex,
-		setTempInput,
-	});
+	// Message history navigation - now handled by MessageHistoryModeHandler in InputModeManager
 
 	// Reset selected indices when filtered lists change
 	useEffect(() => {

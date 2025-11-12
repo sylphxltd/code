@@ -66,3 +66,6 @@ export type { PendingCommandModeHandlerDeps } from "./handlers/PendingCommandMod
 
 export { FileNavigationModeHandler } from "./handlers/FileNavigationModeHandler.js";
 export type { FileNavigationModeHandlerDeps } from "./handlers/FileNavigationModeHandler.js";
+
+export { MessageHistoryModeHandler } from "./handlers/MessageHistoryModeHandler.js";
+export type { MessageHistoryModeHandlerDeps } from "./handlers/MessageHistoryModeHandler.js";
