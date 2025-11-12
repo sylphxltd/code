@@ -304,6 +304,38 @@ export function createHandleSubmit(params: MessageHandlerParams) {
 		// For regular messages, clear input after getting the value
 		setInput("");
 
+		// Validate that provider and model are configured before sending message
+		const aiConfig = getAIConfig();
+		const { provider, model } = resolveProviderAndModel(aiConfig);
+
+		if (!provider) {
+			const errorMsg = "No AI provider configured. Please use /provider to select a provider first.";
+			addLog(`[handleSubmit] ${errorMsg}`);
+
+			// Show error message in chat
+			const sessionIdToUse = commandSessionRef.current || currentSessionId;
+			await addMessage({
+				sessionId: sessionIdToUse,
+				role: "assistant",
+				content: `⚠️ ${errorMsg}`,
+			});
+			return;
+		}
+
+		if (!model) {
+			const errorMsg = `No model selected for ${provider}. Please type "/model" to select a model first.`;
+			addLog(`[handleSubmit] ${errorMsg}`);
+
+			// Show error message in chat
+			const sessionIdToUse = commandSessionRef.current || currentSessionId;
+			await addMessage({
+				sessionId: sessionIdToUse,
+				role: "assistant",
+				content: `⚠️ ${errorMsg}`,
+			});
+			return;
+		}
+
 		// Get attachments for this message
 		// Auto-resolve any @file references that weren't explicitly added via autocomplete
 		const attachmentsForMessage: FileAttachment[] = autoResolveFileReferences(

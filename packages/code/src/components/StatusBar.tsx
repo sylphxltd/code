@@ -90,7 +90,9 @@ export default function StatusBar({
 					</Text>
 				</Box>
 				<Box>
-					<Text color="yellow">⚠ No model selected - configure {provider} or use /model to select</Text>
+					<Text color="yellow">
+						⚠ No model selected - type "/model" to select a model
+					</Text>
 				</Box>
 			</Box>
 		);

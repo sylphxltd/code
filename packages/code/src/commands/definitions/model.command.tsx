@@ -41,7 +41,26 @@ export const modelCommand: Command = {
 			const provider = currentSession?.provider || aiConfig?.defaultProvider;
 
 			if (!provider) {
-				return "No provider configured. Please configure a provider first.";
+				return "No provider configured. Please use /provider to select a provider first.";
+			}
+
+			if (!aiConfig?.providers?.[provider]) {
+				return `Provider ${provider} is not configured. Please configure it using /provider first.`;
+			}
+
+			// Validate the model exists for this provider
+			try {
+				const { fetchModels } = await import("@sylphx/code-core");
+				const models = await fetchModels(provider as any, aiConfig.providers[provider]);
+				const modelExists = models.some((m) => m.id === modelId);
+
+				if (!modelExists) {
+					const availableModels = models.map((m) => m.id).join(", ");
+					return `Model '${modelId}' not found for ${provider}. Available models: ${availableModels}`;
+				}
+			} catch (error) {
+				const errorMsg = error instanceof Error ? error.message : String(error);
+				context.addLog(`Warning: Could not verify model '${modelId}' for ${provider}: ${errorMsg}`);
 			}
 
 			// Update model and save to provider config
@@ -67,7 +86,7 @@ export const modelCommand: Command = {
 				await updateSessionModel(currentSessionId, modelId);
 			}
 
-			return `Switched to model: ${modelId}`;
+			return `Switched to model: ${modelId} for ${provider}`;
 		}
 
 		// No args - show model selection UI
@@ -100,6 +119,12 @@ export const modelCommand: Command = {
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : String(error);
 			context.addLog(`Failed to fetch models for ${currentProviderId}: ${errorMsg}`);
+
+			// Provide helpful error messages for common issues
+			if (currentProviderId === "claude-code" && errorMsg.includes("claude")) {
+				return `Failed to load Claude Code models: ${errorMsg}\n\nTo use Claude Code provider:\n1. Install Claude CLI: npm install -g @anthropic-ai/claude-code\n2. Login: claude login\n3. Then try /model again`;
+			}
+
 			return `Failed to load models from ${currentProviderId}: ${errorMsg}`;
 		}
 
