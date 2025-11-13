@@ -1172,20 +1172,22 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				}
 
 				// 12. Update session token counts (baseContextTokens + totalTokens)
-				// Run in background - don't await to avoid blocking completion
-				// After updating, emit session-tokens-updated event for UI refresh
-				const { updateSessionTokens } = await import("@sylphx/code-core");
-				updateSessionTokens(sessionId, sessionRepository)
-					.then(async () => {
-						// Emit event to notify clients of updated tokens
-						await opts.appContext.eventStream.publish("session-events", {
-							type: "session-tokens-updated" as const,
-							sessionId,
-						});
-					})
-					.catch((error) => {
-						console.error("[streamAIResponse] Failed to update session tokens:", error);
+				// MUST await to ensure event is emitted before observable completes
+				// Otherwise observer.complete() will close the stream before event is sent
+				try {
+					const { updateSessionTokens } = await import("@sylphx/code-core");
+					await updateSessionTokens(sessionId, sessionRepository);
+
+					// Emit event to notify clients of updated tokens
+					console.log("[streamAIResponse] Publishing session-tokens-updated event for session:", sessionId);
+					await opts.appContext.eventStream.publish("session-events", {
+						type: "session-tokens-updated" as const,
+						sessionId,
 					});
+					console.log("[streamAIResponse] session-tokens-updated event published successfully");
+				} catch (error) {
+					console.error("[streamAIResponse] Failed to update session tokens:", error);
+				}
 
 				// 13. Complete observable (title continues independently via eventStream)
 				observer.complete();
