@@ -480,6 +480,7 @@ export default function Chat(_props: ChatProps) {
 		addLog,
 		addMessage,
 		getAIConfig,
+		setCurrentSessionId,
 		// Pending command mode
 		pendingCommand,
 		cachedOptions,
