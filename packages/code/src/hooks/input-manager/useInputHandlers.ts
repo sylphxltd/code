@@ -125,6 +125,7 @@ export function useInputHandlers(deps: InputHandlerDeps) {
 		addLog,
 		addMessage,
 		getAIConfig,
+		setCurrentSessionId,
 
 		// Pending command mode
 		pendingCommand,
