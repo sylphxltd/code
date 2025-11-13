@@ -8,6 +8,7 @@
 	"files": {
 		"maxSize": 5242880,
 		"includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json"],
+		"ignore": ["node_modules/", "dist/", "coverage/"],
 		"ignoreUnknown": true
 	},
 	"formatter": {
@@ -18,10 +19,19 @@
 		"lineEnding": "lf",
 		"lineWidth": 100
 	},
+	"organizeImports": {
+		"enabled": true
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true
+			"recommended": true,
+			"complexity": {
+				"noForEach": "off"
+			},
+			"suspicious": {
+				"noExplicitAny": "off"
+			}
 		}
 	},
 	"javascript": {

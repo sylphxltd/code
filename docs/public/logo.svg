@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="12" fill="#5f67ee"/>
+  <path d="M20 32L28 24L36 32L28 40L20 32Z" fill="white"/>
+  <path d="M28 32L36 24L44 32L36 40L28 32Z" fill="white" opacity="0.6"/>
+  <text x="32" y="50" text-anchor="middle" font-family="monospace" font-size="12" font-weight="bold" fill="white">CODE</text>
+</svg>
