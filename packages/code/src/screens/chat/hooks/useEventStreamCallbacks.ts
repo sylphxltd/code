@@ -124,6 +124,7 @@ export function useEventStreamCallbacks(deps: EventStreamCallbacksDeps) {
 
 			// ENABLED: Token updates (server calculates tokens, client displays)
 			onSessionTokensUpdated: (sessionId: string) => {
+				console.log("[useEventStreamCallbacks] onSessionTokensUpdated called for session:", sessionId);
 				handleStreamEvent(
 					{ type: "session-tokens-updated", sessionId },
 					eventContextParams,

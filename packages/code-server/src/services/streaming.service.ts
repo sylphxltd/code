@@ -1179,8 +1179,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 					await updateSessionTokens(sessionId, sessionRepository);
 
 					// Emit event to notify clients of updated tokens
+					// Publish to session-specific channel (same as other streaming events)
 					console.log("[streamAIResponse] Publishing session-tokens-updated event for session:", sessionId);
-					await opts.appContext.eventStream.publish("session-events", {
+					await opts.appContext.eventStream.publish(`session:${sessionId}`, {
 						type: "session-tokens-updated" as const,
 						sessionId,
 					});
