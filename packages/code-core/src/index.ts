@@ -283,12 +283,7 @@ export {
 	getTokenizerInfo,
 	countTokens,
 } from "./utils/token-counter.js";
-export {
-	calculateBaseContextTokens,
-	calculateTotalTokens,
-	updateSessionTokens,
-	persistSessionTokens,
-} from "./ai/session-tokens.js";
+export { calculateBaseContextTokens } from "./ai/session-tokens.js";
 export { TokenCalculator } from "./ai/token-calculator.js";
 export { StreamingTokenTracker } from "./ai/streaming-token-tracker.js";
 export { calculateModelMessagesTokens } from "./ai/model-message-token-calculator.js";

@@ -1,18 +1,17 @@
 /**
  * Session Token Calculator
- * Calculates and updates token counts for sessions
+ * Calculates base context tokens (system prompt + tools)
  *
- * ARCHITECTURE: Server-side only
+ * ARCHITECTURE: Dynamic calculation (NO database cache)
  * - Uses Hugging Face tokenizer for accurate counting
- * - Calculates baseContextTokens on session creation
- * - Updates totalTokens after each message
- * - Never runs on client (pure UI)
+ * - Calculates in real-time on demand (not cached)
+ * - Server-side only (never runs on client)
  *
- * SSOT: Database is Single Source of Truth
- * - persistSessionTokens() is the ONLY function that writes to DB
- * - All calculations use MODEL MESSAGES (not session messages)
- * - Model messages = buildModelMessages(session messages) = what actually gets sent to AI
- * - Called at checkpoints: step completion, session creation
+ * RATIONALE: Why no caching?
+ * - Agent can change mid-session → system prompt changes
+ * - Rules can change mid-session → system prompt changes
+ * - Model can change mid-session → tokenizer changes (different counts for same text)
+ * - All token calculations must be dynamic to reflect current state
  *
  * CRITICAL: Token calculation must use MODEL messages (via buildModelMessages)
  * - Session messages = database storage format
@@ -21,23 +20,15 @@
  * - Only model messages reflect actual context usage
  */
 
-import type { SessionRepository } from "../database/session-repository.js";
-import type { MessageRepository } from "../database/message-repository.js";
-import type { ProviderId } from "../config/ai-config.js";
 import { countTokens } from "../utils/token-counter.js";
 import { buildSystemPrompt } from "./system-prompt-builder.js";
 import { loadAllAgents } from "./agent-loader.js";
 import { loadAllRules } from "./rule-loader.js";
 import { getAISDKTools } from "../tools/registry.js";
-import type { SessionMessage } from "../types/session.types.js";
-import { TokenCalculator } from "./token-calculator.js";
-import { buildModelMessages } from "./message-builder/index.js";
-import { calculateModelMessagesTokens } from "./model-message-token-calculator.js";
-import { getModel } from "../registry/model-registry.js";
 
 /**
  * Calculate base context tokens (system prompt + tools)
- * Called once on session creation
+ * Called dynamically on demand (no caching)
  */
 export async function calculateBaseContextTokens(
 	modelName: string,
@@ -72,132 +63,3 @@ export async function calculateBaseContextTokens(
 	return systemPromptTokens + toolsTokens;
 }
 
-/**
- * Calculate message tokens using TokenCalculator
- * DEPRECATED: Use TokenCalculator.calculateMessageTokens() directly
- * Kept for backward compatibility
- */
-async function calculateMessageTokens(
-	message: SessionMessage,
-	modelName: string,
-): Promise<number> {
-	const calculator = new TokenCalculator(modelName);
-	return await calculator.calculateMessageTokens(message);
-}
-
-/**
- * Calculate total tokens for session (base + all messages)
- * CRITICAL: Uses MODEL messages (buildModelMessages) not session messages
- *
- * Model messages include:
- * - System message injection at step level
- * - File content (loaded from file_contents table via file-ref)
- * - Format conversion to AI SDK format
- * - All parts: text, reasoning, tool-call, tool-result, files
- *
- * This is what ACTUALLY gets sent to the AI model, so this is what we must count.
- */
-export async function calculateTotalTokens(
-	sessionId: string,
-	sessionRepository: SessionRepository,
-	messageRepository: MessageRepository,
-): Promise<{ baseContextTokens: number; totalTokens: number }> {
-	// Get session to access model and messages
-	const session = await sessionRepository.getSessionById(sessionId);
-	if (!session) {
-		throw new Error(`Session ${sessionId} not found`);
-	}
-
-	// If baseContextTokens not calculated yet, calculate it now
-	let baseContextTokens = session.baseContextTokens || 0;
-	if (baseContextTokens === 0) {
-		const cwd = process.cwd();
-		baseContextTokens = await calculateBaseContextTokens(
-			session.model,
-			session.agentId,
-			session.enabledRuleIds,
-			cwd,
-		);
-	}
-
-	// Build MODEL messages (what actually gets sent to AI)
-	// This includes all transformations:
-	// - System message injection
-	// - File loading (from file_contents table)
-	// - Format conversion to AI SDK
-	const modelEntity = getModel(session.model);
-	const modelCapabilities = modelEntity?.capabilities;
-	const fileRepo = messageRepository.getFileRepository();
-
-	const modelMessages = await buildModelMessages(
-		session.messages,
-		modelCapabilities,
-		fileRepo,
-	);
-
-	// Calculate tokens of MODEL messages (not session messages)
-	// This is the actual context usage
-	const messagesTokens = await calculateModelMessagesTokens(modelMessages, session.model);
-
-	const totalTokens = baseContextTokens + messagesTokens;
-
-	console.log("[calculateTotalTokens] SSOT calculation:", {
-		sessionId,
-		baseContextTokens,
-		messagesTokens,
-		totalTokens,
-		messageCount: session.messages.length,
-		modelMessageCount: modelMessages.length,
-	});
-
-	return { baseContextTokens, totalTokens };
-}
-
-/**
- * Persist session tokens to database
- * SSOT: This is the ONLY function that writes session tokens to DB
- *
- * Called at checkpoints:
- * - Step completion (after all parts including tools are complete)
- * - Session creation (for baseContextTokens)
- * - Manual recalculation (e.g., /context command)
- *
- * CRITICAL: Uses MODEL messages via buildModelMessages
- * - Calculates what ACTUALLY gets sent to AI
- * - Includes all transformations, file loading, system messages
- * - This is the true context usage
- *
- * @returns Calculated tokens that were persisted
- */
-export async function persistSessionTokens(
-	sessionId: string,
-	sessionRepository: SessionRepository,
-	messageRepository: MessageRepository,
-): Promise<{ baseContextTokens: number; totalTokens: number }> {
-	// Calculate using unified logic (uses MODEL messages)
-	const tokens = await calculateTotalTokens(sessionId, sessionRepository, messageRepository);
-
-	// Write to DB (SSOT update)
-	await sessionRepository.updateSessionTokens(sessionId, tokens);
-
-	console.log("[persistSessionTokens] SSOT updated:", {
-		sessionId,
-		baseContextTokens: tokens.baseContextTokens,
-		totalTokens: tokens.totalTokens,
-	});
-
-	return tokens;
-}
-
-/**
- * Update session tokens after message is added
- * DEPRECATED: Use persistSessionTokens() directly
- * Kept for backward compatibility
- */
-export async function updateSessionTokens(
-	sessionId: string,
-	sessionRepository: SessionRepository,
-	messageRepository: MessageRepository,
-): Promise<void> {
-	await persistSessionTokens(sessionId, sessionRepository, messageRepository);
-}

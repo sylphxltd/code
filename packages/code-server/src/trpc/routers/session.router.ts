@@ -158,36 +158,9 @@ export const sessionRouter = router({
 				enabledRuleIds,
 			);
 
-			// Calculate and store base context tokens (system prompt + tools)
-			// This runs in background - don't await to avoid blocking session creation
-			const { calculateBaseContextTokens } = await import("@sylphx/code-core");
-			calculateBaseContextTokens(input.model, agentId, enabledRuleIds, cwd)
-				.then(async (baseContextTokens) => {
-					// Update BOTH baseContextTokens and totalTokens
-					// When there are no messages, totalTokens = baseContextTokens
-					await ctx.sessionRepository.updateSessionTokens(session.id, {
-						baseContextTokens,
-						totalTokens: baseContextTokens,
-					});
-
-					// Emit event to notify clients about base context tokens
-					// IMPORTANT: Without this, StatusBar won't show base context until first message
-					await ctx.appContext.eventStream.publish(`session:${session.id}`, {
-						type: "session-tokens-updated" as const,
-						sessionId: session.id,
-						totalTokens: baseContextTokens, // Only base context, no messages yet
-						baseContextTokens,
-					});
-
-					console.log("[session.create] Base context tokens calculated and emitted:", {
-						sessionId: session.id,
-						baseContextTokens,
-						totalTokens: baseContextTokens,
-					});
-				})
-				.catch((error) => {
-					console.error("[session.create] Failed to calculate base context tokens:", error);
-				});
+			// Tokens are calculated dynamically (NO database cache)
+			// Client pulls token data via getTotalTokens endpoint when StatusBar renders
+			// This ensures SSOT: same calculation logic as /context command
 
 			// Publish to event stream for multi-client sync
 			await ctx.appContext.eventStream.publish("session-events", {

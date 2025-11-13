@@ -474,40 +474,63 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 								finishReason: stepResult.finishReason || "unknown",
 							});
 
-							// Final token calculation for step (SSOT update)
-							// NOTE: This is the ONLY place where tokens are persisted to DB
-							// Real-time updates during streaming were optimistic (not persisted)
-							// This checkpoint writes accurate calculation to DB
+							// Final token calculation for step (Dynamic Recalculation)
+							// ARCHITECTURE: NO database cache - all tokens calculated dynamically
+							// Real-time updates during streaming were optimistic (in-memory)
+							// This checkpoint recalculates accurate values and emits to all clients
 							// CRITICAL: Uses MODEL messages (buildModelMessages) for accurate counting
 							try {
-								const { persistSessionTokens } = await import("@sylphx/code-core");
+								// Refetch updated session (has latest messages after step completion)
+								const updatedSession = await sessionRepository.getSessionById(sessionId);
 
-								// Persist to DB (SSOT update)
-								// Uses buildModelMessages internally to calculate actual context usage
-								const { totalTokens, baseContextTokens } = await persistSessionTokens(
-									sessionId,
-									sessionRepository,
-									messageRepository,
+								// Recalculate base context (dynamic - can change mid-session)
+								const recalculatedBaseContext = await calculateBaseContextTokens(
+									updatedSession.model,
+									updatedSession.agentId,
+									updatedSession.enabledRuleIds,
+									cwd,
 								);
 
-								// Emit accurate value (from SSOT)
+								// Recalculate messages tokens using current model's tokenizer
+								let recalculatedMessages = 0;
+								if (updatedSession.messages && updatedSession.messages.length > 0) {
+									const modelEntity = getModel(updatedSession.model);
+									const modelCapabilities = modelEntity?.capabilities;
+									const fileRepo = messageRepository.getFileRepository();
+
+									const modelMessages = await buildModelMessages(
+										updatedSession.messages,
+										modelCapabilities,
+										fileRepo,
+									);
+
+									recalculatedMessages = await calculateModelMessagesTokens(
+										modelMessages,
+										updatedSession.model,
+									);
+								}
+
+								const totalTokens = recalculatedBaseContext + recalculatedMessages;
+
+								// Emit to all clients (multi-client real-time sync)
 								await opts.appContext.eventStream.publish(`session:${sessionId}`, {
 									type: "session-tokens-updated" as const,
 									sessionId,
 									totalTokens,
-									baseContextTokens,
+									baseContextTokens: recalculatedBaseContext,
 								});
 
-								console.log("[onStepFinish] SSOT checkpoint:", {
+								console.log("[onStepFinish] Dynamic recalculation checkpoint:", {
 									step: stepNumber,
 									totalTokens,
-									baseContextTokens,
+									baseContextTokens: recalculatedBaseContext,
+									messagesTokens: recalculatedMessages,
 								});
 
-								// Reset tracker with new baseline from DB
+								// Reset tracker with new baseline (for next streaming chunk)
 								tokenTracker.reset(totalTokens);
 							} catch (tokenError) {
-								console.error("[onStepFinish] Failed to persist tokens to SSOT:", tokenError);
+								console.error("[onStepFinish] Failed to recalculate tokens:", tokenError);
 							}
 
 							lastCompletedStepNumber = stepNumber;
@@ -734,25 +757,63 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				let finalFinishReason: string | undefined;
 				let hasError = false;
 
-				// Real-time token tracking (SSOT Architecture)
+				// Real-time token tracking (Dynamic Calculation - No Cache)
 				// ARCHITECTURE:
-				// - Database is SSOT - only written at checkpoints (step completion)
+				// - NO database cache - all tokens calculated dynamically
 				// - Streaming period: optimistic in-memory tracking
 				// - Events notify immediately on every chunk
-				// - TokenCalculator provides unified calculation logic
-				const { TokenCalculator, StreamingTokenTracker } = await import("@sylphx/code-core");
+				// - Baseline recalculated on model/agent/rules change
+				const {
+					TokenCalculator,
+					StreamingTokenTracker,
+					calculateModelMessagesTokens,
+					buildModelMessages,
+					calculateBaseContextTokens,
+					getModel,
+				} = await import("@sylphx/code-core");
 
-				// Initialize calculator and tracker
+				// Initialize calculator
 				const calculator = new TokenCalculator(session.model);
-				const baselineTotal = session.totalTokens || session.baseContextTokens || 0;
+
+				// Calculate current baseline (real-time, no cache)
+				// Uses current session state: model, agent, rules, messages
+				const cwd = process.cwd();
+				const baseContextTokens = await calculateBaseContextTokens(
+					session.model,
+					session.agentId,
+					session.enabledRuleIds,
+					cwd,
+				);
+
+				let messagesTokens = 0;
+				if (session.messages && session.messages.length > 0) {
+					const modelEntity = getModel(session.model);
+					const modelCapabilities = modelEntity?.capabilities;
+					const fileRepo = messageRepository.getFileRepository();
+
+					const modelMessages = await buildModelMessages(
+						session.messages,
+						modelCapabilities,
+						fileRepo,
+					);
+
+					messagesTokens = await calculateModelMessagesTokens(modelMessages, session.model);
+				}
+
+				const baselineTotal = baseContextTokens + messagesTokens;
 				const tokenTracker = new StreamingTokenTracker(calculator, baselineTotal);
+
+				console.log("[streamAIResponse] Token tracking initialized (no cache):", {
+					baseContextTokens,
+					messagesTokens,
+					baselineTotal,
+				});
 
 				// Helper: Update tokens from delta and emit event
 				const updateTokensFromDelta = async (deltaText: string) => {
 					try {
 						// Add delta to tracker (optimistic, not persisted)
 						const currentTotal = await tokenTracker.addDelta(deltaText);
-						const baseTokens = session.baseContextTokens || 0;
 
 						console.log("[updateTokensFromDelta] Optimistic update:", {
 							deltaText: deltaText.substring(0, 20) + "...",
@@ -767,7 +828,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 							type: "session-tokens-updated" as const,
 							sessionId,
 							totalTokens: currentTotal,
-							baseContextTokens: baseTokens,
+							baseContextTokens: baseContextTokens, // Use calculated value (not DB)
 						});
 					} catch (error) {
 						// Non-critical - don't interrupt streaming
@@ -1259,35 +1320,62 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 					}
 				}
 
-				// 12. Update session token counts (baseContextTokens + totalTokens)
+				// 12. Calculate final token counts (Dynamic - NO database cache)
 				// MUST await to ensure event is emitted before observable completes
 				// Otherwise observer.complete() will close the stream before event is sent
 				try {
-					const { updateSessionTokens } = await import("@sylphx/code-core");
-					await updateSessionTokens(sessionId, sessionRepository);
-
-					// Read updated session to get token values (server-side read, efficient)
-					const updatedSession = await sessionRepository.getSessionById(sessionId);
-					if (!updatedSession) {
-						throw new Error("Session not found after token update");
+					// Refetch final session state
+					const finalSession = await sessionRepository.getSessionById(sessionId);
+					if (!finalSession) {
+						throw new Error("Session not found for final token calculation");
 					}
 
-					// Emit event with actual token data (send data on needed)
+					// Recalculate base context (dynamic - reflects current agent/rules)
+					const finalBaseContext = await calculateBaseContextTokens(
+						finalSession.model,
+						finalSession.agentId,
+						finalSession.enabledRuleIds,
+						cwd,
+					);
+
+					// Recalculate messages tokens using current model's tokenizer
+					let finalMessages = 0;
+					if (finalSession.messages && finalSession.messages.length > 0) {
+						const modelEntity = getModel(finalSession.model);
+						const modelCapabilities = modelEntity?.capabilities;
+						const fileRepo = messageRepository.getFileRepository();
+
+						const modelMessages = await buildModelMessages(
+							finalSession.messages,
+							modelCapabilities,
+							fileRepo,
+						);
+
+						finalMessages = await calculateModelMessagesTokens(
+							modelMessages,
+							finalSession.model,
+						);
+					}
+
+					const finalTotal = finalBaseContext + finalMessages;
+
+					// Emit event with calculated token data (send data on needed)
 					// Publish to session-specific channel (same as other streaming events)
 					// All clients receive token data immediately without additional API calls
 					console.log("[streamAIResponse] Publishing session-tokens-updated event for session:", sessionId);
 					await opts.appContext.eventStream.publish(`session:${sessionId}`, {
 						type: "session-tokens-updated" as const,
 						sessionId,
-						totalTokens: updatedSession.totalTokens || 0,
-						baseContextTokens: updatedSession.baseContextTokens || 0,
+						totalTokens: finalTotal,
+						baseContextTokens: finalBaseContext,
 					});
 					console.log("[streamAIResponse] session-tokens-updated event published successfully:", {
-						totalTokens: updatedSession.totalTokens,
-						baseContextTokens: updatedSession.baseContextTokens,
+						totalTokens: finalTotal,
+						baseContextTokens: finalBaseContext,
+						messagesTokens: finalMessages,
 					});
 				} catch (error) {
-					console.error("[streamAIResponse] Failed to update session tokens:", error);
+					console.error("[streamAIResponse] Failed to calculate final tokens:", error);
 				}
 
 				// 13. Complete observable (title continues independently via eventStream)
