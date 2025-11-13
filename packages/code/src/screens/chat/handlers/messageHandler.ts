@@ -241,7 +241,7 @@ export function createHandleSubmit(params: MessageHandlerParams) {
 				if (!commandSessionRef.current) {
 					commandSessionRef.current = resultSessionId;
 					// Update current session to show messages in UI
-					await setCurrentSession(resultSessionId);
+					setCurrentSessionId(resultSessionId);
 				}
 
 				await addMessage({
@@ -278,22 +278,70 @@ export function createHandleSubmit(params: MessageHandlerParams) {
 
 			// Execute command - command has full control via CommandContext
 			try {
+				addLog(`[executeCommand] Executing ${commandName} with args: ${JSON.stringify(args)}`);
 				const result = await command.execute(createCommandContext(args));
 
+				addLog(
+					`[executeCommand] Result type: ${typeof result}, value: ${result ? String(result).substring(0, 100) : "null/undefined"}`,
+				);
+
 				// If command returns a result string, add it to conversation
-				if (result && typeof result === "string" && commandSessionRef.current) {
+				if (result && typeof result === "string") {
+					if (!commandSessionRef.current) {
+						addLog(
+							`[executeCommand] WARNING: commandSessionRef is null, cannot add result to chat`,
+						);
+						console.error(
+							"[executeCommand] commandSessionRef is null after command execution",
+						);
+						return;
+					}
+
 					await addMessage({
 						sessionId: commandSessionRef.current,
 						role: "assistant",
 						content: result,
 					});
+				} else if (result !== undefined) {
+					// Command returned something but not a string
+					addLog(
+						`[executeCommand] WARNING: Command returned non-string result: ${typeof result}`,
+					);
 				}
 			} catch (error) {
-				if (commandSessionRef.current) {
+				const errorMsg = error instanceof Error ? error.message : "Command failed";
+				const errorStack = error instanceof Error ? error.stack : undefined;
+
+				addLog(`[executeCommand] Command error: ${errorMsg}`);
+				console.error("[executeCommand] Command execution error:", error);
+				console.error("[executeCommand] Stack trace:", errorStack);
+
+				// Always show error to user, even if session ref is missing
+				if (!commandSessionRef.current) {
+					addLog(
+						`[executeCommand] ERROR: commandSessionRef is null, cannot add error to chat: ${errorMsg}`,
+					);
+					console.error(
+						"[executeCommand] CRITICAL: commandSessionRef is null, error cannot be shown to user:",
+						errorMsg,
+					);
+					// Still try to create session for error message
+					const aiConfig = getAIConfig();
+					const { provider, model } = resolveProviderAndModel(aiConfig);
+					const sessionIdToUse = currentSessionId;
+					const resultSessionId = await addMessage({
+						sessionId: sessionIdToUse,
+						role: "assistant",
+						content: `❌ Command Error: ${errorMsg}`,
+						provider,
+						model,
+					});
+					commandSessionRef.current = resultSessionId;
+				} else {
 					await addMessage({
 						sessionId: commandSessionRef.current,
 						role: "assistant",
-						content: `Error: ${error instanceof Error ? error.message : "Command failed"}`,
+						content: `❌ Command Error: ${errorMsg}`,
 					});
 				}
 			}
