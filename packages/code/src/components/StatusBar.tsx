@@ -3,7 +3,12 @@
  * Display important session info at the bottom
  */
 
-import { useModelDetails, useSelectedAgentId, useEnabledRuleIds } from "@sylphx/code-client";
+import {
+	useModelDetails,
+	useSelectedAgentId,
+	useEnabledRuleIds,
+	useBaseContextTokens,
+} from "@sylphx/code-client";
 import { getAgentById } from "../embedded-context.js";
 import { Box, Text } from "ink";
 import React from "react";
@@ -43,8 +48,28 @@ export default function StatusBar({
 	const enabledRuleIds = useEnabledRuleIds();
 	const enabledRulesCount = enabledRuleIds.length;
 
+	// Calculate base context tokens (even without session)
+	// This shows system prompts + tools usage immediately on startup
+	// "我期望一開就會見到自己用量，而唔係只寫 256k"
+	const baseContextTokens = useBaseContextTokens(
+		provider,
+		model,
+		selectedAgentId,
+		enabledRuleIds,
+	);
+
+	// Final used tokens: session tokens OR base context (fallback)
+	// - With session: usedTokens from session.totalTokens (includes messages)
+	// - Without session: baseContextTokens (system prompts + tools)
+	const finalUsedTokens = usedTokens > 0 ? usedTokens : baseContextTokens;
+
 	// DEBUG: Log props received
 	console.log("[StatusBar] Props:", { provider, model, modelStatus, usedTokens });
+	console.log("[StatusBar] Token calculation:", {
+		usedTokens,
+		baseContextTokens,
+		finalUsedTokens,
+	});
 
 	// Fetch model details from server
 	const { details, loading } = useModelDetails(provider, model);
@@ -63,9 +88,11 @@ export default function StatusBar({
 	};
 
 	// Calculate usage percentage
-	// usedTokens = session.totalTokens (calculated by server)
+	// finalUsedTokens = session.totalTokens OR base context tokens
 	const usagePercent =
-		contextLength && usedTokens > 0 ? Math.round((usedTokens / contextLength) * 100) : 0;
+		contextLength && finalUsedTokens > 0
+			? Math.round((finalUsedTokens / contextLength) * 100)
+			: 0;
 
 	// Handle unconfigured states
 	if (!provider) {
@@ -137,12 +164,12 @@ export default function StatusBar({
 
 			{/* Right side: Context usage (tokenizer info moved to /context) */}
 			<Box>
-				{!loading && contextLength && usedTokens > 0 ? (
+				{!loading && contextLength && finalUsedTokens > 0 ? (
 					<Text dimColor>
-						{formatNumber(usedTokens)} / {formatNumber(contextLength)} ({usagePercent}%)
+						{formatNumber(finalUsedTokens)} / {formatNumber(contextLength)} ({usagePercent}%)
 					</Text>
 				) : null}
-				{!loading && contextLength && usedTokens === 0 ? (
+				{!loading && contextLength && finalUsedTokens === 0 ? (
 					<Text dimColor>{formatNumber(contextLength)}</Text>
 				) : null}
 			</Box>

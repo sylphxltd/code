@@ -557,6 +557,53 @@ export const sessionRouter = router({
 			};
 		}),
 
+	/**
+	 * Calculate base context tokens WITHOUT session
+	 * Used for StatusBar display before user sends first message
+	 *
+	 * ARCHITECTURE: Client provides current UI state
+	 * - model: selected model (from UI)
+	 * - agentId: selected agent (from UI)
+	 * - enabledRuleIds: enabled rules (from UI)
+	 *
+	 * Returns base context tokens (system prompts + tools)
+	 */
+	getBaseContextTokens: publicProcedure
+		.input(
+			z.object({
+				model: z.string(),
+				agentId: z.string().optional(),
+				enabledRuleIds: z.array(z.string()).optional(),
+			}),
+		)
+		.query(async ({ input }) => {
+			const { calculateBaseContextTokens } = await import("@sylphx/code-core");
+
+			const cwd = process.cwd();
+			const agentId = input.agentId || "coder";
+			const enabledRuleIds = input.enabledRuleIds || [];
+
+			try {
+				const baseContextTokens = await calculateBaseContextTokens(
+					input.model,
+					agentId,
+					enabledRuleIds,
+					cwd,
+				);
+
+				return {
+					success: true as const,
+					baseContextTokens,
+				};
+			} catch (error) {
+				console.error("[getBaseContextTokens] Failed:", error);
+				return {
+					success: false as const,
+					error: error instanceof Error ? error.message : "Unknown error",
+				};
+			}
+		}),
+
 	// Note: Session events are now delivered via events.subscribeToAllSessions
 	// which subscribes to the 'session-events' channel
 });

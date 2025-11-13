@@ -21,6 +21,7 @@ import {
 	useProjectFiles,
 	useSessionInitialization,
 	useTokenCalculation,
+	useBaseContextTokens,
 	// Zen signals
 	useCurrentScreen,
 	useIsLoading,
