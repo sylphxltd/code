@@ -558,32 +558,38 @@ export const sessionRouter = router({
 		}),
 
 	/**
-	 * Calculate base context tokens WITHOUT session
-	 * Used for StatusBar display before user sends first message
+	 * Get total tokens for StatusBar display
+	 * SSOT: Uses same calculation logic as /context command
 	 *
-	 * ARCHITECTURE: Client provides current UI state
-	 * - model: selected model (from UI)
-	 * - agentId: selected agent (from UI)
-	 * - enabledRuleIds: enabled rules (from UI)
+	 * ARCHITECTURE:
+	 * - With session: calculate using buildModelMessages (actual context usage)
+	 * - Without session: calculate base context (system prompts + tools)
 	 *
-	 * Returns base context tokens (system prompts + tools)
+	 * This ensures StatusBar and /context show IDENTICAL numbers.
 	 */
-	getBaseContextTokens: publicProcedure
+	getTotalTokens: publicProcedure
 		.input(
 			z.object({
+				sessionId: z.string().nullable(),
 				model: z.string(),
 				agentId: z.string().optional(),
 				enabledRuleIds: z.array(z.string()).optional(),
 			}),
 		)
-		.query(async ({ input }) => {
-			const { calculateBaseContextTokens } = await import("@sylphx/code-core");
+		.query(async ({ ctx, input }) => {
+			const {
+				calculateBaseContextTokens,
+				buildModelMessages,
+				calculateModelMessagesTokens,
+				getModel,
+			} = await import("@sylphx/code-core");
 
 			const cwd = process.cwd();
 			const agentId = input.agentId || "coder";
 			const enabledRuleIds = input.enabledRuleIds || [];
 
 			try {
+				// Calculate base context (system prompts + tools)
 				const baseContextTokens = await calculateBaseContextTokens(
 					input.model,
 					agentId,
@@ -591,15 +597,60 @@ export const sessionRouter = router({
 					cwd,
 				);
 
+				// If no session, return base context only
+				if (!input.sessionId) {
+					return {
+						success: true as const,
+						totalTokens: baseContextTokens,
+						baseContextTokens,
+						messagesTokens: 0,
+					};
+				}
+
+				// Get session and calculate messages tokens
+				const session = await ctx.sessionRepository.getSessionById(input.sessionId);
+				if (!session) {
+					// Session not found, return base context
+					return {
+						success: true as const,
+						totalTokens: baseContextTokens,
+						baseContextTokens,
+						messagesTokens: 0,
+					};
+				}
+
+				// Calculate messages tokens using MODEL messages (SSOT logic)
+				let messagesTokens = 0;
+				if (session.messages && session.messages.length > 0) {
+					const modelEntity = getModel(session.model);
+					const modelCapabilities = modelEntity?.capabilities;
+					const fileRepo = ctx.messageRepository.getFileRepository();
+
+					const modelMessages = await buildModelMessages(
+						session.messages,
+						modelCapabilities,
+						fileRepo,
+					);
+
+					messagesTokens = await calculateModelMessagesTokens(modelMessages, session.model);
+				}
+
+				const totalTokens = baseContextTokens + messagesTokens;
+
 				return {
 					success: true as const,
+					totalTokens,
 					baseContextTokens,
+					messagesTokens,
 				};
 			} catch (error) {
-				console.error("[getBaseContextTokens] Failed:", error);
+				console.error("[getTotalTokens] Failed:", error);
 				return {
 					success: false as const,
 					error: error instanceof Error ? error.message : "Unknown error",
+					totalTokens: 0,
+					baseContextTokens: 0,
+					messagesTokens: 0,
 				};
 			}
 		}),

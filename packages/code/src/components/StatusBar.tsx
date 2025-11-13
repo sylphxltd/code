@@ -7,7 +7,7 @@ import {
 	useModelDetails,
 	useSelectedAgentId,
 	useEnabledRuleIds,
-	useBaseContextTokens,
+	useTotalTokens,
 } from "@sylphx/code-client";
 import { getAgentById } from "../embedded-context.js";
 import { Box, Text } from "ink";
@@ -33,12 +33,17 @@ interface StatusBarProps {
  * - All business logic on server
  * - Safe for Web GUI and remote mode
  */
+interface StatusBarPropsInternal extends StatusBarProps {
+	sessionId: string | null;
+}
+
 export default function StatusBar({
+	sessionId,
 	provider,
 	model,
 	modelStatus,
 	usedTokens = 0,
-}: StatusBarProps) {
+}: StatusBarPropsInternal) {
 	// Subscribe to current agent from store (event-driven, no polling!)
 	const selectedAgentId = useSelectedAgentId();
 	const currentAgent = getAgentById(selectedAgentId);
@@ -48,27 +53,24 @@ export default function StatusBar({
 	const enabledRuleIds = useEnabledRuleIds();
 	const enabledRulesCount = enabledRuleIds.length;
 
-	// Calculate base context tokens (even without session)
-	// This shows system prompts + tools usage immediately on startup
-	// "我期望一開就會見到自己用量，而唔係只寫 256k"
-	const baseContextTokens = useBaseContextTokens(
+	// SSOT: Calculate total tokens using SAME logic as /context
+	// - Uses buildModelMessages + calculateModelMessagesTokens
+	// - Recalculates on agent/rules change (not cached in DB)
+	// "點解右下角仍然要殿開邏輯？唔係同 /context 一致咩？ssot吖嘛？"
+	const totalTokensSSOT = useTotalTokens(
+		sessionId,
 		provider,
 		model,
 		selectedAgentId,
 		enabledRuleIds,
 	);
 
-	// Final used tokens: session tokens OR base context (fallback)
-	// - With session: usedTokens from session.totalTokens (includes messages)
-	// - Without session: baseContextTokens (system prompts + tools)
-	const finalUsedTokens = usedTokens > 0 ? usedTokens : baseContextTokens;
-
-	// DEBUG: Log props received
-	console.log("[StatusBar] Props:", { provider, model, modelStatus, usedTokens });
-	console.log("[StatusBar] Token calculation:", {
-		usedTokens,
-		baseContextTokens,
-		finalUsedTokens,
+	// DEBUG: Log calculation
+	console.log("[StatusBar] SSOT calculation:", {
+		sessionId,
+		provider,
+		model,
+		totalTokensSSOT,
 	});
 
 	// Fetch model details from server
@@ -87,11 +89,10 @@ export default function StatusBar({
 		return num.toString();
 	};
 
-	// Calculate usage percentage
-	// finalUsedTokens = session.totalTokens OR base context tokens
+	// Calculate usage percentage using SSOT value
 	const usagePercent =
-		contextLength && finalUsedTokens > 0
-			? Math.round((finalUsedTokens / contextLength) * 100)
+		contextLength && totalTokensSSOT > 0
+			? Math.round((totalTokensSSOT / contextLength) * 100)
 			: 0;
 
 	// Handle unconfigured states
@@ -162,14 +163,14 @@ export default function StatusBar({
 				{capabilityLabel && <Text dimColor>{capabilityLabel}</Text>}
 			</Box>
 
-			{/* Right side: Context usage (tokenizer info moved to /context) */}
+			{/* Right side: Context usage (SSOT - same as /context) */}
 			<Box>
-				{!loading && contextLength && finalUsedTokens > 0 ? (
+				{!loading && contextLength && totalTokensSSOT > 0 ? (
 					<Text dimColor>
-						{formatNumber(finalUsedTokens)} / {formatNumber(contextLength)} ({usagePercent}%)
+						{formatNumber(totalTokensSSOT)} / {formatNumber(contextLength)} ({usagePercent}%)
 					</Text>
 				) : null}
-				{!loading && contextLength && finalUsedTokens === 0 ? (
+				{!loading && contextLength && totalTokensSSOT === 0 ? (
 					<Text dimColor>{formatNumber(contextLength)}</Text>
 				) : null}
 			</Box>

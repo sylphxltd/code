@@ -21,7 +21,7 @@ import {
 	useProjectFiles,
 	useSessionInitialization,
 	useTokenCalculation,
-	useBaseContextTokens,
+	useTotalTokens,
 	// Zen signals
 	useCurrentScreen,
 	useIsLoading,
@@ -641,6 +641,7 @@ export default function Chat(_props: ChatProps) {
 				{/* Status Bar */}
 				<Box flexShrink={0} paddingTop={1} flexDirection="row">
 					<StatusBar
+						sessionId={currentSessionId || null}
 						provider={currentSession?.provider || selectedProvider || null}
 						model={currentSession?.model || selectedModel || null}
 						modelStatus={currentSession?.modelStatus}

@@ -90,7 +90,7 @@ export { useProviders } from "./hooks/useProviders.js";
 export { useSessionInitialization } from "./hooks/useSessionInitialization.js";
 export { useSessionPersistence } from "./hooks/useSessionPersistence.js";
 export { useTokenCalculation } from "./hooks/useTokenCalculation.js";
-export { useBaseContextTokens } from "./hooks/useBaseContextTokens.js";
+export { useTotalTokens } from "./hooks/useTotalTokens.js";
 export { useSessionList } from "./hooks/useSessionList.js";
 export {
 	useSessionListSync,
