@@ -17,27 +17,33 @@ export const contextCommand: Command = {
 
 			const { formatTokenCount } = await import("@sylphx/code-core");
 			const { get, getTRPCClient } = await import("@sylphx/code-client");
-			const { $currentSession } = await import("@sylphx/code-client");
+			const { $currentSession, $selectedModel } = await import("@sylphx/code-client");
 
 			console.log("[Context] Imports loaded");
 			commandContext.addLog("[Context] Imports loaded");
 
 			const currentSession = get($currentSession);
+			const selectedModel = get($selectedModel);
 
-			// Get model name from session or AI config
-			let modelName: string;
-			let sessionId: string | null = null;
+			// Get model name from session or selected model (match StatusBar logic)
+			const modelName = currentSession?.model || selectedModel || null;
+			const sessionId = currentSession?.id || null;
+
+			if (!modelName) {
+				commandContext.setInputComponent(
+					<ContextDisplay
+						output="❌ No model selected. Please select a model first."
+						onComplete={() => commandContext.setInputComponent(null)}
+					/>,
+					"Context",
+				);
+				return;
+			}
 
 			if (currentSession) {
-				commandContext.addLog(`[Context] Current session: ${currentSession.id}`);
-				modelName = currentSession.model;
-				sessionId = currentSession.id;
+				commandContext.addLog(`[Context] Current session: ${currentSession.id}, model: ${modelName}`);
 			} else {
-				commandContext.addLog("[Context] No active session, showing base context");
-				const { get: getStore } = await import("@sylphx/code-client");
-				const { $aiConfig } = await import("@sylphx/code-client");
-				const aiConfig = getStore($aiConfig);
-				modelName = aiConfig?.defaultModel || "anthropic/claude-3.5-sonnet";
+				commandContext.addLog(`[Context] No active session, using selected model: ${modelName}`);
 			}
 
 			// Get model-specific context limit

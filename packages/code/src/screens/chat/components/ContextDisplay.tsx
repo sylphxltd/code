@@ -165,157 +165,150 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 		);
 	}
 
+	// Create visual bar chart with multiple segments
+	const parseTokenValue = (tokenStr: string): number => {
+		if (tokenStr.endsWith("K")) {
+			return parseFloat(tokenStr) * 1000;
+		} else if (tokenStr.endsWith("M")) {
+			return parseFloat(tokenStr) * 1000000;
+		}
+		return parseFloat(tokenStr);
+	};
+
+	const totalTokens = parseTokenValue(data.contextLimit);
+	const systemTokens = parseTokenValue(data.systemPromptTokens);
+	const toolsTokens = parseTokenValue(data.toolsTokens);
+	const messagesTokens = parseTokenValue(data.messagesTokens);
+	const freeTokens = parseTokenValue(data.freeTokens);
+	const reservedTokens = parseTokenValue(data.bufferTokens);
+
+	// Create segmented bar (total width: 50 chars)
+	const createSegmentedBar = (): string => {
+		const width = 50;
+		const systemBlocks = Math.round((systemTokens / totalTokens) * width);
+		const toolsBlocks = Math.round((toolsTokens / totalTokens) * width);
+		const messagesBlocks = Math.round((messagesTokens / totalTokens) * width);
+		const reservedBlocks = Math.round((reservedTokens / totalTokens) * width);
+		const usedBlocks = systemBlocks + toolsBlocks + messagesBlocks;
+		const freeBlocks = width - usedBlocks - reservedBlocks;
+
+		return (
+			"█".repeat(systemBlocks) +
+			"█".repeat(toolsBlocks) +
+			"█".repeat(messagesBlocks) +
+			"░".repeat(Math.max(0, freeBlocks)) +
+			"▓".repeat(reservedBlocks)
+		);
+	};
+
 	return (
 		<Box flexDirection="column" paddingY={1} paddingX={2}>
-			{data.sessionNote && (
-				<Box paddingBottom={1}>
-					<Text color="yellow">{data.sessionNote}</Text>
-				</Box>
-			)}
+			{/* Header - Model and Tokenizer */}
+			<Box paddingBottom={1}>
+				<Text>Model: </Text>
+				<Text bold>{data.modelName}</Text>
+				<Text dimColor> | Tokenizer: gpt-4 - {data.contextLimit} tokens total</Text>
+			</Box>
 
-			{/* Summary */}
+			{/* Visual bar chart - segmented */}
+			<Box flexDirection="column" paddingY={1}>
+				<Box>
+					<Text color="cyan">{createSegmentedBar()}</Text>
+				</Box>
+			</Box>
+
+			{/* Used */}
 			<Box flexDirection="column" gap={0}>
 				<Box flexDirection="row">
-					<Box width={20}>
-						<Text dimColor>Model</Text>
-					</Box>
-					<Text>{data.modelName}</Text>
-				</Box>
-				<Box flexDirection="row">
-					<Box width={20}>
-						<Text dimColor>Context Limit</Text>
-					</Box>
-					<Text>{data.contextLimit}</Text>
-				</Box>
-				<Box flexDirection="row">
-					<Box width={20}>
-						<Text dimColor>Total Used</Text>
-					</Box>
-					<Text>
-						{data.usedTokens} ({data.usedPercent}%)
-					</Text>
-				</Box>
-			</Box>
-
-			<Box paddingY={1}>
-				<Text dimColor>{"─".repeat(60)}</Text>
-			</Box>
-
-			{/* Breakdown - Base Context (fixed) */}
-			<Box paddingBottom={1}>
-				<Text dimColor bold>
-					Base Context (Fixed)
-				</Text>
-			</Box>
-			<Box flexDirection="column" gap={0} paddingLeft={2}>
-				<Box flexDirection="row">
 					<Box width={18}>
-						<Text dimColor>System prompt</Text>
+						<Text>Used</Text>
 					</Box>
 					<Box width={12}>
-						<Text>{data.systemPromptTokens}</Text>
+						<Text>{data.usedTokens} tokens</Text>
+					</Box>
+					<Text dimColor>{data.usedPercent}%</Text>
+				</Box>
+				<Box flexDirection="row" paddingLeft={2}>
+					<Box width={16}>
+						<Text dimColor>System</Text>
+					</Box>
+					<Box width={12}>
+						<Text dimColor>{data.systemPromptTokens} tokens</Text>
 					</Box>
 					<Text dimColor>{data.systemPromptPercent}%</Text>
 				</Box>
-				<Box flexDirection="row">
-					<Box width={18}>
-						<Text dimColor>Tools ({data.toolCount})</Text>
+				<Box flexDirection="row" paddingLeft={2}>
+					<Box width={16}>
+						<Text dimColor>Tools</Text>
 					</Box>
 					<Box width={12}>
-						<Text>{data.toolsTokens}</Text>
+						<Text dimColor>{data.toolsTokens} tokens</Text>
 					</Box>
 					<Text dimColor>{data.toolsPercent}%</Text>
 				</Box>
-			</Box>
-
-			{/* Variable Context */}
-			<Box paddingTop={1} paddingBottom={1}>
-				<Text dimColor bold>
-					Variable Context
-				</Text>
-			</Box>
-			<Box flexDirection="column" gap={0} paddingLeft={2}>
-				<Box flexDirection="row">
-					<Box width={18}>
+				<Box flexDirection="row" paddingLeft={2}>
+					<Box width={16}>
 						<Text dimColor>Messages</Text>
 					</Box>
 					<Box width={12}>
-						<Text>{data.messagesTokens}</Text>
+						<Text dimColor>{data.messagesTokens} tokens</Text>
 					</Box>
 					<Text dimColor>{data.messagesPercent}%</Text>
 				</Box>
 			</Box>
 
-			{/* Available Space */}
-			<Box paddingTop={1} paddingBottom={1}>
-				<Text dimColor bold>
-					Available Space
-				</Text>
-			</Box>
-			<Box flexDirection="column" gap={0} paddingLeft={2}>
+			{/* Free */}
+			<Box paddingTop={1}>
 				<Box flexDirection="row">
 					<Box width={18}>
-						<Text dimColor>Free space</Text>
+						<Text>Free</Text>
 					</Box>
 					<Box width={12}>
-						<Text>{data.freeTokens}</Text>
+						<Text>{data.freeTokens} tokens</Text>
 					</Box>
 					<Text dimColor>{data.freePercent}%</Text>
 				</Box>
-				<Box flexDirection="row" paddingTop={1}>
+			</Box>
+
+			{/* Reserved */}
+			<Box paddingTop={1}>
+				<Box flexDirection="row">
 					<Box width={18}>
-						<Text dimColor>Auto-compact at</Text>
+						<Text>Reserved</Text>
 					</Box>
 					<Box width={12}>
-						<Text>{data.bufferTokens}</Text>
+						<Text>{data.bufferTokens} tokens</Text>
 					</Box>
-					<Text dimColor>({data.bufferPercent}% reserved)</Text>
+					<Text dimColor>{data.bufferPercent}%</Text>
 				</Box>
 			</Box>
 
-			{/* Important Notes */}
-			<Box paddingTop={1} flexDirection="column">
-				<Text dimColor bold>
-					About Token Counting:
-				</Text>
-				<Text dimColor>• Server calculates all tokens using Hugging Face tokenizer</Text>
-				<Text dimColor>• StatusBar: Shows session.totalTokens (fast, server-calculated)</Text>
-				<Text dimColor>• This command: Full breakdown with details (same source)</Text>
-				<Text dimColor>• Multi-client sync: all clients see same counts</Text>
-				<Text dimColor>• Never relies on AI provider usage reports</Text>
-			</Box>
-
-			{/* Tools list */}
+			{/* Tools breakdown */}
 			{data.tools.length > 0 && (
 				<>
-					<Box paddingY={1}>
-						<Text dimColor>{"─".repeat(60)}</Text>
+					<Box paddingTop={2} paddingBottom={1}>
+						<Text dimColor>Tools ({data.toolCount})</Text>
 					</Box>
-					<Box flexDirection="column" gap={0}>
-						<Box paddingBottom={1}>
-							<Text dimColor>Tools ({data.toolCount})</Text>
+					{data.tools.slice(0, 6).map((tool, i) => (
+						<Box key={i} flexDirection="row" paddingLeft={2}>
+							<Box width={26}>
+								<Text dimColor>{tool.name}</Text>
+							</Box>
+							<Text dimColor>{tool.tokens} tokens</Text>
 						</Box>
-						{data.tools.slice(0, 8).map((tool, i) => (
-							<Box key={i} flexDirection="row">
-								<Box width={30}>
-									<Text dimColor>{tool.name}</Text>
-								</Box>
-								<Text dimColor>{tool.tokens}</Text>
-							</Box>
-						))}
-						{data.tools.length > 8 && (
-							<Box paddingTop={0}>
-								<Text dimColor>... and {data.tools.length - 8} more</Text>
-							</Box>
-						)}
-					</Box>
+					))}
+					{data.tools.length > 6 && (
+						<Box paddingLeft={2}>
+							<Text dimColor>... {data.tools.length - 6} more</Text>
+						</Box>
+					)}
 				</>
 			)}
 
 			{/* Footer */}
 			<Box paddingTop={2}>
 				<Text color="gray" dimColor>
-					Press ESC to close
+					ESC to close
 				</Text>
 			</Box>
 		</Box>
