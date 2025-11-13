@@ -105,5 +105,5 @@ export interface Command {
 	label: string;
 	description: string;
 	args?: CommandArg[];
-	execute: (context: CommandContext) => Promise<void>;
+	execute: (context: CommandContext) => Promise<string | void>;
 }
