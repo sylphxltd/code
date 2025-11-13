@@ -748,6 +748,14 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 							const existingTokens = currentSession.totalTokens || baseTokens;
 							const newTotal = existingTokens + accumulatedDeltaTokens;
 
+							console.log("[updateTokensFromDelta]", {
+								deltaText: deltaText.substring(0, 20) + "...",
+								deltaTokens,
+								accumulatedDeltaTokens,
+								existingTokens,
+								newTotal,
+							});
+
 							// Emit immediate update on EVERY chunk (no throttling)
 							// User requirement: 反正有任何異動都要即刻通知client去實時更新
 							await opts.appContext.eventStream.publish(`session:${sessionId}`, {
