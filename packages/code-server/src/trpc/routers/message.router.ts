@@ -284,6 +284,10 @@ export const messageRouter = router({
 
 			// Publish role-specific message-created event for UI updates
 			// (streaming.service.ts also publishes these events during AI streaming)
+			console.log("[message.router] About to publish event for role:", input.role);
+			console.log("[message.router] SessionId:", sessionId);
+			console.log("[message.router] MessageId:", messageId);
+
 			const eventType = input.role === "user" ? "user-message-created" : "assistant-message-created";
 			const eventData = input.role === "user"
 				? {
@@ -298,7 +302,16 @@ export const messageRouter = router({
 					messageId,
 				};
 
-			await ctx.appContext.eventStream.publish(sessionId, eventData);
+			console.log("[message.router] Event type:", eventType);
+			console.log("[message.router] Event data:", JSON.stringify(eventData, null, 2));
+
+			try {
+				await ctx.appContext.eventStream.publish(sessionId, eventData);
+				console.log("[message.router] ✅ Event published successfully to channel:", sessionId);
+			} catch (error) {
+				console.error("[message.router] ❌ Failed to publish event:", error);
+				throw error;
+			}
 
 			return { messageId, sessionId };
 		}),
