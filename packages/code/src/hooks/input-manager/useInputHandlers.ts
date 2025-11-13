@@ -9,7 +9,6 @@ import { useMemo } from "react";
 import type React from "react";
 import type { CommandContext, Command } from "../../commands/types.js";
 import type { FilteredFile } from "@sylphx/code-client";
-import { setCommandOutput } from "@sylphx/code-client";
 import {
 	SelectionModeHandler,
 	CommandAutocompleteModeHandler,
@@ -276,7 +275,6 @@ export function useInputHandlers(deps: InputHandlerDeps) {
 				setInput,
 				setCursor,
 				setSelectedCommandIndex,
-				setCommandOutput,
 				createCommandContext,
 			}),
 		[

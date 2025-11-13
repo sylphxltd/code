@@ -83,7 +83,6 @@ import { handleStreamEvent } from "./chat/streaming/streamEventHandlers.js";
 // UI components
 import { ChatHeader } from "./chat/components/ChatHeader.js";
 import { ChatMessages } from "./chat/components/ChatMessages.js";
-import { CommandOutput } from "./chat/components/CommandOutput.js";
 import { InputSection } from "./chat/components/InputSection.js";
 import { StatusIndicator } from "./chat/components/StatusIndicator.js";
 
@@ -583,11 +582,6 @@ export default function Chat(_props: ChatProps) {
 				{/* Todo List */}
 				<Box flexShrink={0}>
 					<TodoList />
-				</Box>
-
-				{/* Command Output */}
-				<Box flexShrink={0}>
-					<CommandOutput />
 				</Box>
 
 				{/* Input Area */}

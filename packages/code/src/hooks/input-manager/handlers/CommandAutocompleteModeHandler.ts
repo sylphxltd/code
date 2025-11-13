@@ -18,7 +18,6 @@ export interface CommandAutocompleteModeHandlerDeps {
 	setInput: (value: string) => void;
 	setCursor: (value: number) => void;
 	setSelectedCommandIndex: React.Dispatch<React.SetStateAction<number>>;
-	setCommandOutput: (output: string | null) => void;
 	createCommandContext: (args: string[]) => CommandContext;
 }
 
@@ -81,7 +80,6 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 			setInput,
 			setCursor,
 			setSelectedCommandIndex,
-			setCommandOutput,
 			createCommandContext,
 		} = this.deps;
 
@@ -128,20 +126,9 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 					setInput("");
 					setSelectedCommandIndex(0);
 
-					try {
-						// Execute command
-						const response = await selected.execute(createCommandContext([]));
-
-						// Show output in UI (not saved to chat history)
-						if (response && typeof response === "string") {
-							setCommandOutput(response);
-						} else if (response !== undefined) {
-							setCommandOutput(`⚠️ Command returned non-string: ${typeof response}`);
-						}
-					} catch (error) {
-						const errorMsg = error instanceof Error ? error.message : "Command failed";
-						setCommandOutput(`❌ Command Error: ${errorMsg}`);
-					}
+					// Execute command
+					// Command will handle its own display via context.setInputComponent()
+					await selected.execute(createCommandContext([]));
 				}
 			});
 		}

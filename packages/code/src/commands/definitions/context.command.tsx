@@ -3,23 +3,24 @@
  * Display context window usage
  */
 
+import { ContextDisplay } from "../../screens/chat/components/ContextDisplay.js";
 import type { Command } from "../types.js";
 
 export const contextCommand: Command = {
 	id: "context",
 	label: "/context",
 	description: "Display context window usage and token breakdown",
-	execute: async (context) => {
+	execute: async (commandContext) => {
 		try {
 			console.log("[Context] Command starting...");
-			context.addLog("[Context] Starting context calculation...");
+			commandContext.addLog("[Context] Starting context calculation...");
 
 			const { formatTokenCount } = await import("@sylphx/code-core");
 			const { get, getTRPCClient } = await import("@sylphx/code-client");
 			const { $currentSession } = await import("@sylphx/code-client");
 
 			console.log("[Context] Imports loaded");
-			context.addLog("[Context] Imports loaded");
+			commandContext.addLog("[Context] Imports loaded");
 
 			const currentSession = get($currentSession);
 
@@ -28,11 +29,11 @@ export const contextCommand: Command = {
 			let sessionId: string | null = null;
 
 			if (currentSession) {
-				context.addLog(`[Context] Current session: ${currentSession.id}`);
+				commandContext.addLog(`[Context] Current session: ${currentSession.id}`);
 				modelName = currentSession.model;
 				sessionId = currentSession.id;
 			} else {
-				context.addLog("[Context] No active session, showing base context");
+				commandContext.addLog("[Context] No active session, showing base context");
 				const { get: getStore } = await import("@sylphx/code-client");
 				const { $aiConfig } = await import("@sylphx/code-client");
 				const aiConfig = getStore($aiConfig);
@@ -65,7 +66,7 @@ export const contextCommand: Command = {
 
 			// Calculate token counts (SERVER HANDLES ALL FILE I/O AND BUSINESS LOGIC)
 			console.log(`[Context] Model: ${modelName}, sessionId: ${sessionId}, contextLimit: ${contextLimit}`);
-			context.addLog(
+			commandContext.addLog(
 				`[Context] Calculating token counts for ${modelName} (limit: ${formatTokenCount(contextLimit)})...`,
 			);
 
@@ -78,7 +79,14 @@ export const contextCommand: Command = {
 			console.log("[Context] tRPC result:", result.success ? "success" : `error: ${result.error}`);
 			if (!result.success) {
 				console.log("[Context] Returning error:", result.error);
-				return `Error: ${result.error}`;
+				commandContext.setInputComponent(
+					<ContextDisplay
+						output={`Error: ${result.error}`}
+						onComplete={() => commandContext.setInputComponent(null)}
+					/>,
+					"Context",
+				);
+				return;
 			}
 
 			const {
@@ -169,17 +177,32 @@ ${toolList}
 
 			console.log("[Context] Output generated, length:", output.length);
 			console.log("[Context] First 200 chars:", output.substring(0, 200));
-			return output;
+
+			// Show context display in input area
+			commandContext.setInputComponent(
+				<ContextDisplay
+					output={output}
+					onComplete={() => commandContext.setInputComponent(null)}
+				/>,
+				"Context",
+			);
 		} catch (error) {
 			const errorMsg = error instanceof Error ? error.message : String(error);
 			const errorStack = error instanceof Error ? error.stack : undefined;
 
 			console.log("[Context] ERROR CAUGHT:", errorMsg);
-			context.addLog(`[Context] Error: ${errorMsg}`);
+			commandContext.addLog(`[Context] Error: ${errorMsg}`);
 			console.error("[Context] Full error:", error);
 			console.error("[Context] Stack trace:", errorStack);
 
-			return `❌ Failed to get context info: ${errorMsg}`;
+			// Show error in input area
+			commandContext.setInputComponent(
+				<ContextDisplay
+					output={`❌ Failed to get context info: ${errorMsg}`}
+					onComplete={() => commandContext.setInputComponent(null)}
+				/>,
+				"Context",
+			);
 		}
 	},
 };
