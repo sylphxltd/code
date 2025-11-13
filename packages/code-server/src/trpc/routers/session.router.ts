@@ -163,7 +163,12 @@ export const sessionRouter = router({
 			const { calculateBaseContextTokens } = await import("@sylphx/code-core");
 			calculateBaseContextTokens(input.model, agentId, enabledRuleIds, cwd)
 				.then(async (baseContextTokens) => {
-					await ctx.sessionRepository.updateSessionTokens(session.id, { baseContextTokens });
+					// Update BOTH baseContextTokens and totalTokens
+					// When there are no messages, totalTokens = baseContextTokens
+					await ctx.sessionRepository.updateSessionTokens(session.id, {
+						baseContextTokens,
+						totalTokens: baseContextTokens,
+					});
 
 					// Emit event to notify clients about base context tokens
 					// IMPORTANT: Without this, StatusBar won't show base context until first message
@@ -177,6 +182,7 @@ export const sessionRouter = router({
 					console.log("[session.create] Base context tokens calculated and emitted:", {
 						sessionId: session.id,
 						baseContextTokens,
+						totalTokens: baseContextTokens,
 					});
 				})
 				.catch((error) => {

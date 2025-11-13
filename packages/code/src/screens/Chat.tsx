@@ -643,7 +643,7 @@ export default function Chat(_props: ChatProps) {
 						provider={currentSession?.provider || selectedProvider || null}
 						model={currentSession?.model || selectedModel || null}
 						modelStatus={currentSession?.modelStatus}
-					usedTokens={currentSession ? (usedTokens || currentSession.baseContextTokens || 0) : 0}
+					usedTokens={usedTokens}
 					/>
 				</Box>
 			</Box>
