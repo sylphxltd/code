@@ -164,6 +164,20 @@ export const sessionRouter = router({
 			calculateBaseContextTokens(input.model, agentId, enabledRuleIds, cwd)
 				.then(async (baseContextTokens) => {
 					await ctx.sessionRepository.updateSessionTokens(session.id, { baseContextTokens });
+
+					// Emit event to notify clients about base context tokens
+					// IMPORTANT: Without this, StatusBar won't show base context until first message
+					await ctx.appContext.eventStream.publish(`session:${session.id}`, {
+						type: "session-tokens-updated" as const,
+						sessionId: session.id,
+						totalTokens: baseContextTokens, // Only base context, no messages yet
+						baseContextTokens,
+					});
+
+					console.log("[session.create] Base context tokens calculated and emitted:", {
+						sessionId: session.id,
+						baseContextTokens,
+					});
 				})
 				.catch((error) => {
 					console.error("[session.create] Failed to calculate base context tokens:", error);
