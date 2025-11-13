@@ -166,6 +166,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 
 						addLog(`[CommandAutocomplete] Executing ${selected.label}`);
 						const response = await selected.execute(createCommandContext([]));
+						console.log("[RESPONSE]", typeof response, response ? response.substring(0, 100) : "null/undefined");
 
 						addLog(
 							`[CommandAutocomplete] Result type: ${typeof response}, value: ${response ? String(response).substring(0, 100) : "none"}`,
