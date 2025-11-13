@@ -131,6 +131,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 		if (key.return) {
 			return this.handleEnter(async () => {
 				const selected = filteredCommands[selectedCommandIndex];
+				console.log("[CommandAutocomplete] Enter pressed, selected:", selected?.label);
 				if (selected) {
 					// Prevent TextInput's onSubmit from also executing
 					skipNextSubmit.current = true;
@@ -140,6 +141,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 					setSelectedCommandIndex(0);
 
 					try {
+						console.log(`[CommandAutocomplete] Executing command: ${selected.label}`);
 						addLog(`[CommandAutocomplete] Execute: ${selected.label}`);
 
 						// Add user message to conversation (lazy create session if needed)
