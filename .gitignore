@@ -4,3 +4,6 @@ dist/
 .turbo/
 *.log
 event-stream-debug.log
+
+# Internal development docs (not for public)
+.internal/
