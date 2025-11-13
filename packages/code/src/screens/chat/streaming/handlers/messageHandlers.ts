@@ -37,6 +37,13 @@ export function handleUserMessageCreated(
 		return;
 	}
 
+	// Check if message already exists (prevent duplicates from multiple event emissions)
+	const messageExists = currentSession.messages.some((m) => m.id === event.messageId);
+	if (messageExists) {
+		logMessage("Message already exists, skipping:", event.messageId);
+		return;
+	}
+
 	// Find and replace optimistic message (temp-user-*)
 	const optimisticIndex = currentSession.messages.findIndex(
 		(m) => m.role === "user" && m.id.startsWith("temp-user-"),
