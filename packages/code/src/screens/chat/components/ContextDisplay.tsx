@@ -165,9 +165,6 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 	if (!data) {
 		return (
 			<Box flexDirection="column" paddingY={1} paddingX={2}>
-				<Box paddingBottom={1}>
-					<Text color="cyan">▌ CONTEXT</Text>
-				</Box>
 				<Text>{output}</Text>
 				<Box paddingTop={2}>
 					<Text color="gray" dimColor>
@@ -187,9 +184,8 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 
 	return (
 		<Box flexDirection="column" paddingY={1} paddingX={2}>
-			{/* Header */}
-			<Box flexDirection="row" justifyContent="space-between" paddingBottom={1}>
-				<Text color="cyan">▌ CONTEXT</Text>
+			{/* Model name and session note */}
+			<Box flexDirection="row" justifyContent="flex-end" paddingBottom={1}>
 				<Text color="gray" dimColor>
 					{data.modelName}
 				</Text>
