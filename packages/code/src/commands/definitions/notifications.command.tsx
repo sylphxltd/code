@@ -31,7 +31,9 @@ export const notificationsCommand: Command = {
 	],
 
 	execute: async (context) => {
-		const { updateNotificationSettings, notificationSettings } = context;
+		// TODO: Notification settings not implemented yet
+		// Need to add notificationSettings to store and CommandContext
+		return "⚠️ Notification settings are not yet implemented. Coming soon!";
 
 		// Helper to format settings display
 		const formatSettings = () => {
