@@ -1184,7 +1184,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 					await updateSessionTokens(sessionId, sessionRepository);
 
 					// Read updated session to get token values (server-side read, efficient)
-					const updatedSession = await sessionRepository.get(sessionId);
+					const updatedSession = await sessionRepository.getSessionById(sessionId);
 					if (!updatedSession) {
 						throw new Error("Session not found after token update");
 					}
