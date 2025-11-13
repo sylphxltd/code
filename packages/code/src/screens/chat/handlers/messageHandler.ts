@@ -287,15 +287,6 @@ export function createHandleSubmit(params: MessageHandlerParams) {
 
 				// If command returns a result string, add it to conversation
 				if (result && typeof result === "string") {
-					if (!commandSessionRef.current) {
-						addLog(
-							`[executeCommand] WARNING: commandSessionRef is null, cannot add result to chat`,
-						);
-						console.error(
-							"[executeCommand] commandSessionRef is null after command execution",
-						);
-						return;
-					}
 
 					await addMessage({
 						sessionId: commandSessionRef.current,
