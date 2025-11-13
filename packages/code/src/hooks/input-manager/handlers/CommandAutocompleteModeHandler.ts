@@ -23,6 +23,7 @@ export interface CommandAutocompleteModeHandlerDeps {
 	addLog: (message: string) => void;
 	addMessage: (params: any) => Promise<string>;
 	getAIConfig: () => { defaultProvider?: string; defaultModel?: string } | null;
+	setCurrentSessionId: (sessionId: string | null) => void;
 	createCommandContext: (args: string[]) => CommandContext;
 }
 
@@ -90,6 +91,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 			addLog,
 			addMessage,
 			getAIConfig,
+			setCurrentSessionId,
 			createCommandContext,
 		} = this.deps;
 
@@ -156,6 +158,8 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 
 						if (!commandSessionRef.current) {
 							commandSessionRef.current = resultSessionId;
+							// Update current session to show messages in UI
+							setCurrentSessionId(resultSessionId);
 						}
 
 						addLog(`[CommandAutocomplete] Executing ${selected.label}`);
@@ -204,6 +208,8 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 								model,
 							});
 							commandSessionRef.current = resultSessionId;
+							// Update current session to show error in UI
+							setCurrentSessionId(resultSessionId);
 						} else {
 							await addMessage({
 								sessionId: commandSessionRef.current,

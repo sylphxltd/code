@@ -46,6 +46,7 @@ export interface InputHandlerDeps {
 	addLog: (message: string) => void;
 	addMessage: (params: any) => Promise<string>;
 	getAIConfig: () => { defaultProvider?: string; defaultModel?: string } | null;
+	setCurrentSessionId: (sessionId: string | null) => void;
 
 	// Pending command mode dependencies
 	pendingCommand: any;
@@ -278,6 +279,7 @@ export function useInputHandlers(deps: InputHandlerDeps) {
 				addLog,
 				addMessage,
 				getAIConfig,
+				setCurrentSessionId,
 				createCommandContext,
 			}),
 		[
@@ -292,6 +294,7 @@ export function useInputHandlers(deps: InputHandlerDeps) {
 			addLog,
 			addMessage,
 			getAIConfig,
+			setCurrentSessionId,
 			createCommandContext,
 		],
 	);
