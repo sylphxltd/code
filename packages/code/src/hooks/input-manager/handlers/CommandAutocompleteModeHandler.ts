@@ -119,6 +119,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 					const hasArgs = selected.args && selected.args.length > 0;
 					const completedText = hasArgs ? `${selected.label} ` : selected.label;
 
+					addLog(`[CommandAutocomplete] Tab fill: ${completedText}`);
 					setInput(completedText);
 					setCursor(completedText.length); // Move cursor to end
 					setSelectedCommandIndex(0);
@@ -138,6 +139,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 
 					try {
 						console.log(`[CommandAutocomplete] Executing command: ${selected.label}`);
+						addLog(`[CommandAutocomplete] Execute: ${selected.label}`);
 
 						// Add user message to conversation (lazy create session if needed)
 						const aiConfig = getAIConfig();
@@ -159,26 +161,47 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 							setCurrentSessionId(resultSessionId);
 						}
 
+						addLog(`[CommandAutocomplete] Executing ${selected.label}`);
 						const response = await selected.execute(createCommandContext([]));
+						console.log("[RESPONSE]", typeof response, response ? response.substring(0, 100) : "null/undefined");
 
+console.log("[DEBUG] Before addLog");
+						addLog(
+							`[CommandAutocomplete] Result type: ${typeof response}, value: ${response ? String(response).substring(0, 100) : "none"}`,
+						);
+console.log("[DEBUG] After addLog, about to check if statement");
 
 						// Add final response if any (check for string explicitly)
 						if (response && typeof response === "string") {
+console.log("[DEBUG] Inside if - response is string, sessionId:", commandSessionRef.current);
 							await addMessage({
 								sessionId: commandSessionRef.current,
 								role: "assistant",
 								content: response,
+								provider,
+								model,
 							});
-					}
-				} catch (error) {
+console.log("[DEBUG] After await addMessage");
+						} else if (response !== undefined) {
+console.log("[DEBUG] Before addLog");
+							addLog(
+								`[CommandAutocomplete] WARNING: Command returned non-string: ${typeof response}`,
+							);
+						}
+					} catch (error) {
 						const errorMsg = error instanceof Error ? error.message : "Command failed";
 						const errorStack = error instanceof Error ? error.stack : undefined;
 
+						addLog(`[CommandAutocomplete] Command error: ${errorMsg}`);
 						console.error("[CommandAutocomplete] Error:", error);
 						console.error("[CommandAutocomplete] Stack:", errorStack);
 
 						// Always show error to user, create session if needed
 						if (!commandSessionRef.current) {
+console.log("[DEBUG] Before addLog");
+							addLog(
+								`[CommandAutocomplete] ERROR: commandSessionRef is null, creating session for error`,
+							);
 							const aiConfig = getAIConfig();
 							const provider = aiConfig?.defaultProvider || "openrouter";
 							const model = aiConfig?.defaultModel || "anthropic/claude-3.5-sonnet";

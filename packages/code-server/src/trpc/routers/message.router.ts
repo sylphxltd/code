@@ -282,7 +282,16 @@ export const messageRouter = router({
 				status: input.status,
 			});
 
-			// Note: Message events are published by streaming.service.ts
+			// Publish message-created event for UI updates
+			// (streaming.service.ts also publishes these events during AI streaming)
+			await ctx.appContext.eventStream.publish("message-events", {
+				type: "message-created" as const,
+				sessionId,
+				messageId,
+				role: input.role,
+				content: input.content,
+			});
+
 			return { messageId, sessionId };
 		}),
 
