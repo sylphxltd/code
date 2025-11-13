@@ -165,6 +165,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 						const response = await selected.execute(createCommandContext([]));
 						console.log("[RESPONSE]", typeof response, response ? response.substring(0, 100) : "null/undefined");
 
+console.log("[DEBUG] Before addLog");
 						addLog(
 							`[CommandAutocomplete] Result type: ${typeof response}, value: ${response ? String(response).substring(0, 100) : "none"}`,
 						);
@@ -179,6 +180,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 								model,
 							});
 						} else if (response !== undefined) {
+console.log("[DEBUG] Before addLog");
 							addLog(
 								`[CommandAutocomplete] WARNING: Command returned non-string: ${typeof response}`,
 							);
@@ -193,6 +195,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 
 						// Always show error to user, create session if needed
 						if (!commandSessionRef.current) {
+console.log("[DEBUG] Before addLog");
 							addLog(
 								`[CommandAutocomplete] ERROR: commandSessionRef is null, creating session for error`,
 							);
