@@ -7,7 +7,6 @@ import agentCommand from "./definitions/agent.command.js";
 import bashesCommand from "./definitions/bashes.command.js";
 import compactCommand from "./definitions/compact.command.js";
 import contextCommand from "./definitions/context.command.js";
-import { dashboardCommand } from "./definitions/dashboard.command.js";
 import helpCommand from "./definitions/help.command.js";
 import logsCommand from "./definitions/logs.command.js";
 import modelCommand from "./definitions/model.command.js";
@@ -25,7 +24,6 @@ import type { Command } from "./types.js";
  * All registered commands
  */
 export const commands: Command[] = [
-	dashboardCommand,
 	providerCommand,
 	modelCommand,
 	agentCommand,
