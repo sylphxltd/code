@@ -170,7 +170,7 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 								content: response,
 							});
 					}
-					} catch (error) {
+				} catch (error) {
 						const errorMsg = error instanceof Error ? error.message : "Command failed";
 						const errorStack = error instanceof Error ? error.stack : undefined;
 
