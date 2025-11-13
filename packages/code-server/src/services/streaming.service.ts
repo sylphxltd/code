@@ -1170,7 +1170,14 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 					}
 				}
 
-				// 12. Complete observable (title continues independently via eventStream)
+				// 12. Update session token counts (baseContextTokens + totalTokens)
+				// Run in background - don't await to avoid blocking completion
+				const { updateSessionTokens } = await import("@sylphx/code-core");
+				updateSessionTokens(sessionId, sessionRepository).catch((error) => {
+					console.error("[streamAIResponse] Failed to update session tokens:", error);
+				});
+
+				// 13. Complete observable (title continues independently via eventStream)
 				observer.complete();
 			} catch (error) {
 				console.error("[streamAIResponse] Error in execution:", error);

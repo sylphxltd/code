@@ -56,6 +56,9 @@ export function useInputModeManager(props: UseInputModeManagerProps) {
 		return [...handlers].sort((a, b) => (b.priority || 0) - (a.priority || 0));
 	}, [handlers]);
 
+	// Check if there's any active handler for current context
+	const hasActiveHandler = sortedHandlers.some((h) => h.isActive(context));
+
 	useInput(
 		async (char, key) => {
 			// Find active handler
@@ -102,7 +105,7 @@ export function useInputModeManager(props: UseInputModeManagerProps) {
 				return false;
 			}
 		},
-		{ isActive: true }, // Always active - handlers decide internally
+		{ isActive: hasActiveHandler }, // Only active when there's a handler for current mode
 	);
 
 	// Expose event counts in debug mode

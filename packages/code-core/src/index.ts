@@ -283,6 +283,11 @@ export {
 	getTokenizerInfo,
 	countTokens,
 } from "./utils/token-counter.js";
+export {
+	calculateBaseContextTokens,
+	calculateTotalTokens,
+	updateSessionTokens,
+} from "./ai/session-tokens.js";
 export { filterFiles, type FileInfo } from "./utils/file-scanner.js";
 export { fetchModels, type ModelInfo } from "./utils/ai-model-fetcher.js";
 export { debugLog, createLogger } from "./utils/debug-logger.js";

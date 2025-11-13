@@ -47,7 +47,6 @@ export default function StatusBar({
 	const { details, loading } = useModelDetails(provider, model);
 	const contextLength = details.contextLength;
 	const capabilities = details.capabilities;
-	const tokenizerInfo = details.tokenizerInfo;
 
 	const formatNumber = (num: number): string => {
 		if (num >= 1000000) {
@@ -132,17 +131,8 @@ export default function StatusBar({
 				{capabilityLabel && <Text dimColor>{capabilityLabel}</Text>}
 			</Box>
 
-			{/* Right side: Tokenizer and Context */}
+			{/* Right side: Context usage (tokenizer info moved to /context) */}
 			<Box>
-				{!loading && tokenizerInfo ? (
-					<>
-						<Text dimColor>
-							{tokenizerInfo.tokenizerName.split("/").pop()}
-							{tokenizerInfo.failed && " (est)"}
-						</Text>
-						{contextLength ? <Text dimColor> │ </Text> : null}
-					</>
-				) : null}
 				{!loading && contextLength && usedTokens > 0 ? (
 					<Text dimColor>
 						{formatNumber(usedTokens)} / {formatNumber(contextLength)} ({usagePercent}%)

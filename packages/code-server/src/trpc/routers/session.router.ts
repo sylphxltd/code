@@ -158,6 +158,17 @@ export const sessionRouter = router({
 				enabledRuleIds,
 			);
 
+			// Calculate and store base context tokens (system prompt + tools)
+			// This runs in background - don't await to avoid blocking session creation
+			const { calculateBaseContextTokens } = await import("@sylphx/code-core");
+			calculateBaseContextTokens(input.model, agentId, enabledRuleIds, cwd)
+				.then(async (baseContextTokens) => {
+					await ctx.sessionRepository.updateSessionTokens(session.id, { baseContextTokens });
+				})
+				.catch((error) => {
+					console.error("[session.create] Failed to calculate base context tokens:", error);
+				});
+
 			// Publish to event stream for multi-client sync
 			await ctx.appContext.eventStream.publish("session-events", {
 				type: "session-created" as const,

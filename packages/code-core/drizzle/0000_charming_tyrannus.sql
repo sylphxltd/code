@@ -87,6 +87,7 @@ CREATE TABLE `message_steps` (
 	`id` text PRIMARY KEY NOT NULL,
 	`message_id` text NOT NULL,
 	`step_index` integer NOT NULL,
+	`system_messages` text,
 	`provider` text,
 	`model` text,
 	`duration` integer,
@@ -127,6 +128,9 @@ CREATE TABLE `sessions` (
 	`enabled_tool_ids` text,
 	`enabled_mcp_server_ids` text,
 	`next_todo_id` integer DEFAULT 1 NOT NULL,
+	`flags` text,
+	`base_context_tokens` integer,
+	`total_tokens` integer,
 	`created` integer NOT NULL,
 	`updated` integer NOT NULL
 );

@@ -141,6 +141,12 @@ export const sessions = sqliteTable(
 		// Examples: { cpuWarning: true, contextWarning80: true }
 		flags: text("flags", { mode: "json" }).$type<Record<string, boolean>>(),
 
+		// Token usage (calculated by server using Hugging Face tokenizer)
+		// Client displays only - NO client-side calculation
+		// Enables multi-client sync and reliable statistics
+		baseContextTokens: integer("base_context_tokens"), // System prompt + tools (calculated once at session creation)
+		totalTokens: integer("total_tokens"), // Base + all messages (updated after each message)
+
 		// Note: Streaming state moved to messages table (message-level, not session-level)
 		// Each message can be in streaming state with isStreaming flag
 

@@ -345,6 +345,8 @@ export class SessionRepository {
 			todos: sessionTodos,
 			nextTodoId: session.nextTodoId,
 			flags: session.flags || undefined,
+			baseContextTokens: session.baseContextTokens || undefined,
+			totalTokens: session.totalTokens || undefined,
 			created: session.created,
 			updated: session.updated,
 		};
@@ -651,6 +653,28 @@ export class SessionRepository {
 			await this.db
 				.update(sessions)
 				.set({ flags: newFlags, updated: Date.now() })
+				.where(eq(sessions.id, sessionId));
+		});
+	}
+
+	/**
+	 * Update session token counts
+	 * Updates baseContextTokens and/or totalTokens
+	 */
+	async updateSessionTokens(
+		sessionId: string,
+		tokens: {
+			baseContextTokens?: number;
+			totalTokens?: number;
+		},
+	): Promise<void> {
+		await retryDatabase(async () => {
+			await this.db
+				.update(sessions)
+				.set({
+					...tokens,
+					updated: Date.now(),
+				})
 				.where(eq(sessions.id, sessionId));
 		});
 	}
