@@ -137,28 +137,27 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 					setInput("");
 					setSelectedCommandIndex(0);
 
-					addLog(`[CommandAutocomplete] Execute: ${selected.label}`);
-
-					// Add user message to conversation (lazy create session if needed)
-					const aiConfig = getAIConfig();
-					const provider = aiConfig?.defaultProvider || "openrouter";
-					const model = aiConfig?.defaultModel || "anthropic/claude-3.5-sonnet";
-
-					const sessionIdToUse = commandSessionRef.current || currentSessionId;
-					const resultSessionId = await addMessage({
-						sessionId: sessionIdToUse,
-						role: "user",
-						content: selected.label,
-						provider,
-						model,
-					});
-
-					if (!commandSessionRef.current) {
-						commandSessionRef.current = resultSessionId;
-					}
-
-					// Execute command with comprehensive error handling
 					try {
+						addLog(`[CommandAutocomplete] Execute: ${selected.label}`);
+
+						// Add user message to conversation (lazy create session if needed)
+						const aiConfig = getAIConfig();
+						const provider = aiConfig?.defaultProvider || "openrouter";
+						const model = aiConfig?.defaultModel || "anthropic/claude-3.5-sonnet";
+
+						const sessionIdToUse = commandSessionRef.current || currentSessionId;
+						const resultSessionId = await addMessage({
+							sessionId: sessionIdToUse,
+							role: "user",
+							content: selected.label,
+							provider,
+							model,
+						});
+
+						if (!commandSessionRef.current) {
+							commandSessionRef.current = resultSessionId;
+						}
+
 						addLog(`[CommandAutocomplete] Executing ${selected.label}`);
 						const response = await selected.execute(createCommandContext([]));
 
@@ -188,14 +187,30 @@ export class CommandAutocompleteModeHandler extends BaseInputHandler {
 						console.error("[CommandAutocomplete] Error:", error);
 						console.error("[CommandAutocomplete] Stack:", errorStack);
 
-						// Always show error to user
-						await addMessage({
-							sessionId: commandSessionRef.current,
-							role: "assistant",
-							content: `❌ Command Error: ${errorMsg}`,
-							provider,
-							model,
-						});
+						// Always show error to user, create session if needed
+						if (!commandSessionRef.current) {
+							addLog(
+								`[CommandAutocomplete] ERROR: commandSessionRef is null, creating session for error`,
+							);
+							const aiConfig = getAIConfig();
+							const provider = aiConfig?.defaultProvider || "openrouter";
+							const model = aiConfig?.defaultModel || "anthropic/claude-3.5-sonnet";
+							const sessionIdToUse = currentSessionId;
+							const resultSessionId = await addMessage({
+								sessionId: sessionIdToUse,
+								role: "assistant",
+								content: `❌ Command Error: ${errorMsg}`,
+								provider,
+								model,
+							});
+							commandSessionRef.current = resultSessionId;
+						} else {
+							await addMessage({
+								sessionId: commandSessionRef.current,
+								role: "assistant",
+								content: `❌ Command Error: ${errorMsg}`,
+							});
+						}
 					}
 				}
 			});
