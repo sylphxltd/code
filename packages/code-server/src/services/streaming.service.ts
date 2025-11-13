@@ -474,20 +474,16 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 								finishReason: stepResult.finishReason || "unknown",
 							});
 
-							// Update session tokens in real-time after each step
-							// ARCHITECTURE: Unified tokenizer for consistent usage tracking
-							// - Uses our own HuggingFace tokenizer (not AI SDK usage)
-							// - Consistent across all providers/models for context management
-							// - Handles all part types: text, reasoning, tool calls/results, files
-							// - Update after each step for real-time UI feedback
+							// Final token calculation for step (accurate count including tool results)
+							// NOTE: Real-time updates happen on each chunk (text-delta/reasoning-delta)
+							// This is the final accurate calculation after all parts are complete
 							try {
 								const { updateSessionTokens } = await import("@sylphx/code-core");
 								await updateSessionTokens(sessionId, sessionRepository);
 
-								// Read updated session to get calculated token values
+								// Read updated session and emit final accurate count
 								const updatedSession = await sessionRepository.getSessionById(sessionId);
 								if (updatedSession) {
-									// Emit event for real-time UI update (send data on needed)
 									await opts.appContext.eventStream.publish(`session:${sessionId}`, {
 										type: "session-tokens-updated" as const,
 										sessionId,
@@ -495,15 +491,16 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 										baseContextTokens: updatedSession.baseContextTokens || 0,
 									});
 
-									console.log("[onStepFinish] Session tokens updated (real-time):", {
+									console.log("[onStepFinish] Final token count:", {
 										step: stepNumber,
-										baseContextTokens: updatedSession.baseContextTokens,
 										totalTokens: updatedSession.totalTokens,
 									});
 								}
+
+								// Reset accumulated delta tokens for next step
+								accumulatedDeltaTokens = 0;
 							} catch (tokenError) {
-								console.error("[onStepFinish] Failed to update session tokens:", tokenError);
-								// Non-critical - don't fail the step
+								console.error("[onStepFinish] Failed to update final tokens:", tokenError);
 							}
 
 							lastCompletedStepNumber = stepNumber;
@@ -730,6 +727,49 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 				let finalFinishReason: string | undefined;
 				let hasError = false;
 
+				// Real-time token tracking (incremental calculation)
+				// ARCHITECTURE: Update tokens on each chunk for real-time UI feedback
+				// - Track accumulated tokens from deltas
+				// - Emit session-tokens-updated event periodically (throttled)
+				// - Use unified tokenizer for consistency
+				let accumulatedDeltaTokens = 0; // Tokens from current streaming content
+				let lastTokenUpdateTime = Date.now();
+				const TOKEN_UPDATE_INTERVAL_MS = 500; // Throttle updates to every 500ms
+
+				// Helper: Calculate tokens for delta content and emit update if needed
+				const updateTokensFromDelta = async (deltaText: string) => {
+					try {
+						const { countTokens } = await import("@sylphx/code-core");
+						const deltaTokens = await countTokens(deltaText, session.model);
+						accumulatedDeltaTokens += deltaTokens;
+
+						// Throttle updates - only emit every 500ms
+						const now = Date.now();
+						if (now - lastTokenUpdateTime >= TOKEN_UPDATE_INTERVAL_MS) {
+							lastTokenUpdateTime = now;
+
+							// Get current session totals
+							const currentSession = await sessionRepository.getSessionById(sessionId);
+							if (currentSession) {
+								const baseTokens = currentSession.baseContextTokens || 0;
+								const existingTokens = currentSession.totalTokens || baseTokens;
+								const newTotal = existingTokens + accumulatedDeltaTokens;
+
+								// Emit real-time update (optimistic - will be corrected at step end)
+								await opts.appContext.eventStream.publish(`session:${sessionId}`, {
+									type: "session-tokens-updated" as const,
+									sessionId,
+									totalTokens: newTotal,
+									baseContextTokens: baseTokens,
+								});
+							}
+						}
+					} catch (error) {
+						// Non-critical - don't interrupt streaming
+						console.error("[updateTokensFromDelta] Failed:", error);
+					}
+				};
+
 				try {
 					for await (const chunk of fullStream) {
 						// Process AI SDK stream chunks
@@ -758,6 +798,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 										part.content += chunk.text;
 									}
 									callbacks.onTextDelta?.(chunk.text);
+
+									// Update tokens in real-time (incremental)
+									await updateTokensFromDelta(chunk.text);
 								}
 								break;
 							}
@@ -800,6 +843,9 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 										part.content += chunk.text;
 									}
 									callbacks.onReasoningDelta?.(chunk.text);
+
+									// Update tokens in real-time (incremental)
+									await updateTokensFromDelta(chunk.text);
 								}
 								break;
 							}
