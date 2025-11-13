@@ -94,7 +94,11 @@ export abstract class BaseInputHandler implements InputHandler {
 	protected handleEnter(callback: () => void | Promise<void>): boolean | Promise<boolean> {
 		const result = callback();
 		if (result instanceof Promise) {
-			return result.then(() => true);
+			return result.then(() => true).catch((error) => {
+				console.error("[BaseHandler] Unhandled error in handleEnter:", error);
+				console.error("[BaseHandler] Stack trace:", error?.stack);
+				return true; // Still consume the event
+			});
 		}
 		return true;
 	}
