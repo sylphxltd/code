@@ -282,15 +282,23 @@ export const messageRouter = router({
 				status: input.status,
 			});
 
-			// Publish message-created event for UI updates
+			// Publish role-specific message-created event for UI updates
 			// (streaming.service.ts also publishes these events during AI streaming)
-			await ctx.appContext.eventStream.publish("message-events", {
-				type: "message-created" as const,
-				sessionId,
-				messageId,
-				role: input.role,
-				content: input.content,
-			});
+			const eventType = input.role === "user" ? "user-message-created" : "assistant-message-created";
+			const eventData = input.role === "user"
+				? {
+					type: eventType as const,
+					messageId,
+					content: input.content.map((part: any) =>
+						part.type === "text" ? part.content : `@${part.relativePath || ""}`
+					).join(""),
+				}
+				: {
+					type: eventType as const,
+					messageId,
+				};
+
+			await ctx.appContext.eventStream.publish(sessionId, eventData);
 
 			return { messageId, sessionId };
 		}),
