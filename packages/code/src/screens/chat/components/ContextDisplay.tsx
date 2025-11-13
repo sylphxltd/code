@@ -182,23 +182,33 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 	const freeTokens = parseTokenValue(data.freeTokens);
 	const reservedTokens = parseTokenValue(data.bufferTokens);
 
-	// Create segmented bar (total width: 50 chars)
-	const createSegmentedBar = (): string => {
-		const width = 50;
-		const systemBlocks = Math.round((systemTokens / totalTokens) * width);
-		const toolsBlocks = Math.round((toolsTokens / totalTokens) * width);
-		const messagesBlocks = Math.round((messagesTokens / totalTokens) * width);
-		const reservedBlocks = Math.round((reservedTokens / totalTokens) * width);
+	// Create 10x10 grid visualization (100 blocks total)
+	const createGrid = (): string[] => {
+		const totalBlocks = 100;
+		const systemBlocks = Math.round((systemTokens / totalTokens) * totalBlocks);
+		const toolsBlocks = Math.round((toolsTokens / totalTokens) * totalBlocks);
+		const messagesBlocks = Math.round((messagesTokens / totalTokens) * totalBlocks);
+		const reservedBlocks = Math.round((reservedTokens / totalTokens) * totalBlocks);
 		const usedBlocks = systemBlocks + toolsBlocks + messagesBlocks;
-		const freeBlocks = width - usedBlocks - reservedBlocks;
+		const freeBlocks = totalBlocks - usedBlocks - reservedBlocks;
 
-		return (
-			"█".repeat(systemBlocks) +
-			"█".repeat(toolsBlocks) +
-			"█".repeat(messagesBlocks) +
-			"░".repeat(Math.max(0, freeBlocks)) +
-			"▓".repeat(reservedBlocks)
-		);
+		// Create array of blocks with type markers
+		const blocks: string[] = [];
+		for (let i = 0; i < systemBlocks; i++) blocks.push("S");
+		for (let i = 0; i < toolsBlocks; i++) blocks.push("T");
+		for (let i = 0; i < messagesBlocks; i++) blocks.push("M");
+		for (let i = 0; i < Math.max(0, freeBlocks); i++) blocks.push("F");
+		for (let i = 0; i < reservedBlocks; i++) blocks.push("R");
+
+		// Split into 10 rows of 10 blocks each
+		const rows: string[] = [];
+		for (let i = 0; i < 10; i++) {
+			const rowBlocks = blocks.slice(i * 10, (i + 1) * 10);
+			// Pad with free space if needed
+			while (rowBlocks.length < 10) rowBlocks.push("F");
+			rows.push(rowBlocks.join(""));
+		}
+		return rows;
 	};
 
 	return (
@@ -210,11 +220,19 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 				<Text dimColor> | Tokenizer: gpt-4 - {data.contextLimit} tokens total</Text>
 			</Box>
 
-			{/* Visual bar chart - segmented */}
+			{/* Visual grid - 10x10 */}
 			<Box flexDirection="column" paddingY={1}>
-				<Box>
-					<Text color="cyan">{createSegmentedBar()}</Text>
-				</Box>
+				{createGrid().map((row, i) => (
+					<Box key={i}>
+						{row.split("").map((block, j) => {
+							if (block === "S") return <Text key={j} color="blue">█</Text>;
+							if (block === "T") return <Text key={j} color="green">█</Text>;
+							if (block === "M") return <Text key={j} color="yellow">█</Text>;
+							if (block === "R") return <Text key={j} color="magenta">█</Text>;
+							return <Text key={j} dimColor>░</Text>;
+						})}
+					</Box>
+				))}
 			</Box>
 
 			{/* Used */}
@@ -230,28 +248,28 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 				</Box>
 				<Box flexDirection="row" paddingLeft={2}>
 					<Box width={16}>
-						<Text dimColor>System</Text>
+						<Text color="blue">System</Text>
 					</Box>
 					<Box width={16}>
-						<Text dimColor>{data.systemPromptTokens} tokens</Text>
+						<Text color="blue">{data.systemPromptTokens} tokens</Text>
 					</Box>
 					<Text dimColor> {data.systemPromptPercent}%</Text>
 				</Box>
 				<Box flexDirection="row" paddingLeft={2}>
 					<Box width={16}>
-						<Text dimColor>Tools</Text>
+						<Text color="green">Tools</Text>
 					</Box>
 					<Box width={16}>
-						<Text dimColor>{data.toolsTokens} tokens</Text>
+						<Text color="green">{data.toolsTokens} tokens</Text>
 					</Box>
 					<Text dimColor> {data.toolsPercent}%</Text>
 				</Box>
 				<Box flexDirection="row" paddingLeft={2}>
 					<Box width={16}>
-						<Text dimColor>Messages</Text>
+						<Text color="yellow">Messages</Text>
 					</Box>
 					<Box width={16}>
-						<Text dimColor>{data.messagesTokens} tokens</Text>
+						<Text color="yellow">{data.messagesTokens} tokens</Text>
 					</Box>
 					<Text dimColor> {data.messagesPercent}%</Text>
 				</Box>
@@ -274,10 +292,10 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 			<Box paddingTop={1}>
 				<Box flexDirection="row">
 					<Box width={18}>
-						<Text>Reserved</Text>
+						<Text color="magenta">Reserved</Text>
 					</Box>
 					<Box width={16}>
-						<Text>{data.bufferTokens} tokens</Text>
+						<Text color="magenta">{data.bufferTokens} tokens</Text>
 					</Box>
 					<Text dimColor> {data.bufferPercent}%</Text>
 				</Box>
