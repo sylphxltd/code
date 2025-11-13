@@ -29,11 +29,11 @@ export function handleReasoningStart(
 		return [
 			...prev,
 			{
-				type: "reasoning",
+				type: "reasoning" as const,
 				content: "",
-				status: "active",
+				status: "active" as const,
 				startTime: Date.now(),
-			} as MessagePart,
+			},
 		];
 	});
 }
@@ -75,9 +75,9 @@ export function handleReasoningEnd(
 			if (reasoningPart && reasoningPart.type === "reasoning") {
 				newParts[lastReasoningIndex] = {
 					...reasoningPart,
-					status: "completed",
+					status: "completed" as const,
 					duration: event.duration,
-				} as MessagePart;
+				};
 			}
 		}
 		return newParts;
@@ -95,7 +95,7 @@ export function handleTextStart(
 	const currentSessionId = getCurrentSessionId();
 
 	updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => {
-		return [...prev, { type: "text", content: "", status: "active" } as MessagePart];
+		return [...prev, { type: "text" as const, content: "", status: "active" as const }];
 	});
 }
 
@@ -145,8 +145,8 @@ export function handleTextEnd(
 			if (textPart && textPart.type === "text") {
 				newParts[lastTextIndex] = {
 					...textPart,
-					status: "completed",
-				} as MessagePart;
+					status: "completed" as const,
+				};
 			}
 		}
 
@@ -165,10 +165,12 @@ export function handleFile(event: Extract<StreamEvent, { type: "file" }>, contex
 	updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => [
 		...prev,
 		{
-			type: "file",
+			type: "file" as const,
+			relativePath: "", // Not provided in stream event
+			size: Math.round((event.base64.length * 3) / 4), // Approximate from base64
 			mediaType: event.mediaType,
 			base64: event.base64,
-			status: "completed",
-		} as MessagePart,
+			status: "completed" as const,
+		},
 	]);
 }

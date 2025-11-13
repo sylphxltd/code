@@ -42,16 +42,6 @@ import { validateProvider } from "./streaming/provider-validator.js";
 // ============================================================================
 // AI SDK Type Helpers
 // ============================================================================
-// Extract specific chunk types from AI SDK's TextStreamPart union for type safety
-type TextDeltaChunk = Extract<TextStreamPart<any>, { type: "text-delta" }>;
-type ReasoningDeltaChunk = Extract<TextStreamPart<any>, { type: "reasoning-delta" }>;
-type FinishChunk = Extract<TextStreamPart<any>, { type: "finish" }>;
-
-// Reasoning part with internal startTime tracking
-interface ReasoningPartWithStartTime extends MessagePart {
-	type: "reasoning";
-	startTime?: number; // Internal field for duration calculation
-}
 
 // ============================================================================
 // Re-export StreamEvent type from message router
@@ -210,7 +200,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 					isNewSession = result.type === 'new';
 
 					// Emit session-created event if new
-					if (isNewSession) {
+					if (result.type === 'new') {
 						observer.next({
 							type: "session-created",
 							sessionId: result.sessionId,
@@ -246,16 +236,16 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 						content: validationError.message,
 					});
 
-					observer.next({
-						type: "complete",
-					});
 					observer.complete();
 					return;
 				}
 
 				const provider = session.provider;
 				const modelName = session.model;
-				const providerConfig = aiConfig?.providers?.[provider]!;
+				const providerConfig = aiConfig?.providers?.[provider];
+				if (!providerConfig) {
+					throw new Error(`Provider ${provider} is not configured`);
+				}
 				console.log(`[streamAIResponse] Provider: ${provider}, Model: ${modelName}`);
 				const providerInstance = getProvider(provider);
 				console.log(`[streamAIResponse] Provider instance created: ${providerInstance.name}`);
@@ -461,17 +451,17 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 
 								// Update step parts (now with wrapped tool results)
 								try {
-									await updateStepParts(sessionRepository.db, prevStepId, currentStepParts);
+									await updateStepParts(sessionRepository.getDatabase(), prevStepId, currentStepParts);
 								} catch (dbError) {
 									console.error(`[prepareStep] Failed to update step ${stepNumber - 1} parts:`, dbError);
 								}
 
 								// Complete step
 								try {
-									await completeMessageStep(sessionRepository.db, prevStepId, {
+									await completeMessageStep(sessionRepository.getDatabase(), prevStepId, {
 										status: "completed",
-										finishReason: prevStep.finishReason,
-										usage: prevStep.usage,
+										finishReason: prevStep?.finishReason,
+										usage: prevStep?.usage,
 										provider: session.provider,
 										model: session.model,
 									});
@@ -483,9 +473,13 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 								observer.next({
 									type: "step-complete",
 									stepId: prevStepId,
-									usage: prevStep.usage,
+									usage: prevStep?.usage || {
+										promptTokens: 0,
+										completionTokens: 0,
+										totalTokens: 0,
+									},
 									duration: 0, // TODO: track duration
-									finishReason: prevStep.finishReason,
+									finishReason: prevStep?.finishReason || "unknown",
 								});
 
 								lastCompletedStepNumber = stepNumber - 1;
@@ -547,7 +541,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 							const stepId = `${assistantMessageId}-step-${stepNumber}`;
 							try {
 								await createMessageStep(
-									sessionRepository.db,
+									sessionRepository.getDatabase(),
 									assistantMessageId,
 									stepNumber,
 									undefined, // metadata
@@ -729,13 +723,12 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 							case "text-delta": {
 								// Update active text part
 								// AI SDK v5 uses 'text' property
-								const textDelta = chunk as TextDeltaChunk;
-								if (currentTextPartIndex !== null && textDelta.text !== undefined) {
+								if (currentTextPartIndex !== null) {
 									const part = currentStepParts[currentTextPartIndex];
 									if (part && part.type === "text") {
-										part.content += textDelta.text;
+										part.content += chunk.text;
 									}
-									callbacks.onTextDelta?.(textDelta.text);
+									callbacks.onTextDelta?.(chunk.text);
 								}
 								break;
 							}
@@ -772,13 +765,12 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 							case "reasoning-delta": {
 								// Update active reasoning part
 								// AI SDK v5 uses 'text' property
-								const reasoningDelta = chunk as ReasoningDeltaChunk;
-								if (currentReasoningPartIndex !== null && reasoningDelta.text !== undefined) {
+								if (currentReasoningPartIndex !== null) {
 									const part = currentStepParts[currentReasoningPartIndex];
 									if (part && part.type === "reasoning") {
-										part.content += reasoningDelta.text;
+										part.content += chunk.text;
 									}
-									callbacks.onReasoningDelta?.(reasoningDelta.text);
+									callbacks.onReasoningDelta?.(chunk.text);
 								}
 								break;
 							}
@@ -786,7 +778,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 							case "reasoning-end": {
 								// Mark reasoning part as completed and calculate duration
 								if (currentReasoningPartIndex !== null) {
-									const part = currentStepParts[currentReasoningPartIndex] as ReasoningPartWithStartTime;
+									const part = currentStepParts[currentReasoningPartIndex];
 									if (part && part.type === "reasoning") {
 										part.status = "completed";
 										const duration = part.startTime ? Date.now() - part.startTime : 0;
@@ -815,33 +807,34 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 										toolId: chunk.toolCallId,
 										name: chunk.toolName,
 										status: "active",
-										input: chunk.input,
+										input: 'input' in chunk ? chunk.input : undefined,
 									});
 
 									activeTools.set(chunk.toolCallId, {
 										name: chunk.toolName,
 										startTime: Date.now(),
-										input: chunk.input,
+										input: 'input' in chunk ? chunk.input : undefined,
 									});
 								}
 
-								callbacks.onToolCall?.(chunk.toolCallId, chunk.toolName, chunk.input);
+								callbacks.onToolCall?.(chunk.toolCallId, chunk.toolName, 'input' in chunk ? chunk.input : undefined);
 								break;
 							}
 
 							case "tool-input-start": {
 								// Tool input streaming started - create tool part with empty input
 								// Name will be set later by tool-call event
+								// AI SDK v5 uses 'id' property
 								currentStepParts.push({
 									type: "tool",
-									toolId: chunk.toolCallId,
-									name: "", // Will be set by tool-call event
+									toolId: chunk.id,
+									name: chunk.toolName,
 									status: "active",
 									input: "", // Will be populated by deltas as JSON string
 								});
 
-								activeTools.set(chunk.toolCallId, {
-									name: "",
+								activeTools.set(chunk.id, {
+									name: chunk.toolName,
 									startTime: Date.now(),
 									input: "",
 								});
@@ -849,43 +842,45 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 								// Emit tool-input-start event
 								observer.next({
 									type: "tool-input-start",
-									toolCallId: chunk.toolCallId,
+									toolCallId: chunk.id,
 								});
 								break;
 							}
 
 							case "tool-input-delta": {
+								// AI SDK v5 uses 'id' and 'delta' properties
 								// Update tool input as it streams in
-								const tool = activeTools.get(chunk.toolCallId);
+								const tool = activeTools.get(chunk.id);
 								if (tool) {
 									// Accumulate input as JSON text
 									const currentInput = typeof tool.input === "string" ? tool.input : "";
-									tool.input = currentInput + chunk.inputTextDelta;
+									tool.input = currentInput + chunk.delta;
 								}
 
 								// Update tool part
 								const toolPart = currentStepParts.find(
-									(p) => p.type === "tool" && p.toolId === chunk.toolCallId && p.status === "active",
+									(p) => p.type === "tool" && p.toolId === chunk.id && p.status === "active",
 								);
 								if (toolPart && toolPart.type === "tool") {
 									// Keep as string during streaming, will be parsed at end
 									const currentInput =
 										typeof toolPart.input === "string" ? toolPart.input : "";
-									toolPart.input = currentInput + chunk.inputTextDelta;
+									toolPart.input = currentInput + chunk.delta;
 								}
 
 								// Emit tool-input-delta event
 								observer.next({
 									type: "tool-input-delta",
-									toolCallId: chunk.toolCallId,
-									inputTextDelta: chunk.inputTextDelta,
+									toolCallId: chunk.id,
+									inputTextDelta: chunk.delta,
 								});
 								break;
 							}
 
 							case "tool-input-end": {
+								// AI SDK v5 uses 'id' property
 								// Tool input streaming complete - parse accumulated JSON
-								const tool = activeTools.get(chunk.toolCallId);
+								const tool = activeTools.get(chunk.id);
 								if (tool) {
 									try {
 										// Parse accumulated JSON string
@@ -902,7 +897,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 
 								// Update tool part with parsed input
 								const toolPart = currentStepParts.find(
-									(p) => p.type === "tool" && p.toolId === chunk.toolCallId && p.status === "active",
+									(p) => p.type === "tool" && p.toolId === chunk.id && p.status === "active",
 								);
 								if (toolPart && toolPart.type === "tool") {
 									try {
@@ -917,7 +912,7 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 								// Emit tool-input-end event
 								observer.next({
 									type: "tool-input-end",
-									toolCallId: chunk.toolCallId,
+									toolCallId: chunk.id,
 								});
 								break;
 							}
@@ -935,13 +930,13 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 									if (toolPart && toolPart.type === "tool") {
 										toolPart.status = "completed";
 										toolPart.duration = duration;
-										toolPart.result = (chunk as any).output;
+										toolPart.result = 'output' in chunk ? chunk.output : undefined;
 									}
 
 									callbacks.onToolResult?.(
 										chunk.toolCallId,
 										chunk.toolName,
-										(chunk as any).output,
+										'output' in chunk ? chunk.output : undefined,
 										duration,
 									);
 								}
@@ -961,23 +956,28 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 									if (toolPart && toolPart.type === "tool") {
 										toolPart.status = "error";
 										toolPart.duration = duration;
-										toolPart.error = chunk.error;
+										toolPart.error = String(chunk.error);
 									}
 
-									callbacks.onToolError?.(chunk.toolCallId, chunk.toolName, chunk.error, duration);
+									callbacks.onToolError?.(chunk.toolCallId, chunk.toolName, String(chunk.error), duration);
 								}
 								break;
 							}
 
 							case "file": {
+								// AI SDK v5 uses 'file' object with GeneratedFile interface
+								// File parts need to include required fields from MessagePart file type
+								// ASSUMPTION: Files from AI SDK are always completed immediately
 								currentStepParts.push({
 									type: "file",
-									mediaType: chunk.mediaType,
-									base64: chunk.base64,
+									relativePath: "", // Not provided by AI SDK chunk
+									size: chunk.file.uint8Array.length,
+									mediaType: chunk.file.mediaType,
+									base64: chunk.file.base64,
 									status: "completed",
 								});
 
-								callbacks.onFile?.(chunk.mediaType, chunk.base64);
+								callbacks.onFile?.(chunk.file.mediaType, chunk.file.base64);
 								break;
 							}
 
@@ -996,18 +996,17 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 							case "error": {
 								currentStepParts.push({
 									type: "error",
-									error: chunk.error,
+									error: String(chunk.error),
 									status: "completed",
 								});
 								hasError = true;
-								callbacks.onError?.(chunk.error);
+								callbacks.onError?.(String(chunk.error));
 								break;
 							}
 
 							case "finish": {
 								// AI SDK v5 uses 'totalUsage' property with standardized field names
-								const finishChunk = chunk as FinishChunk;
-								const sdkUsage: LanguageModelUsage = finishChunk.totalUsage;
+								const sdkUsage = chunk.totalUsage;
 
 								// Map AI SDK v5 usage to our database schema
 								// AI SDK v5: inputTokens, outputTokens, totalTokens
@@ -1020,8 +1019,8 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 									};
 								}
 
-								finalFinishReason = finishChunk.finishReason;
-								callbacks.onFinish?.(finalUsage, finishChunk.finishReason);
+								finalFinishReason = chunk.finishReason;
+								callbacks.onFinish?.(finalUsage, finalFinishReason);
 								break;
 							}
 
@@ -1132,14 +1131,14 @@ export function streamAIResponse(opts: StreamAIResponseOptions): Observable<Stre
 
 					// Update final step parts (now with wrapped tool results)
 					try {
-						await updateStepParts(sessionRepository.db, finalStepId, currentStepParts);
+						await updateStepParts(sessionRepository.getDatabase(), finalStepId, currentStepParts);
 					} catch (dbError) {
 						console.error(`[streamAIResponse] Failed to update final step ${finalStepNumber} parts:`, dbError);
 					}
 
 					// Complete final step
 					try {
-						await completeMessageStep(sessionRepository.db, finalStepId, {
+						await completeMessageStep(sessionRepository.getDatabase(), finalStepId, {
 							status: aborted ? "abort" : finalUsage ? "completed" : "error",
 							finishReason: finalFinishReason,
 							usage: finalUsage,

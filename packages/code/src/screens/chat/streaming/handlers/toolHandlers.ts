@@ -37,13 +37,13 @@ export function handleToolCall(
 			return [
 				...prev,
 				{
-					type: "tool",
+					type: "tool" as const,
 					toolId: event.toolCallId,
 					name: event.toolName,
-					status: "active",
+					status: "active" as const,
 					input: event.input,
 					startTime: Date.now(),
-				} as MessagePart,
+				},
 			];
 		}
 	});
@@ -59,13 +59,13 @@ export function handleToolInputStart(
 	updateActiveMessageContent(currentSessionId, context.streamingMessageIdRef.current, (prev) => [
 		...prev,
 		{
-			type: "tool",
+			type: "tool" as const,
 			toolId: event.toolCallId,
 			name: "", // Will be set when tool-call completes
-			status: "active",
+			status: "active" as const,
 			input: "", // Will be populated by deltas as JSON string
 			startTime: Date.now(),
-		} as MessagePart,
+		},
 	]);
 }
 

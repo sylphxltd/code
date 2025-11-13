@@ -16,7 +16,7 @@ import { randomBytes } from "node:crypto";
 import { exec } from "node:child_process";
 import MarkdownText from "./MarkdownText.js";
 import Spinner from "./Spinner.js";
-import { ToolDisplay } from "./ToolDisplay.js";
+import { ToolPart } from "./ToolPart.js";
 
 interface MessagePartProps {
 	part: MessagePartType | StreamingPart;
@@ -169,37 +169,16 @@ export const MessagePart = React.memo(function MessagePart({ part }: MessagePart
 
 	// Tool part
 	if (part.type === "tool") {
-		// Map MessagePart status to ToolDisplay status
-		const toolStatus: "running" | "completed" | "failed" =
-			part.status === "active"
-				? "running"
-				: part.status === "error" || part.status === "abort"
-					? "failed"
-					: "completed";
-
-		// Build props conditionally to satisfy exactOptionalPropertyTypes
-		const toolProps: {
-			name: string;
-			status: "running" | "completed" | "failed";
-			duration?: number;
-			startTime?: number;
-			input?: unknown;
-			result?: unknown;
-			error?: string;
-		} = { name: part.name, status: toolStatus };
-
-		// Pass duration for completed/failed tools
-		if (part.duration !== undefined) toolProps.duration = part.duration;
-		// Pass startTime for running tools (ToolDisplay will calculate elapsed time)
-		if (part.startTime !== undefined) toolProps.startTime = part.startTime;
-		if (part.input !== undefined) toolProps.input = part.input;
-		if (part.result !== undefined) toolProps.result = part.result;
-		if (part.error !== undefined) toolProps.error = part.error;
-
 		return (
-			<Box marginLeft={2} marginBottom={1}>
-				<ToolDisplay {...toolProps} />
-			</Box>
+			<ToolPart
+				name={part.name}
+				status={part.status}
+				duration={part.duration}
+				startTime={part.startTime}
+				input={part.input}
+				result={part.result}
+				error={part.error}
+			/>
 		);
 	}
 
