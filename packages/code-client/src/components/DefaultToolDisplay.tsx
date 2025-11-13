@@ -101,7 +101,16 @@ function getDiffLineType(line: string): "added" | "removed" | "context" | null {
 	return null;
 }
 
-const ResultDisplay: React.FC<ResultDisplayProps> = ({ status, formattedResult, error }) => {
+interface ResultDisplayPropsExtended extends ResultDisplayProps {
+	showDetails?: boolean; // From config or defaults to true
+}
+
+const ResultDisplay: React.FC<ResultDisplayPropsExtended> = ({
+	status,
+	formattedResult,
+	error,
+	showDetails = true, // Default to true (show details)
+}) => {
 	// Don't show anything for running tools
 	if (status === "running") {
 		return null;
@@ -125,9 +134,8 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ status, formattedResult, 
 			return null;
 		}
 
-		// Smart auto-collapse: only show details for small outputs (≤5 lines) or if no summary
-		const lineCount = formattedResult.lines?.length || 0;
-		const shouldShowDetails = !hasSummary || (lineCount <= 5 && lineCount > 0);
+		// Use config-based showDetails instead of auto-collapse logic
+		const shouldShowDetails = showDetails;
 
 		return (
 			<Box flexDirection="column" marginLeft={2}>
@@ -200,7 +208,7 @@ export function createDefaultToolDisplay(
 	formatResult: ResultFormatter,
 ): React.FC<ToolDisplayProps> {
 	return function DefaultToolDisplay(props: ToolDisplayProps) {
-		const { status, duration, input, result, error, startTime } = props;
+		const { status, duration, input, result, error, startTime, showDetails } = props;
 
 		// Calculate real-time elapsed time for running tools
 		const { display: durationDisplay } = useElapsedTime({
@@ -239,6 +247,7 @@ export function createDefaultToolDisplay(
 					result={result}
 					formattedResult={formattedResult}
 					error={error}
+					showDetails={showDetails}
 				/>
 			</Box>
 		);

@@ -17,6 +17,7 @@ import { type Result, success, tryCatchAsync, isErr, isOk } from "../ai/result.j
 import { getAllProviders, type ProviderId } from "../ai/providers/index.js";
 import type { ProviderConfigValue as ProviderConfigValueType } from "../types/provider.types.js";
 import { createLogger } from "../utils/logger.js";
+import { toolDisplaySettingsSchema } from "./tool-display-settings.js";
 
 const logger = createLogger("AIConfig");
 
@@ -71,6 +72,9 @@ const aiConfigSchema: z.AnyZodObject = z.object({
 
 	// Behavior configuration
 	notifyLLMOnAbort: z.boolean().optional().default(false), // Inject system message when streaming is aborted
+
+	// Tool display settings (which tools show details by default)
+	toolDisplaySettings: toolDisplaySettingsSchema,
 
 	providers: z
 		.record(
@@ -159,6 +163,10 @@ const mergeConfigs = (a: AIConfig, b: AIConfig): AIConfig => {
 		defaultToolIds: b.defaultToolIds ?? a.defaultToolIds,
 		defaultMcpServerIds: b.defaultMcpServerIds ?? a.defaultMcpServerIds,
 		notifyLLMOnAbort: b.notifyLLMOnAbort ?? a.notifyLLMOnAbort,
+		toolDisplaySettings: {
+			...a.toolDisplaySettings,
+			...b.toolDisplaySettings,
+		},
 		// ❌ Removed: defaultModel merging
 		providers: mergedProviders,
 	};

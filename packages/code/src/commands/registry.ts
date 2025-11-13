@@ -17,6 +17,7 @@ import notificationsCommand from "./definitions/notifications.command.js";
 import providerCommand from "./definitions/provider.command.js"; // .tsx compiles to .js
 import rulesCommand from "./definitions/rules.command.js";
 import sessionsCommand from "./definitions/sessions.command.js";
+import settingsCommand from "./definitions/settings.command.js";
 import surveyCommand from "./definitions/survey.command.js";
 import type { Command } from "./types.js";
 
@@ -29,6 +30,7 @@ export const commands: Command[] = [
 	modelCommand,
 	agentCommand,
 	rulesCommand,
+	settingsCommand,
 	compactCommand,
 	notificationsCommand,
 	logsCommand,

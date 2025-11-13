@@ -19,6 +19,7 @@ export interface ToolDisplayProps {
 	input?: unknown;
 	result?: unknown;
 	error?: string;
+	showDetails?: boolean; // Whether to show details (from config), defaults to true
 }
 
 /**

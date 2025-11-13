@@ -117,6 +117,18 @@ export {
 export type { AIConfig } from "./config/ai-config.js";
 export type { ProviderConfig } from "./ai/providers/base-provider.js";
 
+// Tool Display Settings
+export {
+	DEFAULT_TOOL_DISPLAY_SETTINGS,
+	getToolShowDetailsDefault,
+	shouldShowToolDetails,
+	updateToolDisplaySetting,
+	resetToolDisplaySetting,
+	resetAllToolDisplaySettings,
+	getAllToolDisplayInfo,
+} from "./config/tool-display-settings.js";
+export type { ToolDisplaySettings, ToolDisplayInfo } from "./config/tool-display-settings.js";
+
 // ============================================================================
 // Credential Management (Normalized Credential System)
 // ============================================================================

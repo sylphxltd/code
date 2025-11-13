@@ -13,7 +13,7 @@ import Spinner from "./Spinner.js";
  * Provides smart summary + details display like built-in tools
  */
 function FallbackToolDisplay(props: ToolDisplayProps) {
-	const { name, status, duration, startTime, input, result, error } = props;
+	const { name, status, duration, startTime, input, result, error, showDetails = true } = props;
 
 	// Calculate real-time elapsed time for running tools
 	const { display: durationDisplay } = useElapsedTime({
@@ -61,11 +61,9 @@ function FallbackToolDisplay(props: ToolDisplayProps) {
 		return { summary, lines };
 	}, [result]);
 
-	// Smart auto-collapse logic
-	const shouldShowDetails =
-		status === "failed" ||
-		!formattedResult.summary ||
-		(formattedResult.lines.length > 0 && formattedResult.lines.length <= 5);
+	// Use config-based showDetails
+	// Always show details for errors
+	const shouldShowDetails = status === "failed" || showDetails;
 
 	return (
 		<Box flexDirection="column">
