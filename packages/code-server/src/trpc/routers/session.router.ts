@@ -417,13 +417,21 @@ export const sessionRouter = router({
 	 * Get context information for a session
 	 * ARCHITECTURE: Server handles all file I/O and business logic
 	 * Calculates complete token breakdown including message attachments
+	 * If sessionId is null, returns base context (system prompt + tools only)
 	 */
 	getContextInfo: publicProcedure
-		.input(z.object({ sessionId: z.string() }))
+		.input(z.object({ sessionId: z.string().nullable() }))
 		.query(async ({ ctx, input }) => {
-			const session = await ctx.sessionRepository.getSessionById(input.sessionId);
-			if (!session) {
-				return { success: false as const, error: "Session not found" };
+			let session = null;
+			let modelName = "anthropic/claude-3.5-sonnet"; // Default model for base context
+
+			// If sessionId provided, get the session
+			if (input.sessionId) {
+				session = await ctx.sessionRepository.getSessionById(input.sessionId);
+				if (!session) {
+					return { success: false as const, error: "Session not found" };
+				}
+				modelName = session.model;
 			}
 
 			const {
@@ -434,8 +442,6 @@ export const sessionRouter = router({
 				getCurrentSystemPrompt,
 			} = await import("@sylphx/code-core");
 			const { readFile } = await import("node:fs/promises");
-
-			const modelName = session.model;
 
 			// System prompt tokens
 			const systemPrompt = getSystemPrompt();
@@ -477,39 +483,42 @@ export const sessionRouter = router({
 			}
 
 			// Messages tokens - include attachments (SERVER READS FILES)
+			// If no session, messagesTokens is 0 (base context only)
 			let messagesTokens = 0;
-			for (const msg of session.messages) {
-				let msgText = msg.content;
+			if (session && session.messages) {
+				for (const msg of session.messages) {
+					let msgText = msg.content;
 
-				// Add attachment content if present
-				if (msg.attachments && msg.attachments.length > 0) {
-					try {
-						const fileContents = await Promise.all(
-							msg.attachments.map(async (att) => {
-								try {
-									const content = await readFile(att.path, "utf8");
-									return { path: att.relativePath, content };
-								} catch {
-									return {
-										path: att.relativePath,
-										content: "[Error reading file]",
-									};
-								}
-							}),
-						);
+					// Add attachment content if present
+					if (msg.attachments && msg.attachments.length > 0) {
+						try {
+							const fileContents = await Promise.all(
+								msg.attachments.map(async (att) => {
+									try {
+										const content = await readFile(att.path, "utf8");
+										return { path: att.relativePath, content };
+									} catch {
+										return {
+											path: att.relativePath,
+											content: "[Error reading file]",
+										};
+									}
+								}),
+							);
 
-						const fileContentsText = fileContents
-							.map((f) => `\n\n<file path="${f.path}">\n${f.content}\n</file>`)
-							.join("");
+							const fileContentsText = fileContents
+								.map((f) => `\n\n<file path="${f.path}">\n${f.content}\n</file>`)
+								.join("");
 
-						msgText += fileContentsText;
-					} catch (error) {
-						// Continue with content we have
+							msgText += fileContentsText;
+						} catch (error) {
+							// Continue with content we have
+						}
 					}
-				}
 
-				const msgTokens = await countTokens(msgText, modelName);
-				messagesTokens += msgTokens;
+					const msgTokens = await countTokens(msgText, modelName);
+					messagesTokens += msgTokens;
+				}
 			}
 
 			return {
