@@ -182,7 +182,7 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 	const freeTokens = parseTokenValue(data.freeTokens);
 	const reservedTokens = parseTokenValue(data.bufferTokens);
 
-	// Create 10x10 grid visualization (100 blocks total)
+	// Create 25x4 grid visualization (100 blocks total, wider layout)
 	const createGrid = (): string[] => {
 		const totalBlocks = 100;
 		const systemBlocks = Math.round((systemTokens / totalTokens) * totalBlocks);
@@ -200,12 +200,12 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 		for (let i = 0; i < Math.max(0, freeBlocks); i++) blocks.push("F");
 		for (let i = 0; i < reservedBlocks; i++) blocks.push("R");
 
-		// Split into 10 rows of 10 blocks each
+		// Split into 4 rows of 25 blocks each (wider layout)
 		const rows: string[] = [];
-		for (let i = 0; i < 10; i++) {
-			const rowBlocks = blocks.slice(i * 10, (i + 1) * 10);
+		for (let i = 0; i < 4; i++) {
+			const rowBlocks = blocks.slice(i * 25, (i + 1) * 25);
 			// Pad with free space if needed
-			while (rowBlocks.length < 10) rowBlocks.push("F");
+			while (rowBlocks.length < 25) rowBlocks.push("F");
 			rows.push(rowBlocks.join(""));
 		}
 		return rows;
@@ -220,7 +220,7 @@ export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
 				<Text dimColor> | Tokenizer: gpt-4 - {data.contextLimit} tokens total</Text>
 			</Box>
 
-			{/* Visual grid - 10x10 */}
+			{/* Visual grid - 25x4 */}
 			<Box flexDirection="column" paddingY={1}>
 				{createGrid().map((row, i) => (
 					<Box key={i}>
