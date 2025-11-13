@@ -278,8 +278,10 @@ export function createHandleSubmit(params: MessageHandlerParams) {
 
 			// Execute command - command has full control via CommandContext
 			try {
+console.log("[executeCommand] START:", commandName, args);
 				addLog(`[executeCommand] Executing ${commandName} with args: ${JSON.stringify(args)}`);
 				const result = await command.execute(createCommandContext(args));
+console.log("[executeCommand] RESULT:", typeof result, result ? result.substring(0, 100) : "null");
 
 				addLog(
 					`[executeCommand] Result type: ${typeof result}, value: ${result ? String(result).substring(0, 100) : "null/undefined"}`,
