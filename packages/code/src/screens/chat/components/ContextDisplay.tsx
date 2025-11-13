@@ -149,12 +149,15 @@ function parseContextOutput(output: string): ParsedContextData | null {
 }
 
 export function ContextDisplay({ output, onComplete }: ContextDisplayProps) {
-	// Handle ESC key to close
-	useInput((input, key) => {
-		if (key.escape) {
-			onComplete();
-		}
-	});
+	// Handle ESC key to close (capture all input to prevent parent handlers)
+	useInput(
+		(input, key) => {
+			if (key.escape) {
+				onComplete();
+			}
+		},
+		{ isActive: true },
+	);
 
 	const data = parseContextOutput(output);
 
