@@ -1,53 +1,56 @@
 {
-	"name": "@sylphx/code-web",
-	"version": "1.0.1",
-	"description": "Sylphx Code Web - Browser-based UI for AI Development Assistant",
-	"type": "module",
-	"scripts": {
-		"dev": "vite",
-		"build": "vite build",
-		"preview": "vite preview",
-		"type-check": "tsc --noEmit",
-		"clean": "rm -rf dist"
-	},
-	"dependencies": {
-		"@sylphx/code-client": "workspace:*",
-		"clsx": "^2.1.1",
-		"date-fns": "^4.1.0",
-		"react": "^19.1.0",
-		"react-dom": "^19.1.0",
-		"react-router-dom": "^7.1.1",
-		"prism-react-renderer": "^2.4.1",
-		"react-markdown": "^10.1.0",
-		"remark-gfm": "^4.0.1",
-		"superjson": "^2.2.5"
-	},
-	"devDependencies": {
-		"@types/node": "^24.9.2",
-		"@types/react": "^19.1.8",
-		"@types/react-dom": "^19.1.6",
-		"@vitejs/plugin-react": "^4.5.2",
-		"autoprefixer": "^10.4.22",
-		"postcss": "^8.5.6",
-		"tailwindcss": "^4.1.10",
-		"@tailwindcss/vite": "^4.1.10",
-		"typescript": "^5.9.3",
-		"vite": "^6.0.11"
-	},
-	"keywords": [
-		"ai",
-		"code-assistant",
-		"web",
-		"react",
-		"vite",
-		"tailwindcss",
-		"typescript"
-	],
-	"author": "SylphxAI",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/SylphxAI/code.git",
-		"directory": "packages/code-web"
-	}
+  "name": "@sylphx/code-web",
+  "version": "1.0.1",
+  "description": "Sylphx Code Web - Browser-based UI for AI Development Assistant",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "lint:fix": "biome check --write ."
+  },
+  "dependencies": {
+    "@sylphx/code-client": "workspace:*",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.1.1",
+    "prism-react-renderer": "^2.4.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "superjson": "^2.2.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.5.2",
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.10",
+    "@tailwindcss/vite": "^4.1.10",
+    "typescript": "^7.0.2",
+    "vite": "^6.0.11",
+    "@biomejs/biome": "^2.3.12",
+    "@sylphx/biome-config": "^0.4.1"
+  },
+  "keywords": [
+    "ai",
+    "code-assistant",
+    "web",
+    "react",
+    "vite",
+    "tailwindcss",
+    "typescript"
+  ],
+  "author": "SylphxAI",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SylphxAI/code.git",
+    "directory": "packages/code-web"
+  }
 }

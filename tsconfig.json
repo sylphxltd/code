@@ -1,10 +1,23 @@
 {
-	"extends": "./tsconfig.base.json",
-	"files": [],
-	"references": [
-		{ "path": "./packages/code-core" },
-		{ "path": "./packages/code-server" },
-		{ "path": "./packages/code-client" },
-		{ "path": "./packages/code" }
-	]
+  "extends": "./tsconfig.base.json",
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/code-core"
+    },
+    {
+      "path": "./packages/code-server"
+    },
+    {
+      "path": "./packages/code-client"
+    },
+    {
+      "path": "./packages/code"
+    }
+  ],
+  "compilerOptions": {
+    "types": [
+      "bun"
+    ]
+  }
 }
